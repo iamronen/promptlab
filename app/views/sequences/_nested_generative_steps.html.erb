@@ -1,0 +1,173 @@
+<%# locals: child_sequence (Sequence), form_field_prefix (String), sequence_save_url (optional String) %>
+<% steps = child_sequence.ordered_steps %>
+<% save_url = local_assigns[:sequence_save_url].presence %>
+<div
+  class="nested-sequence-editor"
+  data-controller="sequence-editor"
+  data-sequence-editor-readonly-value="false"
+  data-sequence-editor-pipeline-mode-value="false"
+  data-sequence-editor-nested-value="true"
+  data-sequence-editor-default-title-value=""
+  data-sequence-editor-default-intent-value=""
+  data-sequence-editor-nested-field-prefix-value="<%= form_field_prefix %>"
+  <% if save_url %>
+    data-sequence-editor-save-sequence-url-value="<%= save_url %>"
+  <% end %>
+>
+  <div class="nested-sequence-editor-steps steps-list" data-sequence-editor-target="stepsList">
+    <% steps.each_with_index do |step_row, index| %>
+      <div class="step-row" draggable="false" data-sequence-editor-target="stepCard">
+        <div class="step-order-rail" aria-label="Reorder step">
+          <button type="button" class="step-order-btn" title="Move step up" data-step-control="up" data-action="sequence-editor#moveUp">
+            <svg class="step-order-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M2 6L6 2l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button
+            type="button"
+            class="step-order-btn drag-handle"
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+            data-action="mousedown->sequence-editor#armDrag mouseup->sequence-editor#disarmDrag mouseleave->sequence-editor#disarmDrag"
+          >
+            <svg class="drag-grip-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="8" viewBox="0 0 20 10" fill="none" aria-hidden="true">
+              <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="12.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="17.5" cy="2.5" r="1.2" fill="currentColor"/>
+              <circle cx="2.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="12.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="17.5" cy="7.5" r="1.2" fill="currentColor"/>
+            </svg>
+          </button>
+          <button type="button" class="step-order-btn" title="Move step down" data-step-control="down" data-action="sequence-editor#moveDown">
+            <svg class="step-order-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M2 2l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <article class="step-card transformation-nested-step-card">
+          <span class="step-hidden-fields" aria-hidden="true">
+            <%= hidden_field_tag "#{form_field_prefix}[steps_attributes][#{index}][position]", step_row.position, id: false, data: { sequence_editor_target: "positionInput" } %>
+            <%= hidden_field_tag "#{form_field_prefix}[steps_attributes][#{index}][_destroy]", "false", id: false, data: { sequence_editor_target: "destroyInput" } %>
+            <%= hidden_field_tag "#{form_field_prefix}[steps_attributes][#{index}][content]", step_row.content, id: false, data: { sequence_editor_target: "contentInput" } %>
+          </span>
+          <div class="step-number-area">
+            <strong class="step-label" data-sequence-editor-target="stepLabel"><%= step_row.position %></strong>
+          </div>
+
+          <div class="step-actions-area">
+            <button
+              type="button"
+              class="tool-button step-toolbox-delete"
+              title="Delete step"
+              aria-label="Delete step"
+              data-action="sequence-editor#deleteStep"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+            <div class="step-menu-wrap" data-sequence-editor-target="menuWrap">
+              <button type="button" class="tool-button menu-trigger" title="Step actions" data-action="click->sequence-editor#toggleMenu">⋯</button>
+              <div class="step-menu" hidden data-sequence-editor-target="menu">
+                <button type="button" data-action="sequence-editor#addStepBefore">Add step before</button>
+                <button type="button" data-action="sequence-editor#addStepAfter">Add step after</button>
+                <button type="button" data-action="sequence-editor#duplicateStep">Duplicate step</button>
+                <button type="button" data-action="sequence-editor#deleteStep">Delete step</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-content-area" data-action="click->sequence-editor#activateStep">
+            <div class="rich-toolbar" hidden data-sequence-editor-target="toolbar">
+              <button type="button" data-format="bold" data-action="sequence-editor#formatText"><strong>B</strong></button>
+              <button type="button" data-format="italic" data-action="sequence-editor#formatText"><em>I</em></button>
+              <button type="button" data-format="insertUnorderedList" data-action="sequence-editor#formatText">• List</button>
+            </div>
+
+            <div
+              class="rich-editor"
+              contenteditable="false"
+              data-sequence-editor-target="editor"
+              data-action="input->sequence-editor#syncEditor keydown->sequence-editor#handleEditorKeydown paste->sequence-editor#handleEditorPaste"
+            ><%= step_row.content.to_s.html_safe %></div>
+          </div>
+        </article>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="nested-sequence-editor-footer steps-footer <%= "nested-sequence-editor-footer--split" if save_url %>">
+    <button type="button" class="secondary-button add-step-button" data-action="sequence-editor#addStep">Add step</button>
+    <% if save_url %>
+      <button
+        type="button"
+        class="primary-button nested-save-sequence-btn"
+        data-action="sequence-editor#saveNestedSequence"
+      >
+        Save Sequence
+      </button>
+    <% end %>
+  </div>
+
+  <template data-sequence-editor-target="stepTemplate">
+    <div class="step-row" draggable="false" data-sequence-editor-target="stepCard">
+      <div class="step-order-rail" aria-label="Reorder step">
+        <button type="button" class="step-order-btn" title="Move step up" data-step-control="up" data-action="sequence-editor#moveUp">
+          <svg class="step-order-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M2 6L6 2l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button
+          type="button"
+          class="step-order-btn drag-handle"
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+          data-action="mousedown->sequence-editor#armDrag mouseup->sequence-editor#disarmDrag mouseleave->sequence-editor#disarmDrag"
+        >
+          <svg class="drag-grip-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="8" viewBox="0 0 20 10" fill="none" aria-hidden="true">
+            <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="12.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="17.5" cy="2.5" r="1.2" fill="currentColor"/>
+            <circle cx="2.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="12.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="17.5" cy="7.5" r="1.2" fill="currentColor"/>
+          </svg>
+        </button>
+        <button type="button" class="step-order-btn" title="Move step down" data-step-control="down" data-action="sequence-editor#moveDown">
+          <svg class="step-order-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M2 2l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <article class="step-card transformation-nested-step-card">
+        <span class="step-hidden-fields" aria-hidden="true">
+          <input type="hidden" name="<%= form_field_prefix %>[steps_attributes][NEW_RECORD][position]" value="0" data-sequence-editor-target="positionInput">
+          <input type="hidden" name="<%= form_field_prefix %>[steps_attributes][NEW_RECORD][_destroy]" value="false" data-sequence-editor-target="destroyInput">
+          <input type="hidden" name="<%= form_field_prefix %>[steps_attributes][NEW_RECORD][content]" value="" data-sequence-editor-target="contentInput">
+        </span>
+        <div class="step-number-area">
+          <strong class="step-label" data-sequence-editor-target="stepLabel">Step</strong>
+        </div>
+
+        <div class="step-actions-area">
+          <button
+            type="button"
+            class="tool-button step-toolbox-delete"
+            title="Delete step"
+            aria-label="Delete step"
+            data-action="sequence-editor#deleteStep"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+          <div class="step-menu-wrap" data-sequence-editor-target="menuWrap">
+            <button type="button" class="tool-button menu-trigger" title="Step actions" data-action="click->sequence-editor#toggleMenu">⋯</button>
+            <div class="step-menu" hidden data-sequence-editor-target="menu">
+              <button type="button" data-action="sequence-editor#addStepBefore">Add step before</button>
+              <button type="button" data-action="sequence-editor#addStepAfter">Add step after</button>
+              <button type="button" data-action="sequence-editor#duplicateStep">Duplicate step</button>
+              <button type="button" data-action="sequence-editor#deleteStep">Delete step</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-content-area" data-action="click->sequence-editor#activateStep">
+          <div class="rich-toolbar" hidden data-sequence-editor-target="toolbar">
+            <button type="button" data-format="bold" data-action="sequence-editor#formatText"><strong>B</strong></button>
+            <button type="button" data-format="italic" data-action="sequence-editor#formatText"><em>I</em></button>
+            <button type="button" data-format="insertUnorderedList" data-action="sequence-editor#formatText">• List</button>
+          </div>
+
+          <div
+            class="rich-editor"
+            contenteditable="false"
+            data-sequence-editor-target="editor"
+            data-action="input->sequence-editor#syncEditor keydown->sequence-editor#handleEditorKeydown paste->sequence-editor#handleEditorPaste"
+          ></div>
+        </div>
+      </article>
+    </div>
+  </template>
+</div>

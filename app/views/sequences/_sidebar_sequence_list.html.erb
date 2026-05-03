@@ -1,0 +1,66 @@
+<%# locals: (items:, current:, project:, list_kind:, menu_actions_aria:, delete_confirm:) %>
+<nav class="sequence-nav" data-controller="sequence-nav">
+  <ul class="sequence-nav-list">
+    <% items.each do |seq| %>
+      <% active = seq.id == current.id %>
+      <% seq_edit_path =
+           list_kind == :transformations ? edit_project_transformation_path(project, seq) : edit_project_sequence_path(project, seq) %>
+      <% seq_destroy_path =
+           list_kind == :transformations ? project_transformation_path(project, seq) : project_sequence_path(project, seq) %>
+      <% seq_duplicate_path =
+           list_kind == :transformations ? duplicate_project_transformation_path(project, seq) : duplicate_project_sequence_path(project, seq) %>
+      <li class="sequence-nav-item">
+        <div class="sequence-nav-row">
+          <%= link_to(
+                seq.title.truncate(48),
+                seq_edit_path,
+                class: ["sequence-nav-link", ("sequence-nav-link-active" if active)].compact.join(" "),
+                **(active ? { aria: { current: "page" } } : {})
+              ) %>
+          <div class="sequence-nav-menu-wrap">
+            <button
+              type="button"
+              class="tool-button sequence-nav-menu-trigger"
+              title="<%= menu_actions_aria %>"
+              aria-label="<%= menu_actions_aria %>"
+              data-action="click->sequence-nav#toggleMenu"
+            >⋯</button>
+            <div class="sequence-nav-menu" hidden data-sequence-nav-target="menu">
+              <% if list_kind == :sequences %>
+                <% if seq.is_term? %>
+                  <%= button_to "Remove from terms",
+                                remove_from_terms_project_sequence_path(project, seq),
+                                method: :post,
+                                class: "sequence-nav-menu-button" %>
+                <% else %>
+                  <%= button_to "Add to terms",
+                                add_to_terms_project_sequence_path(project, seq),
+                                method: :post,
+                                class: "sequence-nav-menu-button" %>
+                <% end %>
+              <% elsif list_kind == :terms %>
+                <%= button_to "Remove from terms",
+                              remove_from_terms_project_sequence_path(project, seq),
+                              method: :post,
+                              class: "sequence-nav-menu-button" %>
+              <% end %>
+              <%= button_to "Delete",
+                            seq_destroy_path,
+                            method: :delete,
+                            class: "sequence-nav-menu-button sequence-nav-menu-button-danger",
+                            form: {
+                              data: {
+                                turbo_confirm: delete_confirm
+                              }
+                            } %>
+              <%= button_to "Duplicate",
+                            seq_duplicate_path,
+                            method: :post,
+                            class: "sequence-nav-menu-button" %>
+            </div>
+          </div>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+</nav>

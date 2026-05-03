@@ -1,0 +1,46 @@
+<% content_for :title, "#{@project.name} · Settings" %>
+
+<div class="projects-settings-screen">
+  <header class="projects-settings-header">
+    <%= link_to "← Projects", projects_path, class: "projects-settings-back" %>
+    <h1 class="projects-settings-title">Project settings</h1>
+    <p class="projects-settings-lede"><%= @project.name %></p>
+  </header>
+
+  <%= form_with model: @project, url: project_path(@project), method: :patch, class: "projects-settings-form" do |f| %>
+    <%= hidden_field_tag :settings_form, "1" %>
+
+    <% if @project.errors.any? %>
+      <section class="errors projects-settings-errors">
+        <h2>Unable to save settings</h2>
+        <ul>
+          <% @project.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <div class="field projects-settings-field">
+      <%= f.label :name, "Name", class: "projects-settings-label" %>
+      <%= f.text_field :name,
+                       required: true,
+                       autocomplete: "off",
+                       class: "projects-settings-input" %>
+    </div>
+
+    <div class="field projects-settings-field">
+      <%= f.label :description, "Description", class: "projects-settings-label" %>
+      <%= f.text_area :description,
+                      rows: 5,
+                      class: "projects-settings-textarea",
+                      placeholder: "Optional notes about this project…" %>
+    </div>
+
+    <div class="projects-settings-actions">
+      <%= f.submit "Save settings", class: "primary-button" %>
+      <%= link_to "Cancel", projects_path, class: "secondary-button projects-settings-cancel" %>
+      <%= link_to "Open project", open_project_path(@project), class: "secondary-button projects-settings-open" %>
+    </div>
+  <% end %>
+</div>

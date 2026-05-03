@@ -24,6 +24,11 @@
   </head>
 
   <body>
+    <% [:notice, :alert].each do |type| %>
+      <% msg = flash[type] %>
+      <% next if msg.blank? %>
+      <div class="flash-msg flash-msg-<%= type %>" role="status"><%= msg %></div>
+    <% end %>
     <%= yield %>
   </body>
 </html>

@@ -1,0 +1,63 @@
+<% content_for :title, "Projects" %>
+
+<div class="projects-screen">
+  <header class="projects-screen-header">
+    <h1 class="projects-screen-title">Projects</h1>
+    <p class="projects-screen-lede">Open a project to work with its generative sequences.</p>
+  </header>
+
+  <% if @projects.empty? %>
+    <p class="projects-empty">No projects yet.</p>
+  <% else %>
+    <nav class="projects-nav" aria-label="Projects" data-controller="sequence-nav">
+      <ul class="projects-list">
+        <% @projects.each do |project| %>
+          <li class="projects-list-item" data-controller="project-row">
+            <div class="projects-row" data-project-row-target="viewPanel">
+              <%= link_to open_project_path(project), class: "projects-row-link" do %>
+                <span class="projects-row-name"><%= project.name %></span>
+              <% end %>
+              <div class="sequence-nav-menu-wrap">
+                <button
+                  type="button"
+                  class="tool-button sequence-nav-menu-trigger"
+                  title="Project actions"
+                  aria-label="Project actions"
+                  data-action="click->sequence-nav#toggleMenu"
+                >⋯</button>
+                <div class="sequence-nav-menu" hidden data-sequence-nav-target="menu">
+                  <%= link_to "Settings",
+                              settings_project_path(project),
+                              class: "sequence-nav-menu-button sequence-nav-menu-link",
+                              data: { turbo_action: "advance" } %>
+                  <button
+                    type="button"
+                    class="sequence-nav-menu-button"
+                    data-action="click->project-row#showRename"
+                  >
+                    Rename
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="projects-row-rename" hidden data-project-row-target="renamePanel">
+              <%= form_with model: project, url: project_path(project), method: :patch, class: "projects-rename-form" do |f| %>
+                <%= f.label :name, "Project name", class: "visually-hidden" %>
+                <%= f.text_field :name,
+                                 required: true,
+                                 autocomplete: "off",
+                                 class: "projects-rename-input",
+                                 data: { project_row_target: "nameInput" } %>
+                <%= f.submit "Save", class: "secondary-button projects-rename-save" %>
+                <button type="button" class="secondary-button projects-rename-cancel" data-action="click->project-row#cancelRename">
+                  Cancel
+                </button>
+              <% end %>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
+  <% end %>
+</div>
