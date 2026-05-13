@@ -18,17 +18,70 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
-    <%# Includes all stylesheet files in app/assets/stylesheets %>
-    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%# Legacy global UI + workspace styles, then Tailwind utilities (tailwindcss-rails builds app/assets/builds/tailwind.css). %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
+  <body data-controller="workspace-modal">
     <% [:notice, :alert].each do |type| %>
       <% msg = flash[type] %>
       <% next if msg.blank? %>
-      <div class="flash-msg flash-msg-<%= type %>" role="status"><%= msg %></div>
+      <%
+        flash_shell =
+          "px-4 py-[0.65rem] text-center text-[0.9rem] border-b border-solid"
+        flash_kind =
+          (type == :notice) ? "bg-prompt-notice-bg text-prompt-notice-text border-prompt-notice-border-b" : "bg-prompt-alert-bg text-prompt-alert-text border-prompt-alert-border"
+      %>
+      <div class="<%= "#{flash_shell} #{flash_kind}" %>" role="status"><%= msg %></div>
     <% end %>
     <%= yield %>
+    <dialog
+      class="bundle-edit-dialog"
+      data-workspace-modal-target="dialog"
+      data-action="click->workspace-modal#backdropClick"
+    >
+      <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--workspace-modal">
+        <button type="button" class="bundle-edit-dialog-close" data-action="workspace-modal#close" aria-label="Close">
+          ×
+        </button>
+        <div class="workspace-modal-frames-wrap">
+          <turbo-frame
+            id="sequence_modal_frame"
+            class="workspace-modal-frame-slot bundle-modal-frame"
+            data-workspace-modal-target="sequenceFrame"
+          ></turbo-frame>
+          <turbo-frame
+            id="bundle_modal_frame"
+            class="workspace-modal-frame-slot bundle-modal-frame"
+            data-workspace-modal-target="bundleFrame"
+          ></turbo-frame>
+        </div>
+      </div>
+    </dialog>
+    <%# region agent log %>
+    <%
+      _fb_path = Rails.root.join("app/assets/vendor/flowbite/flowbite.turbo.min.js")
+      _fb_lp = (Rails.application.assets.load_path.find("flowbite/flowbite.turbo.min.js") rescue nil)
+      File.open(Rails.root.join(".cursor/debug-87647a.log"), "a") do |f|
+        f.puts({
+          sessionId: "87647a",
+          runId: ENV["DEBUG_RUN_ID"],
+          hypothesisId: "H1",
+          location: "application.html.erb:pre-flowbite-tag",
+          message: "flowbite asset resolution probe",
+          data: {
+            file_exists: _fb_path.file?,
+            load_path_hit: !_fb_lp.nil?,
+            assets_vendor_in_path: Rails.application.config.assets.paths.map(&:to_s).any? { |p| p.end_with?("/app/assets/vendor") }
+          },
+          timestamp: (Time.now.to_f * 1000).to_i
+        }.to_json)
+      end
+    %>
+    <%# endregion %>
+    <%# Flowbite interactive components (Turbo-aware build). Requires `npm install` for Tailwind plugin + lockfile CI. %>
+    <%= javascript_include_tag "flowbite/flowbite.turbo.min.js", "data-turbo-track": "reload", defer: true %>
   </body>
 </html>
