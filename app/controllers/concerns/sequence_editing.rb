@@ -11,8 +11,16 @@ module SequenceEditing
 
   def assign_sequence_attributes
     attrs = sequence_params.to_h
-    @sequence.title = attrs["title"]
-    @sequence.intent = attrs["intent"]
+    if @sequence.thread?
+      @sequence.title = attrs["title"] if attrs.key?("title")
+      @sequence.intent = attrs["intent"] if attrs.key?("intent")
+      return
+    end
+
+    @sequence.title = attrs["title"] if attrs.key?("title")
+    @sequence.intent = attrs["intent"] if attrs.key?("intent")
+    return unless attrs["steps_attributes"].present?
+
     @sequence.steps_data = steps_payload_from_params(attrs)
   end
 

@@ -1,0 +1,46 @@
+<%# locals: row, row_index, strand_steps, strand_step_number, editor_return_path, embed_query, strand_thread: %>
+<% strand_thread = local_assigns.fetch(:strand_thread) { @workspace_thread } %>
+<% is_bundle = row.bundle_id.present? %>
+<% step_key = is_bundle ? "b:#{row.bundle_id}" : "s:#{row.sequence_id}" %>
+<% ref_id = is_bundle ? row.bundle_id : row.sequence_id %>
+<div
+  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row workspace-thread-editor-child workspace-thread-editor-child--<%= is_bundle ? "bundle" : "sequence" %>"
+  data-strand-step="<%= step_key %>"
+>
+  <div class="workspace-thread-editor-left-rail">
+    <%= render "sequences/workspace_thread_strand_handle_block",
+               step_key: step_key,
+               is_bundle: is_bundle,
+               ref_id: ref_id,
+               editor_return_path: editor_return_path,
+               strand_thread: strand_thread,
+               strand_steps: strand_steps,
+               row_index: row_index,
+               show_view_in_menu: false %>
+    <div class="workspace-thread-editor-step-rail" aria-hidden="true">
+      <span class="workspace-thread-editor-step-badge"><%= strand_step_number %></span>
+      <div class="workspace-thread-editor-step-line"></div>
+    </div>
+  </div>
+  <div class="thread-strand-child__content workspace-thread-editor-child__content">
+    <% if is_bundle %>
+      <div class="thread-strand-editor-bundle-body" data-thread-strand-bundle-child="true">
+        <%= turbo_frame_tag "thread_editor_bundle_#{row.bundle_id}",
+                            class: "workspace-thread-panel-editor-frame",
+                            src: edit_project_bundle_path(@project, row.bundle_id, **embed_query, modal: true, redirect_to: editor_return_path),
+                            loading: :lazy do %>
+          <p class="workspace-thread-panel-editor-placeholder">Loading bundle…</p>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="thread-strand-editor-sequence-slot" data-thread-strand-sequence-slot="true">
+        <%= turbo_frame_tag "thread_editor_sequence_#{row.sequence_id}",
+                            class: "workspace-thread-panel-editor-frame",
+                            src: edit_project_sequence_path(@project, row.sequence_id, **embed_query, modal: true, redirect_to: editor_return_path),
+                            loading: :lazy do %>
+          <p class="workspace-thread-panel-editor-placeholder">Loading sequence…</p>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>

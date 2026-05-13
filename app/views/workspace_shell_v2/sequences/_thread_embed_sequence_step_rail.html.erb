@@ -1,0 +1,69 @@
+<%# Vertical grip + menu; matches workspace strand child handle sizing (see workspace_thread_strand_handle_block). %>
+<div class="step-order-rail step-order-rail--thread-handle prompt-thread-step-handle-rail" aria-label="Reorder step">
+  <div class="step-menu-wrap thread-step-handle-wrap" data-sequence-editor-target="menuWrap">
+    <button
+      type="button"
+      class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle thread-embed-sequence-step-drag-handle"
+      title="Step actions · drag to reorder"
+      aria-label="Step actions. Click for menu, or drag to reorder."
+      aria-haspopup="true"
+      aria-expanded="false"
+      data-action="
+        mousedown->sequence-editor#armDrag
+        mouseup->sequence-editor#disarmDrag
+        mouseleave->sequence-editor#disarmDrag
+        keydown->sequence-editor#threadHandleMenuKeydown
+        contextmenu->sequence-editor#openThreadEmbedStepMenu
+        click->sequence-editor#toggleThreadEmbedStepHandleMenu
+      "
+    >
+      <svg class="workspace-thread-tf-grip-vertical" xmlns="http://www.w3.org/2000/svg" width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
+        <circle cx="2.65" cy="2.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="2.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="6.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="6.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="10.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="10.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="14.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="14.25" r="1.1" fill="currentColor"/>
+      </svg>
+    </button>
+    <div class="step-menu step-menu--thread-handle" hidden data-sequence-editor-target="menu" role="menu">
+      <div class="step-menu-submenu-host" role="none">
+        <div class="step-menu-submenu-title" aria-hidden="true">
+          Move
+          <span class="step-menu-flyout-chevron">▸</span>
+        </div>
+        <div class="step-submenu" role="presentation">
+          <button type="button" role="menuitem" data-step-control="up" data-action="sequence-editor#moveUp">Up</button>
+          <button type="button" role="menuitem" data-step-control="down" data-action="sequence-editor#moveDown">Down</button>
+        </div>
+      </div>
+      <div class="step-menu-submenu-host" role="none">
+        <div class="step-menu-submenu-title" aria-hidden="true">
+          Add step
+          <span class="step-menu-flyout-chevron">▸</span>
+        </div>
+        <div class="step-submenu" role="presentation">
+          <button type="button" role="menuitem" data-action="sequence-editor#addStepBefore">Before</button>
+          <button type="button" role="menuitem" data-action="sequence-editor#addStepAfter">After</button>
+        </div>
+      </div>
+      <button type="button" role="menuitem" data-action="sequence-editor#duplicateStep">Duplicate</button>
+      <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete Step</button>
+      <% if @workspace_thread.present? %>
+        <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+        <%= button_to "Create New Thread",
+                      thread_fork_strand_project_sequence_path(@project, @workspace_thread),
+                      method: :post,
+                      params: {
+                        parent_generative_sequence_id: @sequence.id,
+                        redirect_to: request.fullpath
+                      }.merge(workspace_thread_scope_params).compact,
+                      form: { class: "step-menu--thread-handle-form", data: { turbo_submits_with: "…" } },
+                      role: "menuitem",
+                      class: "step-menu--thread-handle-submit" %>
+      <% end %>
+    </div>
+  </div>
+</div>

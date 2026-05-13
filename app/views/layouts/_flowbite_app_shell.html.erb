@@ -1,0 +1,48 @@
+<div class="flex min-h-screen w-full bg-gray-50 dark:bg-gray-900">
+  <aside
+    id="app-shell-sidebar"
+    class="fixed left-0 top-0 z-40 h-screen w-64 -translate-x-full border-r border-gray-200 bg-white transition-transform dark:border-gray-700 dark:bg-gray-800 md:static md:z-auto md:h-auto md:min-h-screen md:translate-x-0"
+    aria-label="App sidebar"
+    tabindex="-1"
+  >
+    <div class="flex h-full flex-col overflow-y-auto px-3 py-4">
+      <div class="mb-6 px-2">
+        <%= link_to root_path,
+                    class:
+                      "block text-lg font-bold tracking-tight text-gray-900 no-underline hover:text-prompt-accent dark:text-white dark:hover:text-prompt-accent" do %>
+          Sequential.Codes
+        <% end %>
+      </div>
+      <%= render "layouts/flowbite_app_shell_tools_nav" %>
+    </div>
+  </aside>
+
+  <div class="flex min-h-screen min-w-0 flex-1 flex-col">
+    <nav
+      class="border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
+      aria-label="App bar"
+    >
+      <div class="mx-auto flex max-w-[120rem] flex-1 items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center rounded-lg p-2 text-sm text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600 md:hidden"
+            aria-controls="app-shell-sidebar"
+            data-drawer-target="app-shell-sidebar"
+            data-drawer-toggle="app-shell-sidebar"
+          >
+            <span class="sr-only">Open sidebar</span>
+            <svg class="h-6 w-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          <span class="text-sm font-semibold text-gray-900 dark:text-white md:hidden">Sequential.Codes</span>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">Account</div>
+      </div>
+    </nav>
+    <main id="app-shell-main" class="min-h-0 flex-1 overflow-y-auto">
+      <%= yield %>
+    </main>
+  </div>
+</div>

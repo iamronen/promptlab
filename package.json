@@ -1,0 +1,11 @@
+{
+  "name": "promptlab",
+  "private": true,
+  "description": "npm deps for Flowbite + Tailwind v4 (tailwindcss-rails). Run: npm install",
+  "scripts": {
+    "postinstall": "mkdir -p app/assets/vendor/flowbite public/flowbite && cp node_modules/flowbite/dist/flowbite.turbo.min.js app/assets/vendor/flowbite/flowbite.turbo.min.js && cp node_modules/flowbite/dist/flowbite.turbo.min.js public/flowbite/flowbite.turbo.min.js"
+  },
+  "dependencies": {
+    "flowbite": "^4.0.2"
+  }
+}

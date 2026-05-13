@@ -1,0 +1,8 @@
+<%# locals: step_badge_text (String) — compound strand step label e.g. "3.2" %>
+<div class="bundle-pipeline-thread-child-leading-strip prompt-thread-bundle-leading-strip">
+  <%= render "sequences/bundle_pipeline_thread_child_sequence_rail" %>
+  <div class="workspace-thread-editor-step-rail bundle-pipeline-thread-child-strand-rail prompt-thread-bundle-strand-rail">
+    <span class="workspace-thread-editor-step-badge bundle-pipeline-thread-child-strand-badge prompt-thread-bundle-strand-badge" aria-label="<%= "Step #{step_badge_text}" %>"><%= step_badge_text %></span>
+    <div class="workspace-thread-editor-step-line bundle-pipeline-thread-child-strand-line prompt-thread-bundle-strand-line" aria-hidden="true"></div>
+  </div>
+</div>

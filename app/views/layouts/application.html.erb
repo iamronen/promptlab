@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title><%= content_for(:title) || "Prompt Lab" %></title>
+    <meta name="color-scheme" content="light">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="application-name" content="Prompt Lab">
@@ -36,7 +37,13 @@
       %>
       <div class="<%= "#{flash_shell} #{flash_kind}" %>" role="status"><%= msg %></div>
     <% end %>
-    <%= yield %>
+    <% if @render_flowbite_app_shell %>
+      <%= render "layouts/flowbite_app_shell" do %>
+        <%= yield %>
+      <% end %>
+    <% else %>
+      <%= yield %>
+    <% end %>
     <dialog
       class="bundle-edit-dialog"
       data-workspace-modal-target="dialog"
@@ -60,28 +67,7 @@
         </div>
       </div>
     </dialog>
-    <%# region agent log %>
-    <%
-      _fb_path = Rails.root.join("app/assets/vendor/flowbite/flowbite.turbo.min.js")
-      _fb_lp = (Rails.application.assets.load_path.find("flowbite/flowbite.turbo.min.js") rescue nil)
-      File.open(Rails.root.join(".cursor/debug-87647a.log"), "a") do |f|
-        f.puts({
-          sessionId: "87647a",
-          runId: ENV["DEBUG_RUN_ID"],
-          hypothesisId: "H1",
-          location: "application.html.erb:pre-flowbite-tag",
-          message: "flowbite asset resolution probe",
-          data: {
-            file_exists: _fb_path.file?,
-            load_path_hit: !_fb_lp.nil?,
-            assets_vendor_in_path: Rails.application.config.assets.paths.map(&:to_s).any? { |p| p.end_with?("/app/assets/vendor") }
-          },
-          timestamp: (Time.now.to_f * 1000).to_i
-        }.to_json)
-      end
-    %>
-    <%# endregion %>
-    <%# Flowbite interactive components (Turbo-aware build). Requires `npm install` for Tailwind plugin + lockfile CI. %>
-    <%= javascript_include_tag "flowbite/flowbite.turbo.min.js", "data-turbo-track": "reload", defer: true %>
+    <%# Flowbite Turbo build: static file under public/flowbite (Propshaft manifest may omit vendor JS). %>
+    <%= tag.script src: "/flowbite/flowbite.turbo.min.js", defer: true, data: { turbo_track: "reload" } %>
   </body>
 </html>

@@ -1,0 +1,25 @@
+<%# Draggable dividers — parent .workspace runs workspace-pane-resize; middle column position:relative %>
+<button
+  type="button"
+  class="workspace-pane-resize-handle workspace-pane-resize-handle--left"
+  aria-label="Drag to resize left panel. Double-click to reset column widths."
+  tabindex="0"
+  data-workspace-pane-resize-target="leftHandle"
+  data-action="
+    pointerdown->workspace-pane-resize#grabLeft
+    dblclick->workspace-pane-resize#resetWidths
+    keydown->workspace-pane-resize#keyLeft
+  "
+></button>
+<button
+  type="button"
+  class="workspace-pane-resize-handle workspace-pane-resize-handle--right"
+  aria-label="Drag to resize right panel. Double-click to reset column widths."
+  tabindex="0"
+  data-workspace-pane-resize-target="rightHandle"
+  data-action="
+    pointerdown->workspace-pane-resize#grabRight
+    dblclick->workspace-pane-resize#resetWidths
+    keydown->workspace-pane-resize#keyRight
+  "
+></button>

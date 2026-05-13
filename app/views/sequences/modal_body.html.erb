@@ -1,0 +1,6 @@
+<% thread_panel_editor_embed = @sequence_modal_frame_id.to_s.match?(/\Athread_editor_sequence_\d+\z/) %>
+<%= turbo_frame_tag(@sequence_modal_frame_id || "sequence_modal_frame") do %>
+  <div class="bundle-modal-shell<%= " bundle-modal-shell--thread-embed" if thread_panel_editor_embed %>">
+    <%= render "sequences/sequence_editor_main", modal: true, thread_panel_editor_embed: thread_panel_editor_embed %>
+  </div>
+<% end %>

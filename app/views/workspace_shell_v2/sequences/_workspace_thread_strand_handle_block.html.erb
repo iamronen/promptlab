@@ -1,0 +1,234 @@
+<%# locals: step_key:, is_bundle:, ref_id:, editor_return_path:, show_view_in_menu:, strand_thread:, strand_steps: (optional), row_index: (optional) %>
+<% strand_thread = local_assigns.fetch(:strand_thread) %>
+<div class="thread-strand-child__handle workspace-thread-tf-order-rail prompt-thread-index-order-rail" aria-hidden="true">
+  <div class="workspace-thread-tf-order-menu-wrap prompt-thread-index-order-menu-wrap">
+    <button
+      type="button"
+      class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle prompt-thread-index-drag-handle"
+      title="Row actions and drag to reorder"
+      aria-label="Row actions and drag to reorder"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      data-action="mousedown->thread-strand-panel#armDrag mouseup->thread-strand-panel#disarmDrag mouseleave->thread-strand-panel#disarmDrag click->thread-strand-panel#toggleOrderMenu"
+      data-strand-step="<%= step_key %>"
+    >
+      <%# 4 rows × 2 dots, vertical grip %>
+      <svg class="workspace-thread-tf-grip-vertical" xmlns="http://www.w3.org/2000/svg" width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
+        <circle cx="2.65" cy="2.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="2.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="6.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="6.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="10.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="10.25" r="1.1" fill="currentColor"/>
+        <circle cx="2.65" cy="14.25" r="1.1" fill="currentColor"/>
+        <circle cx="7.35" cy="14.25" r="1.1" fill="currentColor"/>
+      </svg>
+    </button>
+    <div
+      class="workspace-thread-tf-order-menu prompt-thread-index-order-menu"
+      role="menu"
+      hidden
+      data-strand-step="<%= step_key %>"
+    >
+      <% if local_assigns.fetch(:show_view_in_menu, false) %>
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item"
+          data-action="thread-strand-panel#viewInThreadEditor"
+        >
+          View
+        </button>
+      <% end %>
+      <div class="workspace-thread-tf-order-menu-group">
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent"
+          aria-haspopup="true"
+          aria-expanded="false"
+          data-action="thread-strand-panel#toggleOrderSubmenu"
+          data-submenu-id="move"
+        >
+          Move
+          <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
+        </button>
+        <div
+          class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
+          role="menu"
+          hidden
+          data-submenu-id="move"
+        >
+          <button type="button" role="menuitem" class="workspace-thread-tf-order-menu-item" data-action="thread-strand-panel#moveUp">
+            Up
+          </button>
+          <button type="button" role="menuitem" class="workspace-thread-tf-order-menu-item" data-action="thread-strand-panel#moveDown">
+            Down
+          </button>
+        </div>
+      </div>
+      <div class="workspace-thread-tf-order-menu-group">
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent"
+          aria-haspopup="true"
+          aria-expanded="false"
+          data-action="thread-strand-panel#toggleOrderSubmenu"
+          data-submenu-id="add-sequence"
+        >
+          Add Sequence
+          <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
+        </button>
+        <div
+          class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
+          role="menu"
+          hidden
+          data-submenu-id="add-sequence"
+        >
+          <%= button_to "Before",
+                        thread_insert_sequence_project_sequence_path(@project, strand_thread),
+                        method: :post,
+                        params: {
+                          insert: "before",
+                          relative_kind: (is_bundle ? "bundle" : "sequence"),
+                          relative_to_id: ref_id,
+                          redirect_to: editor_return_path
+                        }.merge(workspace_thread_scope_params).compact,
+                        form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                        class: "workspace-thread-tf-order-menu-item" %>
+          <%= button_to "After",
+                        thread_insert_sequence_project_sequence_path(@project, strand_thread),
+                        method: :post,
+                        params: {
+                          insert: "after",
+                          relative_kind: (is_bundle ? "bundle" : "sequence"),
+                          relative_to_id: ref_id,
+                          redirect_to: editor_return_path
+                        }.merge(workspace_thread_scope_params).compact,
+                        form: { class: "workspace-thread-tf-order-menu-form" },
+                        class: "workspace-thread-tf-order-menu-item" %>
+        </div>
+      </div>
+      <% strand_steps_for_bundle = local_assigns[:strand_steps] %>
+      <% if strand_steps_for_bundle && local_assigns.key?(:row_index) %>
+        <% bundle_row_index = local_assigns[:row_index] %>
+        <% strand_count = strand_steps_for_bundle.size %>
+        <% prev_row = bundle_row_index > 0 ? strand_steps_for_bundle[bundle_row_index - 1] : nil %>
+        <% next_row = bundle_row_index < strand_count - 1 ? strand_steps_for_bundle[bundle_row_index + 1] : nil %>
+        <% bundle_parent_disabled = strand_count < 2 %>
+        <div class="workspace-thread-tf-order-menu-group">
+          <% if bundle_parent_disabled %>
+            <button
+              type="button"
+              role="menuitem"
+              class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent workspace-thread-tf-order-menu-item--disabled"
+              disabled
+              aria-disabled="true"
+            >
+              Bundle
+            </button>
+          <% else %>
+            <button
+              type="button"
+              role="menuitem"
+              class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent"
+              aria-haspopup="true"
+              aria-expanded="false"
+              data-action="thread-strand-panel#toggleOrderSubmenu"
+              data-submenu-id="bundle-adjacent"
+            >
+              Bundle
+              <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
+            </button>
+            <div
+              class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
+              role="menu"
+              hidden
+              data-submenu-id="bundle-adjacent"
+            >
+              <% if prev_row %>
+                <%= button_to "↑ With #{prev_row.title.to_s.truncate(80)}",
+                              thread_merge_adjacent_strand_steps_project_sequence_path(@project, strand_thread),
+                              method: :post,
+                              params: {
+                                strand_step_token: step_key,
+                                merge_direction: "previous",
+                                redirect_to: editor_return_path
+                              }.merge(workspace_thread_scope_params).compact,
+                              form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                              class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--bundle-merge" %>
+              <% end %>
+              <% if next_row %>
+                <%= button_to "↓ With #{next_row.title.to_s.truncate(80)}",
+                              thread_merge_adjacent_strand_steps_project_sequence_path(@project, strand_thread),
+                              method: :post,
+                              params: {
+                                strand_step_token: step_key,
+                                merge_direction: "next",
+                                redirect_to: editor_return_path
+                              }.merge(workspace_thread_scope_params).compact,
+                              form: { class: "workspace-thread-tf-order-menu-form" },
+                              class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--bundle-merge" %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+      <% unless is_bundle %>
+        <%= button_to "Duplicate",
+                      thread_duplicate_strand_child_sequence_project_sequence_path(@project, strand_thread),
+                      method: :post,
+                      params: {
+                        source_sequence_id: ref_id,
+                        redirect_to: editor_return_path
+                      }.merge(workspace_thread_scope_params).compact,
+                      form: { class: "workspace-thread-tf-order-menu-form" },
+                      class: "workspace-thread-tf-order-menu-item" %>
+      <% end %>
+      <% if is_bundle %>
+        <%= button_to "Unbundle",
+                      thread_dissolve_strand_bundle_project_sequence_path(@project, strand_thread),
+                      method: :post,
+                      params: {
+                        bundle_id: ref_id,
+                        redirect_to: editor_return_path
+                      }.merge(workspace_thread_scope_params).compact,
+                      form: {
+                        class: "workspace-thread-tf-order-menu-form",
+                        data: { turbo_confirm: "Unbundle? Sequences will be placed on this strand in order. The bundle will be removed." }
+                      },
+                      class: "workspace-thread-tf-order-menu-item" %>
+        <%= button_to "Delete Bundle",
+                      project_bundle_path(@project, ref_id),
+                      method: :delete,
+                      params: { redirect_to: editor_return_path }.merge(workspace_thread_scope_params).compact,
+                      form: {
+                        class: "workspace-thread-tf-order-menu-form",
+                        data: { turbo_confirm: "Delete this bundle? This cannot be undone." }
+                      },
+                      class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--danger" %>
+      <% else %>
+        <%= button_to "Delete Sequence",
+                      project_sequence_path(@project, ref_id),
+                      method: :delete,
+                      params: { redirect_to: editor_return_path, workspace_mode: workspace_mode_param, workspace_shell: workspace_shell_param }.merge(workspace_thread_scope_params).compact,
+                      form: {
+                        class: "workspace-thread-tf-order-menu-form",
+                        data: { turbo_confirm: "Delete this sequence? This cannot be undone." }
+                      },
+                      class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--danger" %>
+        <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
+        <%= button_to "Create New Thread",
+                      thread_fork_strand_project_sequence_path(@project, strand_thread),
+                      method: :post,
+                      params: {
+                        parent_generative_sequence_id: ref_id,
+                        redirect_to: editor_return_path
+                      }.merge(workspace_thread_scope_params).compact,
+                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                      class: "workspace-thread-tf-order-menu-item" %>
+      <% end %>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,15 @@
+<%# locals: steps, form_field_prefix, thread_panel_editor_embed, nested_step_card (bool), steps_list_class, footer_class %>
+<div class="<%= steps_list_class %>" data-editor-kind="sequence_steps_list" data-sequence-editor-target="stepsList">
+  <% steps.each_with_index do |step_row, index| %>
+    <%= render "sequences/thread_editor_sequence_step_row",
+               form_field_prefix: form_field_prefix,
+               thread_panel_editor_embed: thread_panel_editor_embed,
+               nested_step_card: nested_step_card,
+               placeholder: false,
+               step_row: step_row,
+               index: index %>
+  <% end %>
+</div>
+<div class="<%= footer_class %>">
+  <button type="button" class="secondary-button add-step-button" data-action="sequence-editor#addStep">Add step</button>
+</div>

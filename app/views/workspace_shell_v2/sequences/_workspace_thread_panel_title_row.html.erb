@@ -1,0 +1,71 @@
+<%# locals: project:, thread:, heading_id: %>
+<div
+  class="workspace-thread-panel-header-title-row prompt-thread-panel-header-title-row"
+  data-controller="workspace-thread-panel-title"
+  data-workspace-thread-panel-title-update-url-value="<%= project_sequence_path(project, thread) %>"
+>
+  <h2
+    id="<%= heading_id %>"
+    class="workspace-thread-panel-title prompt-thread-panel-title"
+    data-workspace-thread-panel-title-target="display"
+  >
+    <%= thread.title %>
+  </h2>
+  <div class="workspace-thread-panel-title-actions" role="group" aria-label="Thread title">
+    <button
+      type="button"
+      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-edit-btn prompt-thread-panel-icon-btn"
+      data-workspace-thread-panel-title-target="editButton"
+      data-action="workspace-thread-panel-title#openEditor"
+      title="Edit thread title"
+      aria-label="Edit thread title"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+        <path d="m15 5 4 4"/>
+      </svg>
+    </button>
+    <button
+      type="button"
+      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-save-btn prompt-thread-panel-icon-btn"
+      data-workspace-thread-panel-title-target="saveButton"
+      data-action="workspace-thread-panel-title#save"
+      title="Save thread title"
+      aria-label="Save thread title"
+      hidden
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </button>
+    <button
+      type="button"
+      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-cancel-btn prompt-thread-panel-icon-btn"
+      data-workspace-thread-panel-title-target="cancelButton"
+      data-action="workspace-thread-panel-title#cancelEdit"
+      title="Cancel editing thread title"
+      aria-label="Cancel editing thread title"
+      hidden
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" x2="6" y1="6" y2="18"/>
+        <line x1="6" x2="18" y1="6" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <button
+    type="button"
+    class="workspace-thread-panel-map-btn prompt-thread-panel-icon-btn"
+    title="Weave map"
+    aria-label="Weave map"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+      <line x1="9" x2="9" y1="3" y2="18"/>
+      <line x1="15" x2="15" y1="6" y2="21"/>
+    </svg>
+  </button>
+  <% if thread.is_orphans? %>
+    <span class="weave-strand-badge workspace-thread-panel-badge">Orphans</span>
+  <% end %>
+</div>

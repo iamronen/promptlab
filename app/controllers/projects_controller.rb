@@ -1,8 +1,9 @@
 class ProjectsController < ApplicationController
+  before_action :enable_flowbite_app_shell, only: %i[index settings]
   before_action :set_project, only: %i[update open settings]
 
   def index
-    @projects = Project.order(:created_at)
+    @projects = Project.order(:created_at).includes(:sequences)
   end
 
   def settings
@@ -35,10 +36,19 @@ class ProjectsController < ApplicationController
         is_term: false
       )
     end
-    redirect_to edit_project_sequence_path(@project, seq)
+    redirect_to edit_project_sequence_path(@project, seq, **workspace_shell_open_options)
   end
 
   private
+
+  def enable_flowbite_app_shell
+    @render_flowbite_app_shell = true
+  end
+
+  def workspace_shell_open_options
+    s = params[:workspace_shell].to_s
+    WorkspaceSidebarData::VALID_WORKSPACE_SHELLS.include?(s) ? { workspace_shell: s } : {}
+  end
 
   def set_project
     @project = Project.find(params[:id])

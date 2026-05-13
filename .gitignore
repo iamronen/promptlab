@@ -33,3 +33,9 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+
+/app/assets/builds/*
+!/app/assets/builds/.keep
+
+# Flowbite (Tailwind @plugin) — install with npm; keep package-lock.json in repo for CI.
+/node_modules

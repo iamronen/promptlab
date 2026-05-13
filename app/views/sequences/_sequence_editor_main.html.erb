@@ -1,0 +1,103 @@
+<% modal_mode = local_assigns.fetch(:modal, false) %>
+<% thread_panel_editor_embed = local_assigns.fetch(:thread_panel_editor_embed, false) %>
+<% editor_form_data = { sequence_editor_target: "form", action: "submit->sequence-editor#syncEditorsBeforeSubmit" } %>
+<% editor_form_data[:turbo_frame] = "_top" if modal_mode %>
+<% if modal_mode %>
+<div class="thread-strand-sequence-container thread-editor-sequence">
+<% end %>
+    <main
+      id="thread_editor_sequence_inner_<%= @sequence.id %>"
+      class="sequence-editor sequence-editor--readonly<%= " sequence-editor--modal" if modal_mode %>"
+      data-controller="sequence-editor"
+      data-sequence-editor-readonly-value="true"
+      data-sequence-editor-default-title-value="<%= Sequence::DEFAULT_TITLE %>"
+      data-sequence-editor-default-intent-value="<%= Sequence::DEFAULT_INTENT %>"
+    >
+      <%= form_with model: [@project, @sequence],
+                    method: :patch,
+                    html: { id: "sequence-edit-form", class: "sequence-form", data: editor_form_data } do |f| %>
+        <% sidebar_save = params[:sidebar].to_s %>
+        <% if sidebar_save.present? && %w[sequences terms assistant bundles].include?(sidebar_save) %>
+          <%= hidden_field_tag :sidebar, (sidebar_save == "bundles" ? "sequences" : sidebar_save) %>
+        <% end %>
+        <% if @selected_weave_thread_id.present? %>
+          <%= hidden_field_tag :weave_thread, @selected_weave_thread_id %>
+        <% end %>
+        <% if @thread_panel_partner_thread.present? %>
+          <%= hidden_field_tag :thread_partner, @thread_panel_partner_thread.id %>
+        <% end %>
+        <% if modal_mode && params[:redirect_to].present? %>
+          <%= hidden_field_tag :redirect_to, params[:redirect_to] %>
+        <% end %>
+        <% if workspace_mode_param.present? %>
+          <%= hidden_field_tag :workspace_mode, workspace_mode_param %>
+        <% end %>
+        <% if workspace_shell_param.present? %>
+          <%= hidden_field_tag :workspace_shell, workspace_shell_param %>
+        <% end %>
+        <% if @sequence.errors.any? %>
+          <section class="errors">
+            <h2>Unable to save sequence</h2>
+            <ul>
+              <% @sequence.errors.full_messages.each do |message| %>
+                <li><%= message %></li>
+              <% end %>
+            </ul>
+          </section>
+        <% end %>
+
+        <%= render "sequences/thread_editor_sequence_meta",
+                   variant: :form_builder,
+                   f: f %>
+
+        <section class="steps-section">
+          <%= render "sequences/thread_editor_sequence_steps_list_footer",
+                     steps: @sequence.ordered_steps,
+                     form_field_prefix: "sequence",
+                     thread_panel_editor_embed: thread_panel_editor_embed,
+                     nested_step_card: false,
+                     steps_list_class: "steps-list",
+                     footer_class: "steps-footer" %>
+        </section>
+
+      <% end %>
+
+      <% unless thread_panel_editor_embed %>
+      <footer class="editor-footer-actions">
+        <div class="editor-footer-primary-actions">
+          <div class="editor-footer-delete">
+            <% delete_btn_params =
+                 {
+                   redirect_to: (params[:redirect_to] if modal_mode),
+                   weave_thread: @selected_weave_thread_id,
+                   thread_partner: (@thread_panel_partner_thread&.id),
+                   workspace_mode: workspace_mode_param,
+                   workspace_shell: workspace_shell_param
+                 }.compact %>
+            <%= button_to "Delete sequence",
+                          project_sequence_path(@project, @sequence),
+                          method: :delete,
+                          params: delete_btn_params,
+                          class: "danger-button",
+                          form: {
+                            data: {
+                              turbo_confirm: "Delete this sequence? This cannot be undone.",
+                              **(modal_mode ? { turbo_frame: "_top" } : {})
+                            }
+                          } %>
+          </div>
+        </div>
+      </footer>
+      <% end %>
+
+      <template data-sequence-editor-target="stepTemplate">
+        <%= render "sequences/thread_editor_sequence_step_row",
+                   form_field_prefix: "sequence",
+                   thread_panel_editor_embed: thread_panel_editor_embed,
+                   nested_step_card: false,
+                   placeholder: true %>
+      </template>
+    </main>
+<% if modal_mode %>
+</div>
+<% end %>

@@ -1,0 +1,29 @@
+<%# Add new tools here: one <li> + route per tool. Projects is the first tool. %>
+<%
+  projects_tool_active = controller_name == "projects"
+  projects_link_base =
+    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors"
+  projects_link_classes =
+    if projects_tool_active
+      "#{projects_link_base} bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white"
+    else
+      "#{projects_link_base} text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+    end
+%>
+<div>
+  <h2 class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+    Tools
+  </h2>
+  <ul role="list" class="mt-2 space-y-1">
+    <li>
+      <%= link_to projects_path,
+                  class: projects_link_classes,
+                  **(projects_tool_active ? { aria: { current: "page" } } : {}) do %>
+        <svg class="h-5 w-5 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+        </svg>
+        <span>Projects</span>
+      <% end %>
+    </li>
+  </ul>
+</div>

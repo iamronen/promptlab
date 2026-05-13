@@ -1,0 +1,116 @@
+<% allowed_nav_tabs = %w[sequences terms] %>
+<% raw_sidebar = params[:sidebar].to_s %>
+<% mapped_sidebar = (raw_sidebar == "transformations" || raw_sidebar == "bundles") ? "sequences" : raw_sidebar %>
+<% default_tab =
+     if mapped_sidebar.present? && allowed_nav_tabs.include?(mapped_sidebar)
+       mapped_sidebar
+     else
+       "sequences"
+     end %>
+<% tab_btn =
+     "min-w-[4.25rem] flex-1 basis-[30%] cursor-pointer rounded-none border-0 border-b-2 border-transparent " \
+     "bg-transparent px-1 py-[0.55rem] font-sans text-[0.78rem] font-semibold text-prompt-tab-muted " \
+     "hover:bg-prompt-surface-subtle hover:text-prompt-tab-text " \
+     "aria-selected:border-prompt-accent aria-selected:text-prompt-accent" %>
+<aside class="workspace-browse-nav-panel" aria-label="Navigator">
+  <div class="workspace-browse-nav-body">
+    <h3 id="browse-nav-heading" class="workspace-browse-nav-title">Navigator</h3>
+    <div
+      class="browse-nav-tabs-shell flex flex-1 min-h-0 flex-col"
+      data-controller="workspace-sidebar-tabs"
+      data-workspace-sidebar-tabs-active-value="<%= default_tab %>"
+    >
+      <div class="px-2">
+        <div
+          role="tablist"
+          class="flex flex-wrap gap-1"
+          aria-labelledby="browse-nav-heading"
+          aria-label="Sequence library"
+        >
+          <button
+            type="button"
+            id="browse-tab-sequences"
+            role="tab"
+            class="<%= tab_btn %>"
+            data-kind="sequences"
+            data-workspace-sidebar-tabs-target="tab"
+            data-action="workspace-sidebar-tabs#activate"
+            aria-selected="<%= default_tab == "sequences" %>"
+            aria-controls="browse-panel-sequences"
+            tabindex="<%= default_tab == "sequences" ? 0 : -1 %>"
+          >
+            Sequences
+          </button>
+          <button
+            type="button"
+            id="browse-tab-terms"
+            role="tab"
+            class="<%= tab_btn %>"
+            data-kind="terms"
+            data-workspace-sidebar-tabs-target="tab"
+            data-action="workspace-sidebar-tabs#activate"
+            aria-selected="<%= default_tab == "terms" %>"
+            aria-controls="browse-panel-terms"
+            tabindex="<%= default_tab == "terms" ? 0 : -1 %>"
+          >
+            Terms
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-1 min-h-0 flex-col pt-1">
+        <div
+          id="browse-panel-sequences"
+          class="workspace-right-panel-tabpanel flex flex-1 min-h-0 flex-col overflow-hidden"
+          role="tabpanel"
+          aria-labelledby="browse-tab-sequences"
+          data-kind="sequences"
+          data-workspace-sidebar-tabs-target="panel"
+          <%= "hidden" if default_tab != "sequences" %>
+        >
+          <div class="flex shrink-0 px-4 pb-2 pt-[0.65rem]">
+            <%= button_to "New sequence",
+                          project_sequences_path(@project),
+                          method: :post,
+                          params: workspace_editor_redirect_options.merge(sidebar: "sequences"),
+                          form: { class: "sidebar-new-form" },
+                          class: "prompt-btn-secondary box-border w-full" %>
+          </div>
+          <%= render "sequences/sidebar_sequence_list",
+                     items: @sequences,
+                     current: @sequence,
+                     project: @project,
+                     list_kind: :sequences,
+                     menu_actions_aria: "Sequence actions",
+                     delete_confirm: "Delete this sequence? This cannot be undone.",
+                     open_in_modal: false %>
+        </div>
+        <div
+          id="browse-panel-terms"
+          class="workspace-right-panel-tabpanel flex flex-1 min-h-0 flex-col overflow-hidden"
+          role="tabpanel"
+          aria-labelledby="browse-tab-terms"
+          data-kind="terms"
+          data-workspace-sidebar-tabs-target="panel"
+          <%= "hidden" if default_tab != "terms" %>
+        >
+          <div class="flex shrink-0 px-4 pb-2 pt-[0.65rem]">
+            <%= button_to "New term",
+                          project_sequences_path(@project),
+                          method: :post,
+                          params: workspace_editor_redirect_options.merge(sequence: { is_term: true }, sidebar: "terms"),
+                          form: { class: "sidebar-new-form" },
+                          class: "prompt-btn-secondary box-border w-full" %>
+          </div>
+          <%= render "sequences/sidebar_sequence_list",
+                     items: @terms,
+                     current: @sequence,
+                     project: @project,
+                     list_kind: :terms,
+                     menu_actions_aria: "Term actions",
+                     delete_confirm: "Delete this term? This cannot be undone.",
+                     open_in_modal: false %>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>

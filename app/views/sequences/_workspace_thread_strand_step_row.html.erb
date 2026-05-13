@@ -1,0 +1,113 @@
+<%# locals: row, row_index, strand_steps, editor_return_path, strand_thread:, show_view_in_menu: (optional),
+    branch_child_threads_by_anchor: (optional), thread_index_embed_query: (optional) %>
+<% strand_thread = local_assigns.fetch(:strand_thread) { @workspace_thread } %>
+<% show_view_in_menu = local_assigns.fetch(:show_view_in_menu, true) %>
+<% branch_child_threads_by_anchor = local_assigns.fetch(:branch_child_threads_by_anchor) { {} } %>
+<% thread_index_embed_query = local_assigns.fetch(:thread_index_embed_query) { {} } %>
+<% is_bundle = row.bundle_id.present? %>
+<% step_key = is_bundle ? "b:#{row.bundle_id}" : "s:#{row.sequence_id}" %>
+<% ref_id = is_bundle ? row.bundle_id : row.sequence_id %>
+<li
+  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row"
+  data-strand-step="<%= step_key %>"
+>
+  <%= render "sequences/workspace_thread_strand_handle_block",
+             step_key: step_key,
+             is_bundle: is_bundle,
+             ref_id: ref_id,
+             editor_return_path: editor_return_path,
+             strand_thread: strand_thread,
+             strand_steps: strand_steps,
+             row_index: row_index,
+             show_view_in_menu: show_view_in_menu %>
+  <div class="thread-strand-child__content workspace-thread-tf-child-content workspace-thread-tf-index-card">
+    <% if is_bundle %>
+      <% bundle_record = @project.sequences.bundles.find(ref_id) %>
+      <% pipeline_children = bundle_record&.pipeline_generative_children_ordered || [] %>
+      <%= content_tag :div,
+                      class: "workspace-thread-bundle-pipeline-index",
+                      data: {
+                        controller: "bundle-pipeline-index",
+                        bundle_pipeline_index_update_url_value: project_bundle_path(@project, bundle_record),
+                        bundle_pipeline_index_editor_return_value: editor_return_path,
+                        bundle_pipeline_index_bundle_id_value: ref_id,
+                        bundle_pipeline_index_bundle_title_value: bundle_record.title,
+                        bundle_pipeline_index_bundle_intent_value: bundle_record.intent,
+                        bundle_pipeline_index_prerequisite_ids_value: bundle_record.prerequisite_bundle_ids
+                      }.merge(
+                        @selected_weave_thread_id.present? ? { bundle_pipeline_index_weave_thread_value: @selected_weave_thread_id } : {}
+                      ) do %>
+        <div class="workspace-thread-bundle-index-heading" title="<%= h(bundle_record.title.to_s) %>">
+          <%= bundle_record.title.to_s.truncate(120) %>
+        </div>
+        <% if pipeline_children.any? %>
+          <ol class="workspace-thread-bundle-pipeline-list" data-bundle-pipeline-index-target="list">
+            <% pipeline_children.each do |child| %>
+              <li
+                class="workspace-thread-bundle-pipeline-item"
+                data-pipeline-sequence-id="<%= child.id %>"
+                draggable="true"
+              >
+                <span
+                  class="workspace-thread-tf-order-btn workspace-thread-bundle-pipeline-drag"
+                  title="Drag to reorder"
+                  aria-hidden="true"
+                >
+                  <svg class="workspace-thread-tf-grip-vertical workspace-thread-tf-grip-vertical--compact" xmlns="http://www.w3.org/2000/svg" width="10" height="18" viewBox="0 0 12 22" fill="none" aria-hidden="true">
+                    <circle cx="3.25" cy="1.85" r="1.15" fill="currentColor"/>
+                    <circle cx="8.75" cy="1.85" r="1.15" fill="currentColor"/>
+                    <circle cx="3.25" cy="7.35" r="1.15" fill="currentColor"/>
+                    <circle cx="8.75" cy="7.35" r="1.15" fill="currentColor"/>
+                    <circle cx="3.25" cy="12.85" r="1.15" fill="currentColor"/>
+                    <circle cx="8.75" cy="12.85" r="1.15" fill="currentColor"/>
+                    <circle cx="3.25" cy="18.35" r="1.15" fill="currentColor"/>
+                    <circle cx="8.75" cy="18.35" r="1.15" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="workspace-thread-bundle-pipeline-ordinal" aria-hidden="true"></span>
+                <span class="workspace-thread-bundle-pipeline-name"><%= child.title.to_s.truncate(120) %></span>
+                <%= render "sequences/workspace_thread_anchor_branch_menu",
+                           branch_child_threads_by_anchor: branch_child_threads_by_anchor,
+                           anchor_sequence_id: child.id,
+                           strand_thread: strand_thread,
+                           thread_index_embed_query: thread_index_embed_query %>
+                <button
+                  type="button"
+                  class="workspace-thread-tf-icon-btn workspace-thread-bundle-pipeline-eye"
+                  title="Open in thread editor"
+                  aria-label="Open in thread editor"
+                  data-pipeline-sequence-id="<%= child.id %>"
+                  data-action="bundle-pipeline-index#viewNestedInThreadEditor"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </li>
+            <% end %>
+          </ol>
+        <% else %>
+          <p class="workspace-thread-bundle-pipeline-empty">No sequences in this bundle yet.</p>
+        <% end %>
+      <% end %>
+    <% else %>
+      <div class="workspace-thread-tf-index-row">
+        <div class="workspace-thread-tf-title-static">
+          <span class="workspace-thread-tf-name" title="<%= h(row.title.to_s) %>"><%= row.title.to_s.truncate(120) %></span>
+        </div>
+        <%= render "sequences/workspace_thread_anchor_branch_menu",
+                   branch_child_threads_by_anchor: branch_child_threads_by_anchor,
+                   anchor_sequence_id: row.sequence_id,
+                   strand_thread: strand_thread,
+                   thread_index_embed_query: thread_index_embed_query %>
+        <button
+          type="button"
+          class="workspace-thread-tf-icon-btn workspace-thread-tf-seq-eye"
+          title="Open in thread editor"
+          aria-label="Open in thread editor"
+          data-action="thread-strand-panel#viewInThreadEditor"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    <% end %>
+  </div>
+</li>

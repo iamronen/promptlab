@@ -19,9 +19,17 @@ Rails.application.routes.draw do
         post :duplicate
         post :add_to_terms
         post :remove_from_terms
+        patch :thread_update_steps
+        post :thread_insert_bundle
+        post :thread_insert_sequence
+        post :thread_fork_strand
+        post :thread_duplicate_strand_child_sequence
+        post :thread_unbundle_pipeline_sequence
+        post :thread_dissolve_strand_bundle
+        post :thread_merge_adjacent_strand_steps
       end
     end
-    resources :transformations, only: %i[edit update create destroy] do
+    resources :bundles, only: %i[edit update create destroy] do
       member do
         post :duplicate
         post :create_pipeline_sequence

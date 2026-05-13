@@ -1,0 +1,19 @@
+<% content_for :title, "#{@sequence.title.presence || "Bundle"} · #{@project.name}" %>
+
+<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--v2" if workspace_shell_v2? %>"
+     data-controller="<%= workspace_shell_v2? ? "workspace-assistant-toggle workspace-font-size" : "workspace-assistant-toggle" %>">
+  <%= render "sequences/workspace_top_header" %>
+  <div class="workspace workspace--three-pane"
+       data-controller="workspace-pane-resize"
+       <% if workspace_shell_v2? %>data-workspace-font-size-target="scaleRoot"<% end %>
+       data-workspace-assistant-toggle-target="workspace">
+  <%= render "sequences/weave_panel" %>
+
+  <div class="workspace-middle-column">
+    <%= render "sequences/workspace_pane_resize_handles" %>
+    <%= render "sequences/workspace_work_panel" %>
+  </div>
+
+  <%= render "sequences/workspace_assistant_panel" %>
+  </div>
+</div>

@@ -12,6 +12,9 @@
 :root {
   color-scheme: light;
   font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Thread workspace: prefer usable editor width; middle column scrolls horizontally when narrower. */
+  --workspace-thread-single-min-width: 56rem;
+  --workspace-thread-split-min-width: 94rem;
 }
 
 body {
@@ -20,30 +23,2421 @@ body {
   background: #f7f8fa;
 }
 
-.flash-msg {
-  padding: 0.65rem 1rem;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-.flash-msg-notice {
-  background: #e8f2ff;
-  color: #0b4aa2;
-  border-bottom: 1px solid #c8ddf8;
-}
-
-.flash-msg-alert {
-  background: #fff3f4;
-  color: #812029;
-  border-bottom: 1px solid #f5c2c7;
-}
-
 .workspace {
   display: flex;
   align-items: stretch;
   gap: 0;
   min-height: 100vh;
   box-sizing: border-box;
+}
+
+/* Full-width chrome above weave | middle | library */
+.workspace-shell--three-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Sequencing / bundle workspaces: span full viewport height (handles mobile chrome via dvh). */
+.workspace-shell--three-pane:not(.workspace-shell--browsing) {
+  min-height: 100dvh;
+}
+
+.workspace-shell--three-pane > .workspace.workspace--three-pane,
+.workspace-shell--three-pane > .workspace.workspace--two-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.workspace-header-strip {
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #e2e6ed;
+  z-index: 50;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 4px 14px rgba(22, 32, 48, 0.1),
+    0 2px 6px rgba(22, 32, 48, 0.06);
+}
+
+.workspace-header-strip-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem 1rem;
+  padding: 0.55rem 1rem 0.8rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-header-strip-lead {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  justify-self: start;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workspace-header-strip-center {
+  justify-self: center;
+}
+
+.workspace-header-strip-trail {
+  justify-self: end;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.workspace-header-strip-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.12rem;
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.workspace-header-strip-back {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #1846a3;
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.workspace-header-strip-back:hover {
+  text-decoration: underline;
+}
+
+.workspace-header-strip-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #2d3f57;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-header-strip-mode {
+  flex-shrink: 0;
+}
+
+.workspace-header-strip-mode .sequence-mode-btn {
+  width: 2.25rem;
+  height: 2.1rem;
+}
+
+.workspace-mode-switch {
+  display: inline-flex;
+  border: 1px solid #d5dbe3;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef2f8;
+}
+
+.workspace-mode-switch-btn {
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #516174;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.workspace-mode-switch-btn:hover {
+  background: rgba(15, 98, 254, 0.07);
+  color: #0f62fe;
+}
+
+.workspace-mode-switch-btn--active {
+  background: #fff;
+  color: #0f62fe;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(15, 98, 254, 0.12);
+}
+
+/* Three-pane workspace: weave | work + editor | assistant — widths via resize handles (--ws-*-px) */
+.workspace--three-pane {
+  display: grid;
+  --ws-left-px: 246px;
+  --ws-right-px: 320px;
+  grid-template-columns:
+    clamp(180px, var(--ws-left-px), min(520px, 50vw))
+    minmax(0, 1fr)
+    clamp(220px, var(--ws-right-px), min(640px, 48vw));
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+}
+
+/* Sequencing mode (no Fabric sidebar): work | assistant — right width via --ws-right-px */
+.workspace--two-pane {
+  display: grid;
+  --ws-right-px: 320px;
+  grid-template-columns:
+    minmax(0, 1fr)
+    clamp(220px, var(--ws-right-px), min(640px, 48vw));
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+}
+
+.workspace--two-pane .workspace-pane-resize-handle--left {
+  display: none;
+}
+
+/* Assistant column hidden: middle track absorbs the right grid column */
+.workspace--three-pane.workspace--assistant-collapsed {
+  grid-template-columns:
+    clamp(180px, var(--ws-left-px), min(520px, 50vw))
+    minmax(0, 1fr);
+}
+
+.workspace--two-pane.workspace--assistant-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace--assistant-collapsed .workspace-pane-resize-handle--right {
+  display: none;
+}
+
+.workspace-assistant-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.workspace-assistant-toggle-btn:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+}
+
+.workspace-assistant-toggle-btn:hover svg circle {
+  fill: #1f2937;
+}
+
+.workspace-assistant-toggle-btn:active svg circle {
+  fill: #0f172a;
+}
+
+.workspace-weave-panel {
+  background: #fff;
+  border-right: 1px solid #e4e8ee;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 1em;
+}
+
+.workspace-browse-nav-panel {
+  background: #fff;
+  border-right: 1px solid #e4e8ee;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 1em;
+}
+
+.workspace-browse-nav-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: 0.65rem;
+}
+
+.workspace-browse-nav-title {
+  margin: 0 0 0.25rem;
+  padding: 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #2d3f57;
+}
+
+.workspace-middle-column > .workspace-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-right-panel-tabs-shell--single {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-right-panel-tabpanel--solo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-weave-back {
+  padding: 0.65rem 1rem 0;
+  flex-shrink: 0;
+}
+
+.workspace-weave-back-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1846a3;
+  text-decoration: none;
+}
+
+.workspace-weave-back-link:hover {
+  text-decoration: underline;
+}
+
+.workspace-weave-header {
+  padding: 1rem 1rem 0.65rem;
+  border-bottom: 1px solid #ebedf2;
+}
+
+.workspace-weave-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.workspace-weave-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #2d3f57;
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-weave-mode-toggle .sequence-mode-btn {
+  width: 2.25rem;
+  height: 2.1rem;
+}
+
+.workspace-weave-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.workspace-weave-panel-title {
+  margin: 0 0 0.55rem;
+  padding: 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: #2d3f57;
+}
+
+.weave-thread-hierarchy-placeholder {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #6b7c93;
+}
+
+.weave-thread-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.weave-thread-node-wrap {
+  margin: 0;
+  padding: 0;
+}
+
+.weave-thread-select {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin: 0 0 0.25rem;
+  padding: 0.4rem 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  color: #2d3f57;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.weave-thread-select:hover {
+  background: #eef4fc;
+}
+
+.weave-thread-select.is-selected {
+  background: #eef4fc;
+  border-color: #c8ddf8;
+}
+
+.weave-thread-select-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weave-thread-children {
+  list-style: none;
+  margin: 0 0 0.35rem 0.65rem;
+  padding: 0 0 0 0.5rem;
+  border-left: 1px solid #e4e8ee;
+}
+
+.weave-strand-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #0f62fe;
+  background: #eef4fc;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.weave-hierarchy-section {
+  margin: 0;
+}
+
+.weave-thread-hierarchy {
+  margin: 0 0.75rem;
+  padding: 0.75rem;
+  min-height: 4rem;
+  background: #f8fafc;
+  border: 1px dashed #d4dde8;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.workspace-middle-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  padding-top: 1em;
+  background: #d8dce3;
+  border-right: 1px solid #e4e8ee;
+}
+
+/* Full editors: allow work area to extend past the grid track; scroll horizontally on this column. */
+.workspace-middle-column:has(.workspace-thread-panel-root--maximized) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.workspace-pane-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  z-index: 6;
+  cursor: col-resize;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.workspace-pane-resize-handle--left {
+  left: -5px;
+}
+
+.workspace-pane-resize-handle--right {
+  right: -5px;
+}
+
+.workspace-pane-resize-handle:hover {
+  background: rgba(15, 98, 254, 0.1);
+}
+
+.workspace-pane-resize-handle:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: -1px;
+}
+
+.workspace-work-shell {
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 1rem 1.1rem;
+  background: #d8dce3;
+  border-bottom: 1px solid #c5cad3;
+  overflow: visible;
+}
+
+/* Fills remaining column height — resize-handle <button>s are extra DOM siblings (:only-child never matched). */
+.workspace-middle-column > .workspace-work-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-bottom: none;
+}
+
+.workspace-middle-column:has(.workspace-thread-panel-root--maximized) > .workspace-work-shell {
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+.workspace-work-inner {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-work-inner--panel {
+  overflow: visible;
+}
+
+.workspace-thread-panel-root.workspace-thread-panel-root--maximized {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: none;
+}
+
+.workspace-thread-panel-root--maximized.workspace-work-inner--panel {
+  overflow-x: visible;
+  overflow-y: hidden;
+}
+
+.workspace-thread-panel-layout {
+  display: flex;
+  flex-direction: row;
+  flex: 0 1 auto;
+  align-items: flex-start;
+  gap: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Index-only: inner row must cap like the shell — max-content used shell's intrinsic ~401px while shell used width is 22rem (~352px), leaving dead space (log: partnerColRightMinusShellRight 49). */
+.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-layout {
+  display: flex;
+  width: min(100%, 22rem);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-height: 0;
+  width: fit-content;
+  max-width: none;
+}
+
+.workspace-thread-panel-split-outer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-split-outer:has(.workspace-thread-panel-root--maximized) {
+  align-self: stretch;
+  width: max-content;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Dual strand rows fill the work area; avoid max-content collapse with side-by-side panels (#workspace-thread-panels-split). */
+.workspace-thread-panel-split-outer:has(#workspace-thread-panels-split) {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Wide floor only when both strands use index+editor (otherwise intrinsic width + single-panel min). */
+.workspace-thread-panel-split-outer:has(
+    .workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized
+  ):has(
+    .workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized
+  ) {
+  min-width: var(--workspace-thread-split-min-width);
+}
+
+.workspace-thread-panel-layout--split {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+  gap: 0.75rem;
+}
+
+.workspace-thread-panel-split-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Index-only: hug shell width — column stretch can inflate empty space between panels (gap looks too large). */
+.workspace-thread-panel-split-column--partner:not(:has(.workspace-thread-panel-root--maximized)),
+.workspace-thread-panel-split-column--primary:not(:has(.workspace-thread-panel-root--maximized)) {
+  align-items: flex-start;
+  /* v6 log: root 352px but column 401px — 36rem column max still allowed ~25rem intrinsic (log partnerColOffsetW 401). */
+  max-width: min(100%, 22rem);
+  width: auto;
+}
+
+/* Parent panel: hug content when index-only; share horizontal space when full editors are open. */
+.workspace-thread-panel-split-column--partner {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: min(100%, 36rem);
+}
+
+.workspace-thread-panel-split-column--partner:has(.workspace-thread-panel-root--maximized) {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Mirror partner: only grow the column when that thread uses full editors. */
+.workspace-thread-panel-split-column--primary {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: min(100%, 36rem);
+}
+
+.workspace-thread-panel-split-column--primary:has(.workspace-thread-panel-root--maximized) {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Each maximized strand in split gets a usable editor floor (scroll if the row is narrower). */
+.workspace-thread-panel-layout--split
+  .workspace-thread-panel-split-column--partner
+  .workspace-thread-panel-root--maximized,
+.workspace-thread-panel-layout--split
+  .workspace-thread-panel-split-column--primary
+  .workspace-thread-panel-root--maximized {
+  min-width: var(--workspace-thread-single-min-width);
+}
+
+.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+}
+
+/* Split index-only: cap root — v5 log showed inner layout 352px but root/column still 401px (49px dead strip). */
+.workspace-thread-panel-split-column--partner
+  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized),
+.workspace-thread-panel-split-column--primary
+  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) {
+  width: min(100%, 22rem);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Split index-only: same cap as shell so flex row width matches visible card (not max-content intrinsic). */
+.workspace-thread-panel-split-column--partner
+  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized)
+  > .workspace-thread-panel-layout,
+.workspace-thread-panel-split-column--primary
+  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized)
+  > .workspace-thread-panel-layout {
+  display: flex;
+  width: min(100%, 22rem);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-shell {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-split {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Fill the remaining width to the right of the parent panel (avoid fit-content bands). */
+.workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+}
+
+.workspace-thread-panel-split-column--primary .workspace-thread-panel-shell {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized .workspace-thread-panel-split {
+  width: 100%;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-body--empty-strand {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.workspace-thread-tf-order-menu-sep {
+  border: 0;
+  border-top: 1px solid #d4dde8;
+  margin: 0.35rem 0.25rem;
+}
+
+.step-menu-sep--thread-handle {
+  border: 0;
+  border-top: 1px solid #d4dde8;
+  margin: 0.25rem 0;
+  width: 100%;
+}
+
+.step-menu--thread-handle-form {
+  display: contents;
+}
+
+.step-menu--thread-handle .step-menu--thread-handle-submit {
+  border: 1px solid #ccd6e2;
+  background: #ffffff;
+  border-radius: 7px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+
+.step-menu--thread-handle .step-menu--thread-handle-submit:hover {
+  background: #f2f6fc;
+}
+
+/* Thread panel shell: layout + legacy visuals. Shell v2 pairs .prompt-thread-panel-shell (tailwind) for Flowbite-style surfaces. */
+/* Strand index rail (list + menus): shell v2 adds .prompt-thread-index-* companions; Flowbite-style overlays are in app/assets/tailwind/application.css — keep these rules for v1 and layout/counters. */
+.workspace-thread-panel-shell {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #cdd4df;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(41, 56, 77, 0.08);
+  box-sizing: border-box;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.workspace-thread-panel-shell .workspace-thread-panel-body {
+  overflow-x: hidden;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-shell .workspace-thread-panel-strand {
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-shell .workspace-thread-panel-footer {
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-shell .workspace-thread-panel-strand .workspace-thread-tf {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-shell .workspace-thread-panel-strand .workspace-thread-tf-child-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-shell {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: min(100%, 22rem);
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-shell {
+  flex: 0 1 auto;
+  align-self: stretch;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.workspace-thread-panel-split {
+  --workspace-thread-index-px: 22rem;
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-split {
+  align-self: stretch;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-split {
+  flex: 0 1 auto;
+  align-self: stretch;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.workspace-thread-panel-index-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-index-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-index-pane {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--workspace-thread-index-px, 22rem);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-body {
+  max-height: none;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-editor-pane {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+/* Split workspace: grow editor column into free space beside the fixed-width index rail. */
+.workspace-thread-panel-layout--split .workspace-thread-panel-root--maximized .workspace-thread-panel-editor-pane {
+  flex: 1 1 auto;
+}
+
+.workspace-thread-panel-index-resize-handle {
+  display: none;
+  box-sizing: border-box;
+  width: 6px;
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: #d3dae4;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.workspace-thread-panel-index-resize-handle:hover {
+  background: rgba(15, 98, 254, 0.12);
+}
+
+.workspace-thread-panel-index-resize-handle:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: -1px;
+  z-index: 2;
+}
+
+.workspace-thread-panel-root--maximized
+  .workspace-thread-panel-split:has(.workspace-thread-panel-editor-pane:not([hidden]))
+  .workspace-thread-panel-index-resize-handle {
+  display: block;
+}
+
+.workspace-thread-panel-editor-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-thread-panel-editor-pane[hidden] {
+  display: none !important;
+}
+
+.workspace-thread-panel-editor-stack {
+  --workspace-thread-editor-stack-gap: 1rem;
+  /* Match thread-embed body text measure so the stack width tracks step content. */
+  --thread-editor-text-max: 72ch;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--workspace-thread-editor-stack-gap);
+  padding: 0.35rem 0.65rem 0.85rem;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  flex: none;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.workspace-thread-editor-left-rail {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+/* Thread strand step rail + handle: offset to match embedded first title (thread-embed form has no top padding). */
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--sequence
+  .thread-strand-child__handle {
+  margin-top: 0.2rem;
+}
+
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--sequence
+  .workspace-thread-editor-step-rail {
+  padding-top: 0.2rem;
+}
+
+/*
+ * Bundle edit: match sequence strand rails; bundle iframe uses .bundle-thread-shell-root padding-top so
+ * the first nested sequence title aligns with the strand badge without doubling vertical offset here.
+ */
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--bundle:not(
+    :has(main.sequence-editor--bundle.sequence-editor--readonly)
+  )
+  .thread-strand-child__handle {
+  margin-top: 0.2rem;
+}
+
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--bundle:not(
+    :has(main.sequence-editor--bundle.sequence-editor--readonly)
+  )
+  .workspace-thread-editor-step-rail {
+  padding-top: 0.2rem;
+}
+
+/* Bundle readonly: first heading in readonly sequence shell */
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--bundle:has(
+    main.sequence-editor--bundle.sequence-editor--readonly
+  )
+  .thread-strand-child__handle {
+  margin-top: 0.65rem;
+}
+
+.workspace-thread-panel-editor-stack
+  .workspace-thread-editor-child--bundle:has(
+    main.sequence-editor--bundle.sequence-editor--readonly
+  )
+  .workspace-thread-editor-step-rail {
+  padding-top: 0.65rem;
+}
+
+.workspace-thread-editor-step-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 1.35rem;
+  min-height: 0;
+  padding-bottom: 0.15rem;
+  box-sizing: border-box;
+}
+
+.workspace-thread-editor-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: #3d4555;
+  color: #fff;
+  /* Match .sequence-title-input in thread embed (bundle + single) */
+  font-size: calc(2em * 0.7);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  padding: 0.22em;
+  aspect-ratio: 1;
+  min-width: calc(1em + 0.44em);
+  border-radius: 0;
+}
+
+.workspace-thread-editor-step-line {
+  flex: 1 1 auto;
+  width: 2px;
+  min-height: 0.35rem;
+  margin-top: 0.35rem;
+  background: #5c6370;
+  border-radius: 1px;
+}
+
+/*
+ * Strand editor stack gap splits the timeline; stitch through rail padding + inter-row gap + next row rail
+ * inset (thin bar only). Anchored on .workspace-thread-editor-step-line so bridges sit flush against the strip.
+ */
+.workspace-thread-panel-editor-stack
+  > .workspace-thread-editor-child:not(:last-child)
+  .workspace-thread-editor-step-line {
+  position: relative;
+  z-index: 0;
+}
+
+.workspace-thread-panel-editor-stack
+  > .workspace-thread-editor-child:not(:last-child)
+  .workspace-thread-editor-step-line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  /*
+   * Negative Y overlap removes sub-pixel seams vs the strip and border radii from either end.
+   * Height: rail pad-bottom + flex gap + next rail pad-top (+ stitch trim).
+   * Next rail top padding depends on follower row (:has(+ ...)); default matches sequence / editable bundle (0.2rem).
+   */
+  --strand-bridge-into-next: 0.2rem;
+  top: 100%;
+  transform: translate(-50%, -2px);
+  width: 2px;
+  height: calc(
+    0.15rem + var(--workspace-thread-editor-stack-gap) + var(--strand-bridge-into-next, 0.2rem) + 3px
+  );
+  margin-top: 0;
+  background: #5c6370;
+  border-radius: 1px;
+}
+
+.workspace-thread-panel-editor-stack
+  > .workspace-thread-editor-child:not(:last-child):has(
+    + .workspace-thread-editor-child--bundle:has(main.sequence-editor--bundle.sequence-editor--readonly)
+  )
+  .workspace-thread-editor-step-line::after {
+  --strand-bridge-into-next: 0.65rem;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child .thread-strand-child__handle.workspace-thread-tf-order-rail {
+  align-self: flex-start;
+  opacity: 0.88;
+  pointer-events: auto;
+}
+
+/* Thread index pane: keep strand grips visible (parity with editor stack / no hover required). */
+ol.workspace-thread-panel-strand
+  > li.workspace-thread-strand-row
+  > .thread-strand-child__handle.workspace-thread-tf-order-rail {
+  opacity: 0.88;
+  pointer-events: auto;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child:hover .thread-strand-child__handle.workspace-thread-tf-order-rail,
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child:focus-within .thread-strand-child__handle.workspace-thread-tf-order-rail {
+  opacity: 1;
+}
+
+.workspace-thread-editor-child__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child__content {
+  flex: 0 1 auto;
+}
+
+.thread-strand-editor-sequence-slot,
+.thread-strand-editor-bundle-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-panel-editor-frame {
+  display: block;
+  flex: none;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* Loading stub only — avoid a huge empty frame once bundle/sequence content loads */
+.workspace-thread-panel-editor-stack
+  .workspace-thread-panel-editor-frame:has(.workspace-thread-panel-editor-placeholder) {
+  min-height: 4.5rem;
+}
+
+.workspace-thread-panel-editor-stack .thread-strand-editor-bundle-body,
+.workspace-thread-panel-editor-stack .thread-strand-editor-sequence-slot {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.workspace-thread-panel-editor-stack .workspace-thread-panel-editor-frame .bundle-modal-shell {
+  padding: 0.6rem 0.85rem 0.85rem;
+}
+
+.bundle-modal-shell--thread-embed,
+.workspace-thread-panel-editor-stack
+  .workspace-thread-panel-editor-frame
+  .bundle-modal-shell--thread-embed {
+  padding: 0 0.15rem 0.6rem;
+  --thread-editor-text-max: 72ch;
+}
+
+/* Step context menus: clear sibling strand/pipeline rows; modal no longer clips overflow */
+.bundle-modal-shell--thread-embed .step-menu-wrap {
+  z-index: 3;
+}
+
+.bundle-modal-shell--thread-embed .step-row:has(.step-menu:not([hidden])),
+.bundle-modal-shell--thread-embed .bundle-pipeline-row:has(.step-menu:not([hidden])) {
+  z-index: 90;
+}
+
+.bundle-modal-shell--thread-embed .step-menu {
+  z-index: 400;
+}
+
+.bundle-modal-shell--thread-embed .sequence-form {
+  border: none;
+  border-radius: 0;
+  /* Drop default .sequence-form 1.1rem padding so titles align with strand step badge */
+  padding: 0 0.35rem 1rem;
+  background: transparent;
+}
+
+/* Thread-editor: nudge meta toward the strand step badge / step-number strip (less than full step-content column). */
+.bundle-modal-shell--thread-embed .thread-editor-sequence .meta-fields {
+  padding-left: 1em;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-section {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Bundle name in thread embed: same horizontal band as strand step badge */
+.bundle-modal-shell--thread-embed .bundle-thread-editor-bundle-title-row {
+  margin: 0 0 2em;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-thread-editor-bundle-title-row .field {
+  margin: 0;
+}
+
+.bundle-modal-shell--thread-embed .bundle-thread-editor-bundle-title-row .bundle-pipeline-bundle-title-input {
+  width: 100%;
+  max-width: min(100%, var(--thread-editor-text-max));
+  box-sizing: border-box;
+}
+
+/* Indent bundle pipeline block vs strand-level sequence editors */
+.bundle-modal-shell--thread-embed .bundle-pipeline-steps-list {
+  padding-left: 0.75rem;
+  box-sizing: border-box;
+}
+
+/* Workspace bundle iframe: inset first pipeline title beneath shell top edge to match strand bundle step badge */
+.bundle-modal-shell--thread-embed .bundle-thread-shell-root {
+  padding-top: 0em;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .step-card:not(.prompt-thread-step-card),
+.bundle-modal-shell--thread-embed .bundle-nested-step-card:not(.prompt-thread-step-card) {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Shell v2 thread editor: flat steps (Tailwind prompt-thread-step-card also clears chrome). */
+.bundle-modal-shell--thread-embed .step-card.prompt-thread-step-card {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.bundle-modal-shell--thread-embed .step-card.prompt-thread-step-card .rich-editor {
+  border: none;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-step-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bundle-modal-shell--thread-embed
+  .bundle-pipeline-step-card--thread-editor-unified,
+.bundle-modal-shell--thread-embed
+  .bundle-pipeline-step-card--thread-editor-empty-slot {
+  padding-left: 0;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-sequence.thread-editor-sequence {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.bundle-modal-shell--thread-embed .step-card.step-card--thread-embed-steps {
+  grid-template-columns: minmax(0, max-content) minmax(0, var(--thread-editor-text-max));
+}
+
+.bundle-modal-shell--thread-embed
+  .step-row[data-editor-kind="sequence_step"]:has(.step-order-rail--thread-handle)
+  > .step-card {
+  margin-left: 0;
+}
+
+.bundle-modal-shell--thread-embed .step-card--thread-embed-steps .step-number-area {
+  justify-content: flex-start;
+  padding-left: 0;
+  padding-right: 0.35rem;
+}
+
+.bundle-modal-shell--thread-embed
+  .thread-strand-sequence-container.thread-editor-sequence:not(.bundle-thread-shell-root) {
+  max-width: min(100%, calc(var(--thread-editor-text-max) + 2.75rem + 2em));
+}
+
+.bundle-modal-shell--thread-embed .nested-thread-editor-sequence {
+  max-width: min(100%, calc(var(--thread-editor-text-max) + 2.75rem + 2em));
+}
+
+/* Bundle pipeline child: match thread embed width budget (rail sits left of column as sibling flex item). */
+.bundle-modal-shell--thread-embed
+  .thread-strand-sequence-container.thread-editor-sequence.bundle-pipeline-thread-child-sequence {
+  max-width: min(100%, calc(var(--thread-editor-text-max) + 2.75rem + 2em));
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-step-card--thread-editor-unified {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-editor-child-shell {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  gap: 1.15em;
+  padding-left: 1.25em;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-sequence-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-leading-strip {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  align-self: stretch;
+  flex-shrink: 0;
+  gap: 0.35rem;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-leading-strip .bundle-pipeline-thread-child-strand-rail {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 0.2rem;
+  padding-bottom: 0.15rem;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-leading-strip .step-order-rail--thread-handle {
+  align-self: flex-start;
+  flex-shrink: 0;
+  padding-top: 0.2rem;
+  --step-strip-pad-block: 0.2rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-thread-child-strand-badge.workspace-thread-editor-step-badge {
+  aspect-ratio: auto;
+  min-height: calc(1em + 0.44em);
+  padding-inline: 0.32em;
+}
+
+/*
+ * Continuous strand strip across bundle pipeline rows (cf. .workspace-thread-editor-step-line::after).
+ * Vars live on the steps list so row descendants inherit them for bridge height tuning.
+ */
+.bundle-modal-shell--thread-embed .bundle-pipeline-steps-list[data-editor-kind="bundle_pipeline_slots_list"] {
+  --bundle-pipeline-strand-bridge-bottom-pad: 0.15rem;
+  --bundle-pipeline-strand-bridge-row-margin: 4em;
+  --bundle-pipeline-strand-bridge-grid-gap: 1.1rem;
+  --bundle-pipeline-strand-bridge-row-mt: 0.32rem;
+  --bundle-pipeline-strand-bridge-next-rail-pt: 0.2rem;
+  --bundle-pipeline-strand-bridge-badge-block: 2.75rem;
+  --bundle-pipeline-strand-bridge-line-mt: 0.35rem;
+}
+
+.bundle-modal-shell--thread-embed
+  .bundle-pipeline-steps-list[data-editor-kind="bundle_pipeline_slots_list"]
+  > .bundle-pipeline-row.thread-editor-bundle-slot:not(:last-child)
+  .bundle-pipeline-thread-child-strand-line.workspace-thread-editor-step-line {
+  position: relative;
+  z-index: 0;
+}
+
+.bundle-modal-shell--thread-embed
+  .bundle-pipeline-steps-list[data-editor-kind="bundle_pipeline_slots_list"]
+  > .bundle-pipeline-row.thread-editor-bundle-slot:not(:last-child)
+  .bundle-pipeline-thread-child-strand-line.workspace-thread-editor-step-line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, -2px);
+  width: 2px;
+  pointer-events: none;
+  margin-top: 0;
+  background: #5c6370;
+  border-radius: 1px;
+  height: calc(
+    var(--bundle-pipeline-strand-bridge-bottom-pad) + var(--bundle-pipeline-strand-bridge-row-margin) +
+      var(--bundle-pipeline-strand-bridge-grid-gap) + var(--bundle-pipeline-strand-bridge-row-mt) +
+      var(--bundle-pipeline-strand-bridge-next-rail-pt) + var(--bundle-pipeline-strand-bridge-badge-block) +
+      var(--bundle-pipeline-strand-bridge-line-mt) + 3px
+  );
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-nested-thread-steps {
+  padding-top: 0;
+}
+
+/* Thread editor: less vertical gap between generative steps and bundle pipeline slots */
+.bundle-modal-shell--thread-embed .steps-list[data-editor-kind="sequence_steps_list"] {
+  --steps-list-row-gap: 0.22rem;
+}
+
+.bundle-modal-shell--thread-embed .step-row[data-editor-kind="sequence_step"] {
+  --step-strip-pad-block: 0.32rem;
+}
+
+.bundle-modal-shell--thread-embed .bundle-pipeline-steps-list > .bundle-pipeline-row.thread-editor-bundle-slot:not(:first-child) {
+  margin-top: 0.32rem
+}
+/*workspace-thread-tf thread-strand-child workspace-thread-strand-row workspace-thread-editor-child workspace-thread-editor-child--sequence
+*/
+.bundle-pipeline-row.thread-editor-bundle-slot,
+.thread-strand-child {
+  margin-bottom: 4em;
+}
+
+.bundle-modal-shell--thread-embed
+  main.sequence-editor--bundle.sequence-editor--readonly
+  .bundle-pipeline-steps-list[data-editor-kind="bundle_pipeline_slots_list"] {
+  gap: var(--bundle-pipeline-strand-bridge-grid-gap);
+}
+
+.bundle-modal-shell--thread-embed
+  main.sequence-editor--bundle
+  .bundle-readonly-sequence-content {
+  padding: 0.65rem 0.9rem 0.85rem 1em;
+  box-sizing: border-box;
+}
+
+.bundle-modal-shell--thread-embed
+  main.sequence-editor--bundle
+  .bundle-pipeline-edit-stack {
+  border-left: none;
+  padding-left: 0;
+}
+
+.bundle-modal-shell--thread-embed .step-actions-area {
+  border-right: none;
+}
+
+.bundle-modal-shell--thread-embed
+  .step-row[data-editor-kind="sequence_step"]:has(.step-order-rail--thread-handle) {
+  gap: 0.1rem;
+}
+
+.bundle-modal-shell--thread-embed
+  .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle.workspace-thread-tf-order-btn {
+  padding-left: 0.04rem;
+  padding-right: 0.04rem;
+}
+
+.bundle-modal-shell--thread-embed .step-card--thread-embed-steps .step-content-area {
+  padding-left: 0.45rem;
+}
+
+.bundle-modal-shell--thread-embed .step-number-area,
+.bundle-modal-shell--thread-embed .bundle-pipeline-step-number {
+  background: transparent;
+  border-right: none;
+  border-radius: 0;
+}
+
+.bundle-modal-shell--thread-embed .step-row:not(:last-child) .step-number-area::after {
+  content: none;
+}
+
+.bundle-modal-shell--thread-embed .bundle-readonly-sequence-shell {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bundle-modal-shell--thread-embed .bundle-readonly-nested-step-row {
+  border: none;
+  border-radius: 0;
+  gap: 0;
+}
+
+.bundle-modal-shell--thread-embed .bundle-readonly-nested-step-body {
+  padding-left: 1em;
+}
+
+/* Thread strand editors: match single-sequence title scale to bundle pipeline titles */
+.bundle-modal-shell--thread-embed .thread-editor-sequence .sequence-title-input,
+.bundle-modal-shell--thread-embed
+  main.sequence-editor:not(.sequence-editor--bundle)
+  .sequence-title-input {
+  font-size: calc(2em * 0.7);
+}
+
+.thread-strand-sequence-container {
+  min-width: 0;
+  overflow: visible;
+}
+
+.workspace-thread-panel-editor-placeholder:not(.prompt-thread-editor-placeholder) {
+  margin: 0;
+  padding: 0.85rem;
+  font-size: 0.82rem;
+  color: #6b7c93;
+}
+
+.workspace-thread-panel-header-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-thread-panel-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-thread-panel-header-title-row .workspace-thread-panel-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-thread-panel-header-title-row .workspace-thread-panel-title-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.workspace-thread-panel-header-title-row .workspace-thread-panel-map-btn,
+.workspace-thread-panel-header-title-row .workspace-thread-panel-title-action-btn {
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-header-title-row .workspace-thread-panel-badge {
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-window-controls {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.15rem;
+  align-items: center;
+}
+
+.workspace-thread-panel-win-btn,
+.workspace-thread-panel-map-btn,
+.workspace-thread-panel-title-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #4a5d72;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* [hidden] alone is overridden by `display: flex` above (author CSS beats UA). */
+.workspace-thread-panel-title-action-btn[hidden] {
+  display: none !important;
+}
+
+.workspace-thread-panel-win-btn:hover,
+.workspace-thread-panel-map-btn:hover,
+.workspace-thread-panel-title-action-btn:hover {
+  background: rgba(15, 98, 254, 0.08);
+  color: #0f62fe;
+}
+
+.workspace-thread-panel-win-btn:focus-visible,
+.workspace-thread-panel-map-btn:focus-visible,
+.workspace-thread-panel-title-action-btn:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 1px;
+}
+
+.workspace-thread-panel-win-btn[aria-pressed="true"] {
+  background: rgba(15, 98, 254, 0.12);
+  color: #0f62fe;
+  border-color: rgba(15, 98, 254, 0.18);
+}
+
+.workspace-thread-panel-map-btn svg,
+.workspace-thread-panel-title-action-btn svg {
+  display: block;
+}
+
+/* Block post–HTML5-DnD synthetic clicks on layout/mode controls while reordering from the index. */
+.workspace-thread-panel-root--index-drag-active .workspace-thread-panel-win-btn,
+.workspace-thread-panel-root--index-drag-active .workspace-thread-panel-map-btn,
+.workspace-thread-panel-root--index-drag-active .workspace-thread-panel-title-actions,
+body:has(.workspace-thread-panel-root--index-drag-active)
+  .workspace-header-strip
+  .sequence-mode-toggle {
+  pointer-events: none;
+}
+
+.workspace-thread-panel-root--maximized .workspace-thread-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.workspace-work-shell:has(.workspace-thread-panel-root--maximized) {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+  overflow-x: visible;
+  overflow-y: visible;
+  align-self: flex-start;
+}
+
+/* Single-column thread panel (non-split): default usable width when editors are open. */
+.workspace-work-shell
+  > .workspace-work-inner.workspace-thread-panel-root.workspace-thread-panel-root--maximized {
+  min-width: var(--workspace-thread-single-min-width);
+}
+
+.workspace-thread-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #ebedf2;
+  background: #fafbfc;
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2d3f57;
+  min-width: 0;
+}
+
+.workspace-thread-panel-title-input {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 2rem;
+  max-width: 100%;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #2d3f57;
+  border: 1px solid rgba(15, 98, 254, 0.38);
+  border-radius: 6px;
+  padding: 0.12rem 0.45rem;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.workspace-thread-panel-title-input:focus {
+  outline: 2px solid #0f62fe;
+  outline-offset: 1px;
+}
+
+.workspace-thread-panel-badge {
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-strand {
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.75rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #2d3f57;
+  flex: none;
+  list-style: none;
+  counter-reset: strandIx;
+}
+
+.workspace-thread-panel-strand > li.workspace-thread-strand-row {
+  counter-increment: strandIx;
+}
+
+.workspace-thread-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(85vh, 48rem);
+  overflow-y: auto;
+  overflow-x: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-thread-panel-footer {
+  padding: 0.35rem 0.75rem 0.75rem;
+  border-top: 1px solid #ebedf2;
+  flex-shrink: 0;
+}
+
+.workspace-thread-panel-empty--in-shell {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.workspace-thread-add-tf {
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.workspace-thread-tf {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.5rem 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.workspace-thread-tf-index-card {
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  align-items: flex-start;
+  min-height: 2.25rem;
+}
+
+.workspace-thread-tf-title-static {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workspace-thread-tf-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #2d3f57;
+}
+
+/* Strand index: prefix sequence titles with strand order (bundle rows use .workspace-thread-bundle-index-heading). */
+.workspace-thread-panel-strand
+  > li.workspace-thread-strand-row:not(:has(.workspace-thread-bundle-pipeline-index))
+  .workspace-thread-tf-name::before {
+  content: counter(strandIx) ". ";
+  font-weight: 600;
+  color: #5a6a7e;
+}
+
+.workspace-thread-tf-index-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workspace-thread-tf-index-row .workspace-thread-tf-title-static {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.workspace-thread-tf-seq-eye {
+  flex-shrink: 0;
+}
+
+.workspace-thread-branch-menu-host {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.workspace-thread-tf-branch-btn {
+  flex-shrink: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  color: #4d6a93;
+}
+
+.workspace-thread-tf-branch-btn:hover {
+  color: #0f62fe;
+}
+
+.workspace-thread-branch-menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 35;
+  min-width: 12rem;
+  max-width: min(18rem, 70vw);
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.2rem 0;
+  margin: 0;
+  background: #fff;
+  border: 1px solid #d3dae4;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(41, 56, 77, 0.12);
+}
+
+.workspace-thread-branch-menu-link {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #2d3f57;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-thread-branch-menu-link:hover {
+  background: #f0f4fb;
+}
+
+.workspace-thread-bundle-pipeline-index .workspace-thread-branch-menu-host .workspace-thread-branch-menu-panel {
+  right: 0;
+  left: auto;
+}
+
+.workspace-thread-bundle-pipeline-index {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.workspace-thread-bundle-index-heading {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #2d3f57;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.workspace-thread-bundle-index-heading::before {
+  content: counter(strandIx) ". ";
+  font-weight: 600;
+  color: #5a6a7e;
+}
+
+.workspace-thread-bundle-pipeline-list {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  counter-reset: pipeIx;
+}
+
+.workspace-thread-bundle-pipeline-item {
+  counter-increment: pipeIx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.85rem;
+  padding: 0.12rem 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.workspace-thread-bundle-pipeline-item:active {
+  cursor: grabbing;
+}
+
+.workspace-thread-bundle-pipeline-item:last-child {
+  border-bottom: none;
+}
+
+.workspace-thread-bundle-pipeline-item--dragging {
+  opacity: 0.72;
+  cursor: grabbing;
+}
+
+.workspace-thread-bundle-pipeline-drag {
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  min-height: 1.4rem;
+  padding: 0.06rem 0.1rem;
+  opacity: 1;
+  color: #5a6a7e;
+}
+
+.workspace-thread-bundle-pipeline-ordinal {
+  flex-shrink: 0;
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #5a6a7e;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.workspace-thread-bundle-pipeline-ordinal::before {
+  content: counter(strandIx) "." counter(pipeIx);
+}
+
+.workspace-thread-bundle-pipeline-eye {
+  flex-shrink: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.workspace-thread-bundle-pipeline-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #2d3f57;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: inherit;
+}
+
+.workspace-thread-bundle-pipeline-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7c93;
+  font-style: italic;
+}
+
+.workspace-thread-tf--dragging {
+  opacity: 0.75;
+}
+
+.thread-strand-child__handle.workspace-thread-tf-order-rail {
+  position: static;
+  flex-shrink: 0;
+  align-self: flex-start;
+  top: auto;
+  left: auto;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 2;
+  margin-top: 0.35rem;
+}
+
+.workspace-thread-tf:hover .workspace-thread-tf-order-rail,
+.workspace-thread-tf:focus-within .workspace-thread-tf-order-rail {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .workspace-thread-tf-order-rail {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
+}
+
+.workspace-thread-tf-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.15rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #5a6a7e;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.workspace-thread-tf-order-btn:hover {
+  background: rgba(15, 98, 254, 0.08);
+  color: #0f62fe;
+}
+
+.workspace-thread-tf-order-menu-wrap {
+  position: relative;
+}
+
+.workspace-thread-tf-order-btn.workspace-thread-tf-drag-handle {
+  width: auto;
+  height: auto;
+  min-height: 1.55rem;
+  padding: 0.12rem 0.15rem;
+}
+
+.workspace-thread-tf-grip-vertical {
+  display: block;
+}
+
+.workspace-thread-tf-order-menu {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 0.3rem;
+  z-index: 30;
+  min-width: 11rem;
+  padding: 0.2rem 0;
+  background: #fff;
+  border: 1px solid #d3dae4;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(41, 56, 77, 0.12);
+}
+
+.workspace-thread-tf-order-menu-group {
+  position: relative;
+}
+
+.workspace-thread-tf-order-submenu {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 0.15rem;
+  z-index: 31;
+  min-width: 9rem;
+  padding: 0.2rem 0;
+  background: #fff;
+  border: 1px solid #d3dae4;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(41, 56, 77, 0.12);
+}
+
+.workspace-thread-tf-order-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #2d3f57;
+}
+
+.workspace-thread-tf-order-menu-item:hover {
+  background: #f0f4fb;
+}
+
+.workspace-thread-tf-order-menu-item--parent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.workspace-thread-tf-order-chevron {
+  flex-shrink: 0;
+  opacity: 0.55;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.workspace-thread-tf-order-menu-form {
+  display: block;
+  margin: 0;
+}
+
+.workspace-thread-tf-order-menu-item--danger {
+  color: #b42318;
+}
+
+.workspace-thread-tf-order-menu-item--danger:hover {
+  background: #fef2f2;
+}
+
+.workspace-thread-tf-order-menu-item--disabled,
+.workspace-thread-tf-order-menu-item--parent:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.workspace-thread-tf-order-submenu:has(.workspace-thread-tf-order-menu-item--bundle-merge) {
+  min-width: 14rem;
+  max-width: min(22rem, 90vw);
+}
+
+.workspace-thread-tf-order-menu-item--bundle-merge {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.workspace-thread-tf-grip-vertical--compact {
+  transform: scale(0.82);
+  transform-origin: center center;
+}
+
+.workspace-thread-tf-caret {
+  display: block;
+}
+
+.workspace-thread-tf-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #3d4f63;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.workspace-thread-tf-icon-btn:hover {
+  background: rgba(15, 98, 254, 0.08);
+  color: #0f62fe;
+}
+
+.workspace-thread-tf-menu-wrap {
+  position: relative;
+}
+
+.workspace-thread-tf-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin: 0.2rem 0 0;
+  min-width: 12rem;
+  padding: 0.25rem 0;
+  background: #fff;
+  border: 1px solid #d3dae4;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(41, 56, 77, 0.12);
+}
+
+.workspace-thread-tf-menu-form {
+  display: block;
+  margin: 0;
+}
+
+.workspace-thread-tf-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #2d3f57;
+}
+
+.workspace-thread-tf-menu-item:hover {
+  background: #f0f4fb;
+}
+
+.workspace-thread-tf-menu-item--danger {
+  color: #b42318;
+}
+
+.workspace-thread-tf-menu-item--danger:hover {
+  background: #fef2f2;
+}
+
+.sequence-editor--modal {
+  max-height: min(78vh, 640px);
+  overflow-y: auto;
+  padding-bottom: 0.5rem;
+}
+
+.bundle-edit-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* Native <dialog> can shrink intrinsic width to 0 when nested flex/grid lacks a definite width — backdrop still shows */
+  width: min(52rem, calc(100vw - 2rem));
+  max-width: 100vw;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
+
+.bundle-edit-dialog::backdrop {
+  background: rgba(22, 32, 48, 0.45);
+}
+
+.bundle-edit-dialog-panel {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(22, 32, 48, 0.22);
+  max-width: min(52rem, calc(100vw - 2rem));
+  max-height: min(90vh, 760px);
+  overflow: hidden;
+}
+
+.bundle-modal-shell {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.bundle-edit-dialog-panel--workspace-modal {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.workspace-modal-frames-wrap {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template: minmax(0, 1fr) / 1fr;
+  min-height: min(72vh, 640px);
+  width: 100%;
+  overflow: hidden;
+}
+
+.workspace-modal-frame-slot {
+  grid-area: 1 / 1 / -1 / -1;
+  overflow: hidden;
+}
+
+.bundle-modal-frame {
+  display: block;
+  width: 100%;
+  min-height: 4rem;
+}
+
+/* Sequencing / bundle workspaces: modal ~60% larger than browsing / off-workspace contexts */
+body:has(.workspace-shell--three-pane:not(.workspace-shell--browsing)) .bundle-edit-dialog {
+  width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
+}
+
+body:has(.workspace-shell--three-pane:not(.workspace-shell--browsing)) .bundle-edit-dialog-panel {
+  max-width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
+  max-height: min(calc(90vh * 1.6), calc(760px * 1.6), 96vh);
+}
+
+body:has(.workspace-shell--three-pane:not(.workspace-shell--browsing)) .workspace-modal-frames-wrap {
+  min-height: min(calc(72vh * 1.6), calc(640px * 1.6));
+}
+
+body:has(.workspace-shell--three-pane:not(.workspace-shell--browsing)) .sequence-editor--modal {
+  max-height: min(calc(78vh * 1.6), calc(640px * 1.6), 92vh);
+}
+
+/* Thread-embed: let step menus escape modal scrollport; keep scroll on thread panel body */
+body:has(.workspace-shell--three-pane:not(.workspace-shell--browsing))
+  .bundle-modal-shell--thread-embed
+  main.sequence-editor--modal {
+  max-height: none;
+  overflow: visible;
+}
+
+.bundle-modal-shell--thread-embed main.sequence-editor--modal {
+  max-height: none;
+  overflow: visible;
+}
+
+.bundle-edit-dialog-close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.45rem;
+  z-index: 30;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #5a6a7e;
+}
+
+.bundle-edit-dialog-close:hover {
+  background: #f0f4fb;
+  color: #0f62fe;
+}
+
+.workspace-thread-panel-tf {
+  margin: 0.3rem 0;
+}
+
+.workspace-thread-panel-tf-link {
+  color: #0f62fe;
+  text-decoration: none;
+}
+
+.workspace-thread-panel-tf-link:hover {
+  text-decoration: underline;
+}
+
+.workspace-thread-panel-empty {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.82rem;
+  color: #6b7c93;
+  flex-shrink: 0;
+}
+
+.workspace-right-panel {
+  background: #fff;
+  border-left: 1px solid #e4e8ee;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 1em;
+}
+
+.workspace-right-panel-tabs-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-right-panel-panels {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-right-panel-tabpanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-right-panel-tabpanel[hidden] {
+  display: none !important;
+}
+
+.workspace-right-panel-tabpanel .sequence-nav {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-right-panel-tabpanel--assistant {
+  overflow: auto;
+}
+
+.workspace-assistant-body {
+  padding: 1rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.workspace-assistant-placeholder {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #6b7c93;
 }
 
 .workspace-sidebar {
@@ -181,11 +2575,6 @@ body {
   margin: 0;
 }
 
-.sidebar-new-button {
-  width: 100%;
-  box-sizing: border-box;
-}
-
 .sequence-nav {
   flex: 1;
   overflow-y: auto;
@@ -320,6 +2709,15 @@ body {
   background: #f7f8fa;
 }
 
+.workspace--three-pane .workspace-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background: #d8dce3;
+}
+
 .workspace-chat-panel {
   flex: 0 0 360px;
   max-width: 100%;
@@ -369,6 +2767,50 @@ body {
   .workspace {
     flex-direction: column;
     min-height: 0;
+  }
+
+  .workspace-pane-resize-handle {
+    display: none;
+  }
+
+  .workspace-shell--three-pane {
+    min-height: 100vh;
+  }
+
+  .workspace--three-pane,
+  .workspace--two-pane {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: unset;
+  }
+
+  .workspace-weave-panel,
+  .workspace-middle-column,
+  .workspace-right-panel {
+    flex: none;
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid #e4e8ee;
+    max-height: none;
+  }
+
+  .workspace-weave-panel {
+    max-height: 42vh;
+  }
+
+  .workspace-browse-nav-panel {
+    max-height: 42vh;
+    border-right: none;
+    border-bottom: 1px solid #e4e8ee;
+  }
+
+  .workspace-middle-column {
+    min-height: 50vh;
+    flex: 1;
+  }
+
+  .workspace-right-panel {
+    max-height: 44vh;
   }
 
   .workspace-sidebar {
@@ -457,6 +2899,12 @@ body {
 .sequence-editor--readonly .sequence-title-input:focus-visible,
 .sequence-editor--readonly .sequence-intent-input:focus-visible {
   box-shadow: none;
+}
+
+/* Intent textarea: height driven by JS autosize; readonly shows full content (no max-height cap). */
+.sequence-editor--readonly .sequence-intent-input {
+  max-height: none;
+  overflow-y: hidden;
 }
 
 .sequence-editor--readonly .rich-editor[contenteditable="false"] {
@@ -593,6 +3041,14 @@ body {
   line-height: 1.45;
   letter-spacing: 0.015em;
   color: #4e5d70;
+  font-family: inherit;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  resize: none;
+  min-height: 0;
+  max-height: min(70vh, 24rem);
+  overflow-y: auto;
 }
 
 .sequence-intent-input::placeholder {
@@ -667,25 +3123,33 @@ body {
 }
 
 .steps-list {
+  --steps-list-row-gap: 0.45rem;
   display: grid;
-  gap: 0.45rem;
+  gap: var(--steps-list-row-gap);
 }
 
-.step-row {
+.step-row,
+.bundle-pipeline-row {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   gap: 0.45rem;
   position: relative;
+  --step-strip-pad-block: 0.45rem;
+}
+
+/* Generative steps (standard rail): match thread-handle row spacing between reorder rail and step number strip */
+.step-row[data-editor-kind="sequence_step"]:not(:has(.step-order-rail--thread-handle)) {
+  gap: 0.1rem;
 }
 
 .step-order-rail {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.26rem;
   flex-shrink: 0;
-  padding-top: 0.22rem;
+  padding-top: var(--step-strip-pad-block);
   align-self: flex-start;
   background: transparent;
 }
@@ -738,14 +3202,22 @@ body {
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(2.75rem, auto) auto minmax(0, 1fr);
-  align-items: stretch;
+  align-items: start;
   border: 1px solid #d6dde7;
   border-radius: 10px;
   padding: 0;
   background: #fff;
   overflow: visible;
-  /* Matches .step-number-area vertical padding + digit line-height */
-  --step-strip-min-height: calc(1.35rem + 2 * 0.55rem);
+  font-size: inherit;
+  line-height: 1.55;
+  /* Single-line strip height from text line-box + symmetric padding */
+  --step-strip-min-height: calc(1.55em + 2 * var(--step-strip-pad-block));
+}
+
+@supports (height: 1lh) {
+  .step-card {
+    --step-strip-min-height: calc(1lh + 2 * var(--step-strip-pad-block));
+  }
 }
 
 .step-card > .step-hidden-fields,
@@ -755,19 +3227,25 @@ body {
   box-sizing: border-box;
 }
 
-.step-row.dragging {
+.step-row.dragging,
+.bundle-pipeline-row.dragging {
   opacity: 0.55;
 }
 
-.step-row.drop-before .step-card {
+.step-row.drop-before .step-card,
+.bundle-pipeline-row.drop-before .step-card,
+.bundle-pipeline-row.drop-before .bundle-pipeline-step-card {
   box-shadow: inset 0 3px 0 #0f62fe;
 }
 
-.step-row.drop-after .step-card {
+.step-row.drop-after .step-card,
+.bundle-pipeline-row.drop-after .step-card,
+.bundle-pipeline-row.drop-after .bundle-pipeline-step-card {
   box-shadow: inset 0 -3px 0 #0f62fe;
 }
 
-.step-row:has(.step-menu:not([hidden])) {
+.step-row:has(.step-menu:not([hidden])),
+.bundle-pipeline-row:has(.step-menu:not([hidden])) {
   z-index: 50;
 }
 
@@ -775,13 +3253,26 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 0.72rem 0.35rem 0.38rem 0.35rem;
+  padding: var(--step-strip-pad-block) 0.35rem;
   min-height: var(--step-strip-min-height);
   box-sizing: border-box;
   align-self: stretch;
   border-radius: 9px 0 0 9px;
   border-right: 1px solid #a8a8a8;
   background: #bfbfbf;
+  position: relative;
+}
+
+/* Draw the numbered-strip rule through row gaps (.steps-list grid gap); spacing unchanged. */
+.step-row:not(:last-child) .step-number-area::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 1px;
+  height: var(--steps-list-row-gap);
+  background: #a8a8a8;
+  pointer-events: none;
 }
 
 .step-hidden-fields {
@@ -810,7 +3301,7 @@ body {
   gap: 0.35rem;
   width: max-content;
   max-width: 100%;
-  padding: 0.55rem 0.5rem;
+  padding: var(--step-strip-pad-block) 0.5rem;
   min-height: var(--step-strip-min-height);
   box-sizing: border-box;
   flex-shrink: 0;
@@ -820,9 +3311,9 @@ body {
 }
 
 .step-label {
-  font-size: 1.35rem;
+  font-size: inherit;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.55;
   color: #2d3f57;
 }
 
@@ -838,11 +3329,11 @@ body {
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: stretch;
   min-height: var(--step-strip-min-height);
   box-sizing: border-box;
-  padding-top: 0.2rem;
-  padding-bottom: 0.2rem;
+  padding-block: var(--step-strip-pad-block);
   padding-left: 1em;
 }
 
@@ -853,6 +3344,69 @@ body {
 
 .step-order-rail .drag-handle:active {
   cursor: grabbing;
+}
+
+/* Steps only (not bundle pipeline rows): discrete drag grips until hover, active editing, menus, dragging, or focus */
+.step-row[data-editor-kind="sequence_step"] > .step-order-rail:not(.step-order-rail--thread-handle) .drag-handle {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.step-row[data-editor-kind="sequence_step"]:hover
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle,
+.step-row[data-editor-kind="sequence_step"].step-row--sequence-active
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle,
+.step-row[data-editor-kind="sequence_step"]:focus-within
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle,
+.step-row[data-editor-kind="sequence_step"]:has(.step-menu:not([hidden]))
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle,
+.step-row[data-editor-kind="sequence_step"].dragging
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle,
+.step-row[data-editor-kind="sequence_step"]
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle:hover,
+.step-row[data-editor-kind="sequence_step"]
+  > .step-order-rail:not(.step-order-rail--thread-handle)
+  .drag-handle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.step-row[data-editor-kind="sequence_step"] > .step-order-rail--thread-handle .workspace-thread-tf-drag-handle {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.step-row[data-editor-kind="sequence_step"]:hover
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle,
+.step-row[data-editor-kind="sequence_step"].step-row--sequence-active
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle,
+.step-row[data-editor-kind="sequence_step"]:focus-within
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle,
+.step-row[data-editor-kind="sequence_step"]:has(.step-menu:not([hidden]))
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle,
+.step-row[data-editor-kind="sequence_step"].dragging
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle,
+.step-row[data-editor-kind="sequence_step"]
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle:hover,
+.step-row[data-editor-kind="sequence_step"]
+  > .step-order-rail--thread-handle
+  .workspace-thread-tf-drag-handle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .rich-toolbar button,
@@ -906,13 +3460,13 @@ body {
 }
 
 .rich-editor {
-  min-height: calc(var(--step-strip-min-height) - 0.4rem);
+  min-height: calc(var(--step-strip-min-height) - 0.5rem);
   box-sizing: border-box;
   flex: 1 1 auto;
   background: #fff;
   border: 0;
   border-radius: 6px;
-  padding: 0.25rem 0.2rem 0.2rem;
+  padding: 0 0.2rem 0.25rem;
   line-height: 1.55;
 }
 
@@ -987,6 +3541,130 @@ body {
   background: #f2f6fc;
 }
 
+.step-card.step-card--thread-embed-steps {
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+}
+
+.step-card.step-card--thread-embed-steps > .step-number-area {
+  justify-content: flex-start;
+  padding-left: 0;
+  padding-right: 0.35rem;
+}
+
+.step-order-rail--thread-handle {
+  padding-top: var(--step-strip-pad-block);
+}
+
+.step-order-rail--thread-handle .thread-step-handle-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.step-order-rail--thread-handle .workspace-thread-tf-drag-handle {
+  cursor: grab;
+}
+
+.step-order-rail--thread-handle .workspace-thread-tf-drag-handle:active {
+  cursor: grabbing;
+}
+
+.step-menu--thread-handle {
+  left: calc(100% + 4px);
+  right: auto;
+  top: 0;
+  margin-right: 0;
+  min-width: 9.5rem;
+}
+
+.step-menu-submenu-host {
+  position: relative;
+  margin: 0;
+}
+
+.step-menu-submenu-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.38rem 0.45rem;
+  font-size: 0.82rem;
+  color: #334155;
+  cursor: default;
+  user-select: none;
+  border-radius: 6px;
+}
+
+.step-menu-flyout-chevron {
+  font-size: 0.72rem;
+  color: #63748a;
+}
+
+.step-submenu {
+  position: absolute;
+  z-index: 220;
+  left: calc(100% - 10px);
+  top: -3px;
+  display: none;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 7.5rem;
+  padding: 0.28rem;
+  background: #fff;
+  border: 1px solid #d4dde8;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(41, 56, 77, 0.12);
+}
+
+.step-menu-submenu-host:hover .step-submenu,
+.step-menu-submenu-host:focus-within .step-submenu {
+  display: flex;
+}
+
+.step-submenu button {
+  border: 0;
+  text-align: left;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.step-submenu button:hover {
+  background: #f2f6fc;
+}
+
+.step-submenu button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (hover: none) {
+  .step-menu--thread-handle .step-submenu {
+    position: static;
+    display: flex !important;
+    left: auto;
+    top: auto;
+    min-width: 0;
+    margin: 0 0 0.28rem 0.55rem;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    gap: 0.18rem;
+  }
+
+  .step-menu--thread-handle .step-menu-submenu-host:last-of-type .step-submenu {
+    margin-bottom: 0;
+  }
+
+  .step-menu--thread-handle .step-menu-submenu-title .step-menu-flyout-chevron {
+    display: none;
+  }
+}
+
 .steps-footer {
   display: flex;
   justify-content: flex-start;
@@ -1009,245 +3687,35 @@ body {
   border: 0;
 }
 
-/* Projects index */
-.projects-screen {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0));
-  box-sizing: border-box;
-}
-
-.projects-screen-header {
-  margin-bottom: 1.5rem;
-}
-
-.projects-screen-title {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #12171f;
-}
-
-.projects-screen-lede {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #4e5d70;
-  line-height: 1.45;
-}
-
-.projects-empty {
-  margin: 0;
-  color: #6b7788;
-  font-size: 0.95rem;
-}
-
-.projects-nav .projects-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid #e4e8ee;
-  border-radius: 12px;
-  background: #fff;
-  overflow: visible;
-}
-
-.projects-list-item {
-  margin: 0;
-  border-bottom: 1px solid #eef1f6;
-}
-
-.projects-list-item:has(.sequence-nav-menu:not([hidden])) {
-  z-index: 20;
-  position: relative;
-}
-
-.projects-list-item:last-child {
-  border-bottom: none;
-}
-
-.projects-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.projects-row-link {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 0.5rem 0.75rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #2d3f57;
-  text-decoration: none;
-}
-
-.projects-row-link:hover {
-  background: #f4f7fb;
-}
-
-.projects-row-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.projects-row-rename {
-  padding: 0.65rem 1rem 0.85rem;
-  background: #f9fbff;
-}
-
-.projects-rename-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.projects-rename-input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid #d8e0ea;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-
-.projects-rename-save,
-.projects-rename-cancel {
-  flex-shrink: 0;
-}
-
-/* Project settings */
-.projects-settings-screen {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0));
-  box-sizing: border-box;
-}
-
-.projects-settings-header {
-  margin-bottom: 1.75rem;
-}
-
-.projects-settings-back {
-  display: inline-block;
-  margin-bottom: 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #1846a3;
-  text-decoration: none;
-}
-
-.projects-settings-back:hover {
-  text-decoration: underline;
-}
-
-.projects-settings-title {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #12171f;
-}
-
-.projects-settings-lede {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #4e5d70;
-}
-
-.projects-settings-form {
-  display: grid;
-  gap: 1.1rem;
-}
-
-.projects-settings-errors {
-  margin: 0;
-}
-
-.projects-settings-field {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.projects-settings-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #4a5665;
-}
-
-.projects-settings-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #d8e0ea;
-  border-radius: 8px;
-  font-size: 0.95rem;
-}
-
-.projects-settings-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #d8e0ea;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  resize: vertical;
-  min-height: 6rem;
-  font-family: inherit;
-}
-
-.projects-settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  padding-top: 0.25rem;
-}
-
-.projects-settings-cancel,
-.projects-settings-open {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* Transformation editor: prerequisites + pipeline */
-.transformation-prerequisites {
+.bundle-prerequisites {
   margin-top: 1rem;
   padding: 0.75rem 0;
   border-top: 1px solid #e8edf3;
 }
 
-.transformation-prerequisites-heading,
-.transformation-pipeline-heading {
+.bundle-prerequisites-heading,
+.bundle-pipeline-heading {
   margin: 0 0 0.35rem;
   font-size: 0.95rem;
   font-weight: 600;
   color: #3d4752;
 }
 
-.transformation-prerequisites-hint,
-.transformation-pipeline-hint {
+.bundle-prerequisites-hint,
+.bundle-pipeline-hint {
   margin: 0 0 0.65rem;
   font-size: 0.82rem;
   color: #6b7785;
 }
 
-.transformation-prerequisites-list {
+.bundle-prerequisites-list {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.transformation-prerequisite-option {
+.bundle-prerequisite-option {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1255,24 +3723,24 @@ body {
   cursor: pointer;
 }
 
-.transformation-prerequisites-empty {
+.bundle-prerequisites-empty {
   margin: 0;
   font-size: 0.85rem;
   color: #8a94a1;
 }
 
-.transformation-pipeline-section {
+.bundle-pipeline-section {
   margin-top: 1rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e8edf3;
 }
 
-.transformation-step-picker-area {
+.bundle-step-picker-area {
   flex: 1;
   min-width: 0;
 }
 
-.transformation-step-select {
+.bundle-step-select {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -1284,41 +3752,47 @@ body {
 }
 
 /* Pipeline segment title/intent: reuse .sequence-title-input / .sequence-intent-input (see .meta-fields) */
-.transformation-pipeline-child-meta {
+.bundle-pipeline-child-meta {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.35rem;
   margin-top: 0;
 }
 
-/* Transformation editor only: ~30% smaller title/intent than sequence editor (main.sequence-editor has no --transformation). */
-main.sequence-editor--transformation .sequence-title-input {
+/* Bundle editor only: ~30% smaller title/intent than sequence editor (main.sequence-editor has no --bundle). */
+main.sequence-editor--bundle .sequence-title-input {
   font-size: calc(2em * 0.7);
 }
 
-main.sequence-editor--transformation .sequence-intent-input {
+main.sequence-editor--bundle .sequence-intent-input {
   font-size: calc(1.22em * 0.7);
 }
 
-.sequence-editor--readonly .transformation-step-select {
+/* Thread panel / modal embed: one intent size — match step body (1rem, 1.55 line-height) for strand sequences and bundle pipeline children */
+.bundle-modal-shell--thread-embed main.sequence-editor .sequence-intent-input {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.sequence-editor--readonly .bundle-step-select {
   opacity: 0.85;
 }
 
 /* Transformation: document view vs pipeline editor */
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-hint--edit,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-heading,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-prerequisites-edit,
-main.sequence-editor--transformation:not(.sequence-editor--readonly) .transformation-prerequisites-readonly,
-main.sequence-editor--transformation:not(.sequence-editor--readonly) .transformation-segment-readonly,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-edit-stack,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-footer,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-actions,
-main.sequence-editor--transformation.sequence-editor--readonly .step-order-rail,
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-step-number {
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-hint--edit,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-heading,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-prerequisites-edit,
+main.sequence-editor--bundle:not(.sequence-editor--readonly) .bundle-prerequisites-readonly,
+main.sequence-editor--bundle:not(.sequence-editor--readonly) .bundle-segment-readonly,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-edit-stack,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-footer,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-actions,
+main.sequence-editor--bundle.sequence-editor--readonly .step-order-rail,
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-step-number {
   display: none !important;
 }
 
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-step-card {
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-step-card {
   display: block;
   border: none;
   box-shadow: none;
@@ -1327,51 +3801,54 @@ main.sequence-editor--transformation.sequence-editor--readonly .transformation-p
   padding-right: 0;
 }
 
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-segment-document {
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-segment-document {
   margin-top: 0;
 }
 
 /* Transformation readonly: one card per pipeline generative sequence */
-.transformation-readonly-sequence-shell {
+.bundle-readonly-sequence-shell {
   border: 1px solid #d6dde7;
   border-radius: 10px;
   background: #fff;
   overflow: hidden;
 }
 
-.transformation-readonly-sequence-layout {
+.bundle-readonly-sequence-layout {
   display: flex;
   flex-direction: row;
   align-items: stretch;
   min-width: 0;
 }
 
-.transformation-readonly-sequence-index {
+.bundle-readonly-sequence-index {
   flex: 0 0 auto;
   min-width: 2.75rem;
   align-self: stretch;
 }
 
-.transformation-readonly-sequence-content {
+.bundle-readonly-sequence-content {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0.65rem 0.9rem 0.85rem 1rem;
   box-sizing: border-box;
 }
 
-main.sequence-editor--transformation .transformation-readonly-sequence-content .transformation-segment-heading {
+main.sequence-editor--bundle .bundle-readonly-sequence-content .bundle-segment-heading {
   margin: 0 0 0.35rem;
   padding: 0;
 }
 
-main.sequence-editor--transformation .transformation-readonly-sequence-intent {
+main.sequence-editor--bundle .bundle-readonly-sequence-intent {
   margin: 0 0 1.05rem;
   font-size: 0.9rem;
   line-height: 1.45;
   color: #5c6670;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
 }
 
-.transformation-readonly-nested-step-row {
+.bundle-readonly-nested-step-row {
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -1385,82 +3862,82 @@ main.sequence-editor--transformation .transformation-readonly-sequence-intent {
   gap: 0.85rem;
 }
 
-.transformation-readonly-nested-step-row:first-of-type {
+.bundle-readonly-nested-step-row:first-of-type {
   margin-top: 0.25rem;
 }
 
-.transformation-readonly-nested-step-row + .transformation-readonly-nested-step-row {
+.bundle-readonly-nested-step-row + .bundle-readonly-nested-step-row {
   margin-top: 0.65rem;
 }
 
-.transformation-readonly-nested-index {
+.bundle-readonly-nested-index {
   flex: 0 0 auto;
   min-width: 2.75rem;
   align-self: stretch;
 }
 
-.transformation-readonly-nested-index.step-number-area {
+.bundle-readonly-nested-index.step-number-area {
   border-radius: 0;
 }
 
-.transformation-readonly-nested-step-body {
+.bundle-readonly-nested-step-body {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0.65rem 0.85rem 0.65rem 0;
   box-sizing: border-box;
 }
 
-main.sequence-editor--transformation .transformation-segment-heading {
+main.sequence-editor--bundle .bundle-segment-heading {
   margin: 1.25rem 0 0.5rem;
   font-size: 1.05rem;
   font-weight: 600;
   color: #2c3339;
 }
 
-main.sequence-editor--transformation .transformation-segment-heading:first-child {
+main.sequence-editor--bundle .bundle-segment-heading:first-child {
   margin-top: 0.35rem;
 }
 
-main.sequence-editor--transformation .transformation-segment-prose {
+main.sequence-editor--bundle .bundle-segment-prose {
   max-width: 52rem;
 }
 
-main.sequence-editor--transformation .transformation-segment-step-prose,
-main.sequence-editor--transformation .transformation-readonly-nested-step-body .transformation-segment-step-prose {
+main.sequence-editor--bundle .bundle-segment-step-prose,
+main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose {
   margin: 0 0 0.85rem;
   line-height: 1.5;
   color: #2d3339;
 }
 
-main.sequence-editor--transformation .transformation-segment-step-prose:last-child,
-main.sequence-editor--transformation .transformation-readonly-nested-step-body .transformation-segment-step-prose:last-child {
+main.sequence-editor--bundle .bundle-segment-step-prose:last-child,
+main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose:last-child {
   margin-bottom: 0;
 }
 
-main.sequence-editor--transformation .transformation-readonly-nested-step-body .transformation-segment-step-prose {
+main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose {
   margin-bottom: 0;
 }
 
-main.sequence-editor--transformation .transformation-segment-missing {
+main.sequence-editor--bundle .bundle-segment-missing {
   margin: 0;
   font-size: 0.9rem;
   color: #8a94a1;
 }
 
-main.sequence-editor--transformation .transformation-prerequisites-summary-list {
+main.sequence-editor--bundle .bundle-prerequisites-summary-list {
   margin: 0.25rem 0 0;
   padding-left: 1.2rem;
   font-size: 0.88rem;
   color: #3d4752;
 }
 
-main.sequence-editor--transformation .transformation-prerequisites-summary-empty {
+main.sequence-editor--bundle .bundle-prerequisites-summary-empty {
   margin: 0;
   font-size: 0.88rem;
   color: #8a94a1;
 }
 
-main.sequence-editor--transformation .transformation-pipeline-edit-stack {
+main.sequence-editor--bundle .bundle-pipeline-edit-stack {
   margin-top: 0.65rem;
   padding-left: 1em;
   padding-right: 1em;
@@ -1468,30 +3945,30 @@ main.sequence-editor--transformation .transformation-pipeline-edit-stack {
   border-left: 2px solid #e4eaf1;
 }
 
-main.sequence-editor--transformation .nested-sequence-editor {
+main.sequence-editor--bundle .nested-sequence-editor {
   margin-top: 0.75rem;
 }
 
-main.sequence-editor--transformation .nested-sequence-editor-footer.steps-footer {
+main.sequence-editor--bundle .nested-sequence-editor-footer.steps-footer {
   margin-top: 0.5rem;
 }
 
-main.sequence-editor--transformation .nested-sequence-editor-footer.nested-sequence-editor-footer--split {
+main.sequence-editor--bundle .nested-sequence-editor-footer.nested-sequence-editor-footer--split {
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-section {
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-section {
   border-top: none;
   padding-top: 0.5rem;
 }
 
-main.sequence-editor--transformation.sequence-editor--readonly .transformation-pipeline-steps-list {
+main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-steps-list {
   gap: 0.85rem;
 }
 
-main.sequence-editor--transformation .transformation-nested-step-card {
-  background: #fafbfc;
+main.sequence-editor--bundle .bundle-nested-step-card {
+  background: #ffffff;
 }

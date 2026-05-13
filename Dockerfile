@@ -30,9 +30,9 @@ ENV RAILS_ENV="production" \
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
-# Install packages needed to build gems
+# Install packages needed to build gems and precompile assets (Node for npm / Flowbite + Tailwind)
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev pkg-config && \
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev pkg-config nodejs npm && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install application gems
@@ -46,6 +46,9 @@ RUN bundle install && \
 
 # Copy application code
 COPY . .
+
+# JavaScript packages for Tailwind v4 @plugin "flowbite/plugin" (tailwindcss:build)
+RUN npm ci && rm -rf /tmp/npm-* ~/.npm
 
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495

@@ -28,6 +28,9 @@ export default class extends Controller {
     const readonly = mode === "readonly"
     setSequenceEditorReadonlyPreference(readonly)
     this.updateToggleUi(readonly)
+    document.dispatchEvent(
+      new CustomEvent("sequence-editor:global-mode", { detail: { readonly } })
+    )
   }
 
   updateToggleUi(readonly) {

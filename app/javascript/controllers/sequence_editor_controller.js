@@ -1,10 +1,18 @@
 import { Controller } from "@hotwired/stimulus"
-import {
-  getSequenceEditorReadonlyPreference,
-  setSequenceEditorReadonlyPreference
-} from "sequence_editor_mode_storage"
+import { getSequenceEditorReadonlyPreference } from "sequence_editor_mode_storage"
+import { fetchAutosaveForm } from "workspace_autosave"
 
-const PIPELINE_SCROLL_AFTER_CREATE_KEY = "promptlab:scrollTransformationPipelineSeqId"
+/** Generative step row (vs bundle pipeline slot: data-editor-kind="bundle_pipeline_slot"). */
+const SEQUENCE_STEP_ROW_SELECTOR = '[data-editor-kind="sequence_step"]'
+const SEQUENCE_STEP_ROW_ACTIVE_DRAG_CLASS = "step-row--sequence-active"
+
+function formatStepOrdinalLabelForStepRow(stepRowEl, ordinal) {
+  const stepCard = stepRowEl.querySelector(":scope > article.step-card.step-card--thread-embed-steps")
+  if (stepCard) return `${ordinal}:`
+  return String(ordinal)
+}
+
+const PIPELINE_SCROLL_AFTER_CREATE_KEY = "promptlab:scrollBundlePipelineSeqId"
 
 export default class extends Controller {
   static targets = [
@@ -23,12 +31,9 @@ export default class extends Controller {
     "stepTemplate",
     "sequenceOptionsTemplate",
     "sequenceSelect",
-    "copyButton",
     "toolbar",
     "menu",
-    "menuWrap",
-    "modeReadonly",
-    "modeEdit"
+    "menuWrap"
   ]
 
   static values = {
@@ -38,8 +43,10 @@ export default class extends Controller {
     pipelineMode: { type: Boolean, default: false },
     nested: { type: Boolean, default: false },
     nestedFieldPrefix: { type: String, default: "" },
-    saveSequenceUrl: { type: String, default: "" },
-    pipelineCreateSequenceUrl: { type: String, default: "" }
+    pipelineCreateSequenceUrl: { type: String, default: "" },
+    bundleId: { type: Number, default: 0 },
+    unbundleProjectId: { type: Number, default: 0 },
+    unbundleThreadId: { type: Number, default: 0 }
   }
 
   connect() {
@@ -47,20 +54,31 @@ export default class extends Controller {
     this.dragArmedCard = null
     this.dropIndicatorCard = null
     this.activeCard = null
+    this.sequenceStepDragActiveMarkedRow = null
     this.boundOutsideClick = this.handleOutsideClick.bind(this)
     document.addEventListener("click", this.boundOutsideClick)
 
+    this.autosaveInFlight = false
+    this.autosaveQueued = false
+    this.dragCardSiblingsOrder = null
+
     if (this.nestedValue) {
-      this.rootTransformationMain = this.element.closest("main.sequence-editor--transformation")
+      this.rootBundleMain = this.element.closest("main.sequence-editor--bundle")
       this.boundReadonlySync = (event) => {
         if (!event.detail || typeof event.detail.readonly !== "boolean") return
-        if (!this.rootTransformationMain?.contains(this.element)) return
+        if (!this.rootBundleMain?.contains(this.element)) return
         this.readonlyValue = event.detail.readonly
       }
       document.addEventListener("sequence-editor:readonly-sync", this.boundReadonlySync)
-      if (this.rootTransformationMain?.classList.contains("sequence-editor--readonly")) {
+      if (this.rootBundleMain?.classList.contains("sequence-editor--readonly")) {
         this.readonlyValue = true
       }
+    } else {
+      this.boundGlobalMode = (event) => {
+        if (!event.detail || typeof event.detail.readonly !== "boolean") return
+        this.readonlyValue = event.detail.readonly
+      }
+      document.addEventListener("sequence-editor:global-mode", this.boundGlobalMode)
     }
 
     const url = new URL(window.location.href)
@@ -81,17 +99,22 @@ export default class extends Controller {
     this.activeCard = null
     this.applyReadonlyMode()
     this.maybeScrollToNewPipelineSequence()
+    this.setupAutosaveListeners()
+
+    this.boundIntentInputAutosize = (e) => {
+      const t = e.target
+      if (t?.tagName !== "TEXTAREA" || !t.classList?.contains("sequence-intent-input")) return
+      this.autosizeIntentTextarea(t)
+    }
+    this.element.addEventListener("input", this.boundIntentInputAutosize)
+    this.scheduleResizeAllIntentTextareas()
+    if (document.fonts?.ready) {
+      void document.fonts.ready.then(() => this.scheduleResizeAllIntentTextareas())
+    }
   }
 
   readonlyValueChanged() {
     this.applyReadonlyMode()
-  }
-
-  setMode(event) {
-    if (this.nestedValue) return
-    const mode = event.currentTarget.dataset.mode
-    this.readonlyValue = mode === "readonly"
-    setSequenceEditorReadonlyPreference(this.readonlyValue)
   }
 
   applyReadonlyMode() {
@@ -100,16 +123,16 @@ export default class extends Controller {
     if (this.nestedValue) {
       if (this.hasTitleInputTarget) {
         this.titleInputTarget.readOnly = this.readonlyValue
-        this.intentInputTarget.readOnly = this.readonlyValue
+        if (this.hasIntentInputTarget) this.intentInputTarget.readOnly = this.readonlyValue
       }
     } else if (this.hasTitleInputTarget) {
       this.titleInputTarget.readOnly = this.readonlyValue
-      this.intentInputTarget.readOnly = this.readonlyValue
+      if (this.hasIntentInputTarget) this.intentInputTarget.readOnly = this.readonlyValue
     }
 
     if (this.pipelineModeValue && !this.nestedValue) {
       this.element.querySelectorAll(
-        ".transformation-pipeline-child-title-input, .transformation-pipeline-child-intent-input"
+        ".bundle-pipeline-bundle-title-input, .bundle-pipeline-child-title-input, .bundle-pipeline-child-intent-input"
       ).forEach((el) => {
         el.readOnly = this.readonlyValue
       })
@@ -140,25 +163,27 @@ export default class extends Controller {
       this.hideAllToolbars()
     }
 
-    this.updateModeToggleUi()
-
     if (this.pipelineModeValue && !this.nestedValue) {
       document.dispatchEvent(
         new CustomEvent("sequence-editor:readonly-sync", { detail: { readonly: this.readonlyValue } })
       )
     }
-  }
 
-  updateModeToggleUi() {
-    if (!this.hasModeReadonlyTarget || !this.hasModeEditTarget) return
-    this.modeReadonlyTarget.setAttribute("aria-pressed", this.readonlyValue ? "true" : "false")
-    this.modeEditTarget.setAttribute("aria-pressed", this.readonlyValue ? "false" : "true")
+    this.scheduleResizeAllIntentTextareas()
   }
 
   disconnect() {
+    this.clearSequenceStepDragActiveMarker()
+    this.teardownAutosaveListeners()
     document.removeEventListener("click", this.boundOutsideClick)
     if (this.nestedValue && this.boundReadonlySync) {
       document.removeEventListener("sequence-editor:readonly-sync", this.boundReadonlySync)
+    }
+    if (!this.nestedValue && this.boundGlobalMode) {
+      document.removeEventListener("sequence-editor:global-mode", this.boundGlobalMode)
+    }
+    if (this.boundIntentInputAutosize) {
+      this.element.removeEventListener("input", this.boundIntentInputAutosize)
     }
   }
 
@@ -186,13 +211,40 @@ export default class extends Controller {
       el.value = this.defaultTitleValue
     } else if (el === this.intentInputTarget && this.defaultIntentValue) {
       el.value = this.defaultIntentValue
+      this.autosizeIntentTextarea(el)
     }
+  }
+
+  autosizeIntentTextarea(textarea) {
+    if (!textarea || textarea.tagName !== "TEXTAREA" || !textarea.classList.contains("sequence-intent-input")) return
+    textarea.style.height = "auto"
+    const maxPx = this.intentTextareaMaxHeightPx(textarea)
+    const nextHeight = Number.isFinite(maxPx) ? Math.min(textarea.scrollHeight, maxPx) : textarea.scrollHeight
+    textarea.style.height = `${nextHeight}px`
+  }
+
+  intentTextareaMaxHeightPx(textarea) {
+    const raw = window.getComputedStyle(textarea).maxHeight
+    if (!raw || raw === "none") return Number.POSITIVE_INFINITY
+    const parsed = parseFloat(raw)
+    return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY
+  }
+
+  resizeAllIntentTextareas() {
+    this.element.querySelectorAll("textarea.sequence-intent-input").forEach((el) => this.autosizeIntentTextarea(el))
+  }
+
+  scheduleResizeAllIntentTextareas() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.resizeAllIntentTextareas())
+    })
   }
 
   addStep() {
     if (this.readonlyValue) return
     const card = this.insertStep({ anchorCard: null, placeBefore: false })
     this.activateCard(card)
+    this.queueStructureAutosave()
   }
 
   addStepBefore(event) {
@@ -201,6 +253,7 @@ export default class extends Controller {
     this.closeAllMenus()
     const newCard = this.insertStep({ anchorCard: card, placeBefore: true })
     this.activateCard(newCard)
+    this.queueStructureAutosave()
   }
 
   addStepAfter(event) {
@@ -209,6 +262,7 @@ export default class extends Controller {
     this.closeAllMenus()
     const newCard = this.insertStep({ anchorCard: card, placeBefore: false })
     this.activateCard(newCard)
+    this.queueStructureAutosave()
   }
 
   duplicateStep(event) {
@@ -220,7 +274,7 @@ export default class extends Controller {
     if (this.pipelineModeValue) {
       const select = this.pipelineRowSequenceSelect(card)
       const hidden = card.querySelector(
-        '.transformation-step-picker-area input.transformation-pipeline-sequence-id-field[type="hidden"]'
+        '.bundle-step-picker-area input.bundle-pipeline-sequence-id-field[type="hidden"]'
       )
       sequenceId = select?.value || hidden?.value || ""
     } else {
@@ -231,7 +285,9 @@ export default class extends Controller {
     this.activateCard(duplicated)
     if (this.pipelineModeValue && sequenceId) {
       window.location.reload()
+      return
     }
+    this.queueStructureAutosave()
   }
 
   pipelineSequenceSelectChanged(event) {
@@ -246,7 +302,16 @@ export default class extends Controller {
       return
     }
     if (!sel.value) return
-    window.location.reload()
+
+    this.syncEditorsBeforeSubmit()
+    try {
+      sessionStorage.setItem(PIPELINE_SCROLL_AFTER_CREATE_KEY, String(sel.value))
+    } catch (_e) {
+      /* ignore private mode / quota */
+    }
+
+    const formEl = sel.closest("form")
+    if (formEl) void this.autosaveFormAsync(formEl)
   }
 
   maybeScrollToNewPipelineSequence() {
@@ -271,7 +336,7 @@ export default class extends Controller {
       requestAnimationFrame(() => {
         const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(idStr) : idStr
         const row = document.querySelector(
-          `[data-transformation-pipeline-seq-id="${esc}"][data-sequence-editor-target="pipelineStepRow"]`
+          `[data-bundle-pipeline-seq-id="${esc}"][data-sequence-editor-target="pipelineStepRow"]`
         )
         if (!row) return
 
@@ -279,8 +344,8 @@ export default class extends Controller {
 
         if (this.readonlyValue) return
         const focusEl =
-          row.querySelector(".transformation-pipeline-child-title-input") ||
-          row.querySelector(".transformation-pipeline-child-intent-input")
+          row.querySelector(".bundle-pipeline-child-title-input") ||
+          row.querySelector(".bundle-pipeline-child-intent-input")
         if (!focusEl || typeof focusEl.focus !== "function") return
         try {
           focusEl.focus({ preventScroll: true })
@@ -344,13 +409,7 @@ export default class extends Controller {
       }
 
       const formEl = selectEl.closest("form")
-      if (formEl) {
-        if (typeof formEl.requestSubmit === "function") {
-          formEl.requestSubmit(this.formSubmitButton(formEl))
-        } else {
-          formEl.submit()
-        }
-      }
+      if (formEl) void this.autosaveFormAsync(formEl)
     } catch (_err) {
       window.alert("Network error while creating sequence.")
       this.suppressPipelineSequenceChangeOnce = true
@@ -358,13 +417,6 @@ export default class extends Controller {
     } finally {
       selectEl.disabled = false
     }
-  }
-
-  formSubmitButton(_formEl) {
-    return (
-      document.querySelector('button[type="submit"][form="sequence-edit-form"]') ||
-      _formEl?.querySelector('button.editor-footer-save[type="submit"]')
-    )
   }
 
   appendPipelineSequenceOptionToAllSelectors(idStr, title) {
@@ -407,6 +459,118 @@ export default class extends Controller {
     menu.hidden = open
   }
 
+  openThreadEmbedStepMenu(event) {
+    if (this.readonlyValue) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.showThreadEmbedStepHandleMenu(event.currentTarget)
+  }
+
+  threadHandleMenuKeydown(event) {
+    if (this.readonlyValue) return
+    const keyOk = event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")
+    if (!keyOk) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.showThreadEmbedStepHandleMenu(event.currentTarget)
+  }
+
+  toggleThreadEmbedStepHandleMenu(event) {
+    if (this.readonlyValue) return
+    event.preventDefault()
+    event.stopPropagation()
+    const button = event.currentTarget
+    if (!button.matches?.(".thread-embed-sequence-step-drag-handle")) return
+    const wrap = button.closest(".thread-step-handle-wrap")
+    const menu = wrap?.querySelector(".step-menu--thread-handle[data-sequence-editor-target=\"menu\"]")
+    if (!menu) return
+    const wasOpen = !menu.hidden
+    this.closeAllMenus()
+    if (wasOpen) return
+    menu.hidden = false
+    button.setAttribute("aria-expanded", "true")
+  }
+
+  showThreadEmbedStepHandleMenu(button) {
+    if (this.readonlyValue) return
+    const wrap = button?.closest(".thread-step-handle-wrap")
+    const menu = wrap?.querySelector(".step-menu--thread-handle[data-sequence-editor-target=\"menu\"]")
+    if (!menu) return
+    this.closeAllMenus()
+    menu.hidden = false
+    button?.setAttribute("aria-expanded", "true")
+  }
+
+  unbundlePipelineChild(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeAllMenus()
+
+    const pipelineRow = event.currentTarget.closest('[data-editor-kind="bundle_pipeline_slot"]')
+    const sequenceIdRaw = pipelineRow?.dataset?.bundlePipelineSeqId || pipelineRow?.getAttribute("data-bundle-pipeline-seq-id")
+    const sequenceId = sequenceIdRaw ? parseInt(String(sequenceIdRaw), 10) : 0
+
+    if (
+      !sequenceId ||
+      !this.bundleIdValue ||
+      !this.hasUnbundleProjectIdValue ||
+      !this.unbundleProjectIdValue ||
+      !this.hasUnbundleThreadIdValue ||
+      !this.unbundleThreadIdValue
+    ) {
+      window.alert("Unbundle is not available in this context.")
+      return
+    }
+
+    const form = this.element.querySelector("form.sequence-form")
+    const redirectTo =
+      form?.querySelector('input[name="redirect_to"]')?.value || `${window.location.pathname}${window.location.search}`
+    const weaveThread = form?.querySelector('input[name="weave_thread"]')?.value
+
+    const url = `/projects/${this.unbundleProjectIdValue}/sequences/${this.unbundleThreadIdValue}/thread_unbundle_pipeline_sequence`
+    const fd = new FormData()
+    const token = this.csrfToken()
+    if (!token) {
+      window.alert("Missing CSRF token.")
+      return
+    }
+    fd.append("authenticity_token", token)
+    fd.append("bundle_id", String(this.bundleIdValue))
+    fd.append("sequence_id", String(sequenceId))
+    fd.append("redirect_to", redirectTo)
+    if (weaveThread) fd.append("weave_thread", weaveThread)
+
+    void (async () => {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "text/html, application/xhtml+xml",
+            "X-CSRF-Token": token,
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: fd
+        })
+        if (response.ok) {
+          if (response.redirected && response.url) {
+            if (window.Turbo && typeof window.Turbo.visit === "function") {
+              window.Turbo.visit(response.url)
+            } else {
+              window.location.assign(response.url)
+            }
+          } else {
+            window.location.reload()
+          }
+          return
+        }
+        window.alert("Could not unbundle.")
+      } catch (_err) {
+        window.alert("Network error while unbundling.")
+      }
+    })()
+  }
+
   handleOutsideClick(event) {
     if (this.readonlyValue) return
 
@@ -422,14 +586,30 @@ export default class extends Controller {
   deactivateEditing() {
     this.syncEditorValuesFromDOM()
     this.activeCard = null
+    this.clearSequenceStepDragActiveMarker()
     this.setAllEditorsReadOnly()
     this.hideAllToolbars()
+  }
+
+  clearSequenceStepDragActiveMarker() {
+    if (!this.sequenceStepDragActiveMarkedRow) return
+    this.sequenceStepDragActiveMarkedRow.classList.remove(SEQUENCE_STEP_ROW_ACTIVE_DRAG_CLASS)
+    this.sequenceStepDragActiveMarkedRow = null
+  }
+
+  refreshSequenceStepDragActiveMarker() {
+    this.clearSequenceStepDragActiveMarker()
+    const row = this.activeCard
+    if (!row || typeof row.matches !== "function") return
+    if (!row.matches(SEQUENCE_STEP_ROW_SELECTOR)) return
+    row.classList.add(SEQUENCE_STEP_ROW_ACTIVE_DRAG_CLASS)
+    this.sequenceStepDragActiveMarkedRow = row
   }
 
   syncEditorValuesFromDOM() {
     if (this.pipelineModeValue) return
     this.editorTargets.forEach((editor) => {
-      const row = editor.closest(".step-row")
+      const row = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
       if (!row || row.hidden) return
       const inner = editor.closest(".step-card")
       const contentInput = inner?.querySelector('[data-sequence-editor-target="contentInput"]')
@@ -440,7 +620,7 @@ export default class extends Controller {
   setAllEditorsReadOnly() {
     if (this.pipelineModeValue) return
     this.editorTargets.forEach((editor) => {
-      const row = editor.closest(".step-row")
+      const row = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
       if (!row || row.hidden) return
       editor.contentEditable = "false"
     })
@@ -450,10 +630,14 @@ export default class extends Controller {
     this.menuTargets.forEach((menu) => {
       menu.hidden = true
     })
+    this.element.querySelectorAll(".thread-embed-sequence-step-drag-handle").forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false")
+    })
   }
 
   moveUp(event) {
     if (this.readonlyValue) return
+    this.closeAllMenus()
     const card = this.cardFromEvent(event)
     if (!card) return
     this.moveCardByOffset(card, -1)
@@ -461,6 +645,7 @@ export default class extends Controller {
 
   moveDown(event) {
     if (this.readonlyValue) return
+    this.closeAllMenus()
     const card = this.cardFromEvent(event)
     if (!card) return
     this.moveCardByOffset(card, 1)
@@ -472,10 +657,24 @@ export default class extends Controller {
     if (!event.ctrlKey) return
 
     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-      event.preventDefault()
       const card = this.cardFromEvent(event)
       if (!card) return
 
+      if (event.shiftKey) {
+        event.preventDefault()
+        this.closeAllMenus()
+        const newCard = this.insertStep({
+          anchorCard: card,
+          placeBefore: event.key === "ArrowUp"
+        })
+        if (newCard) {
+          this.activateCard(newCard)
+          this.queueStructureAutosave()
+        }
+        return
+      }
+
+      event.preventDefault()
       this.moveCardByOffset(card, event.key === "ArrowUp" ? -1 : 1)
       this.activateCard(card)
       const editor = card.querySelector('[data-sequence-editor-target="editor"]')
@@ -497,7 +696,7 @@ export default class extends Controller {
     event.preventDefault()
     event.stopPropagation()
 
-    const row = editor.closest(".step-row")
+    const row = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
     const fragments = items.map((raw) => this.normalizePastedStepHtml(raw))
 
     editor.innerHTML = fragments[0]
@@ -509,6 +708,7 @@ export default class extends Controller {
     }
 
     this.activateCard(row)
+    this.queueStructureAutosave()
   }
 
   extractListItemsFromClipboard(html, plain) {
@@ -642,6 +842,7 @@ export default class extends Controller {
       list.insertBefore(destination, card)
     }
     this.reindexSteps()
+    this.queueStructureAutosave()
   }
 
   deleteStep(event) {
@@ -657,6 +858,7 @@ export default class extends Controller {
     }
 
     this.reindexSteps()
+    this.queueStructureAutosave()
   }
 
   activateStep(event) {
@@ -670,17 +872,18 @@ export default class extends Controller {
     if (!row || row.hidden) return
     this.syncEditorValuesFromDOM()
     this.activeCard = row
+    this.refreshSequenceStepDragActiveMarker()
     this.setAllEditorsReadOnly()
     if (this.pipelineModeValue) {
       const select = this.pipelineRowSequenceSelect(row)
-      const titleInput = row.querySelector(".transformation-pipeline-child-title-input")
+      const titleInput = row.querySelector(".bundle-pipeline-child-title-input")
 
       const t = activatingEvent?.target
       if (
         t &&
         typeof t.closest === "function" &&
-        (t.closest(".transformation-pipeline-child-title-input") ||
-          t.closest(".transformation-pipeline-child-intent-input"))
+        (t.closest(".bundle-pipeline-child-title-input") ||
+          t.closest(".bundle-pipeline-child-intent-input"))
       ) {
         return
       }
@@ -703,7 +906,7 @@ export default class extends Controller {
   }
 
   pipelineRowSequenceSelect(row) {
-    return row.querySelector(".transformation-step-picker-area [data-sequence-editor-target=\"sequenceSelect\"]")
+    return row.querySelector(".bundle-step-picker-area [data-sequence-editor-target=\"sequenceSelect\"]")
   }
 
   hideAllToolbars() {
@@ -727,10 +930,11 @@ export default class extends Controller {
     const contentInput = card.querySelector('[data-sequence-editor-target="contentInput"]')
     if (!contentInput) return
     contentInput.value = editor.innerHTML.trim()
+    this.markAutosaveDirty()
   }
 
   syncNestedEditorsBeforeSubmit() {
-    const root = this.element.closest("main.sequence-editor--transformation")
+    const root = this.element.closest("main.sequence-editor--bundle")
     if (!root) return
 
     root.querySelectorAll(".nested-sequence-editor").forEach((nestedEl) => {
@@ -738,7 +942,7 @@ export default class extends Controller {
       if (!stepsRoot) return
 
       const prefix = nestedEl.getAttribute("data-sequence-editor-nested-field-prefix-value") || ""
-      const cards = [...stepsRoot.querySelectorAll(":scope > .step-row")].filter((c) => !c.hidden)
+      const cards = [...stepsRoot.querySelectorAll(`:scope > ${SEQUENCE_STEP_ROW_SELECTOR}`)].filter((c) => !c.hidden)
 
       cards.forEach((card, index) => {
         const label = card.querySelector('[data-sequence-editor-target="stepLabel"]')
@@ -749,7 +953,7 @@ export default class extends Controller {
         const upButton = card.querySelector('[data-step-control="up"]')
         const downButton = card.querySelector('[data-step-control="down"]')
 
-        if (label) label.textContent = String(index + 1)
+        if (label) label.textContent = formatStepOrdinalLabelForStepRow(card, index + 1)
         if (positionInput) {
           positionInput.value = String(index + 1)
           if (prefix) positionInput.name = `${prefix}[steps_attributes][${index}][position]`
@@ -783,122 +987,6 @@ export default class extends Controller {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
   }
 
-  async saveNestedSequence(event) {
-    if (!this.nestedValue || !this.saveSequenceUrlValue) return
-    if (this.readonlyValue) return
-
-    event.preventDefault()
-    const btn = event.currentTarget
-    const originalLabel = btn.textContent.trim()
-
-    this.syncEditorValuesFromDOM()
-
-    const stack = this.element.closest(".transformation-pipeline-edit-stack")
-    const titleInput = stack?.querySelector(".transformation-pipeline-child-title-input")
-    const intentInput = stack?.querySelector(".transformation-pipeline-child-intent-input")
-
-    const stepsRoot = this.element.querySelector(":scope > .nested-sequence-editor-steps")
-    const cards = [...stepsRoot.querySelectorAll(":scope > .step-row")].filter((c) => !c.hidden)
-
-    const fd = new FormData()
-    fd.append("_method", "patch")
-    fd.append("authenticity_token", this.csrfToken())
-    fd.append("sequence[title]", titleInput?.value ?? "")
-    fd.append("sequence[intent]", intentInput?.value ?? "")
-
-    cards.forEach((card, index) => {
-      const editor = card.querySelector('[data-sequence-editor-target="editor"]')
-      const contentInput = card.querySelector('[data-sequence-editor-target="contentInput"]')
-      const content = editor ? editor.innerHTML.trim() : (contentInput?.value ?? "")
-      fd.append(`sequence[steps_attributes][${index}][content]`, content)
-      fd.append(`sequence[steps_attributes][${index}][position]`, String(index + 1))
-      fd.append(`sequence[steps_attributes][${index}][_destroy]`, "false")
-    })
-
-    btn.disabled = true
-    try {
-      const response = await fetch(this.saveSequenceUrlValue, {
-        method: "POST",
-        body: fd,
-        headers: {
-          Accept: "text/html, application/xhtml+xml",
-          "X-CSRF-Token": this.csrfToken(),
-          "X-Requested-With": "XMLHttpRequest"
-        },
-        credentials: "same-origin"
-      })
-
-      if (response.ok) {
-        btn.textContent = "Saved"
-        setTimeout(() => {
-          btn.textContent = originalLabel
-        }, 2000)
-      } else {
-        btn.textContent = "Save failed"
-        setTimeout(() => {
-          btn.textContent = originalLabel
-        }, 2500)
-        window.alert("Could not save this sequence. Fix any errors and try again.")
-      }
-    } catch (_err) {
-      btn.textContent = "Save failed"
-      setTimeout(() => {
-        btn.textContent = originalLabel
-      }, 2500)
-      window.alert("Network error while saving.")
-    } finally {
-      btn.disabled = false
-    }
-  }
-
-  async copySequenceAsPrompt() {
-    this.syncEditorsBeforeSubmit()
-
-    if (!this.hasCopyButtonTarget || !this.hasTitleInputTarget) return
-
-    const lines = []
-    lines.push(`Title: ${this.titleInputTarget.value.trim()}`)
-    lines.push(`Intent: ${this.intentInputTarget.value.trim()}`)
-    lines.push("")
-    lines.push("Steps:")
-
-    this.visibleCards().forEach((card, index) => {
-      if (this.pipelineModeValue) {
-        const select = this.pipelineRowSequenceSelect(card)
-        const opt = select?.selectedOptions?.[0]
-        let title = opt ? opt.textContent.trim() : ""
-        const titleInput = card.querySelector(".transformation-pipeline-child-title-input")
-        const intentInput = card.querySelector(".transformation-pipeline-child-intent-input")
-        if (!title && titleInput) title = titleInput.value.trim()
-        lines.push(`${index + 1}. ${title}`)
-        const intentLine = intentInput?.value?.trim()
-        if (intentLine) lines.push(`   Intent: ${intentLine}`)
-        const nested = card.querySelector(".nested-sequence-editor")
-        if (nested) {
-          nested.querySelectorAll(".rich-editor").forEach((ed, si) => {
-            const text = this.htmlToText(ed.innerHTML).trim()
-            if (text) lines.push(`   ${si + 1}. ${text}`)
-          })
-        }
-      } else {
-        const editor = card.querySelector('[data-sequence-editor-target="editor"]')
-        const text = editor ? this.htmlToText(editor.innerHTML).trim() : ""
-        lines.push(`${index + 1}. ${text}`)
-      }
-    })
-
-    const output = lines.join("\n")
-    try {
-      await navigator.clipboard.writeText(output)
-      this.copyButtonTarget.textContent = "copied!"
-    } catch (_error) {
-      this.copyButtonTarget.textContent = "copy failed"
-    }
-    window.setTimeout(() => {
-      this.copyButtonTarget.textContent = "Copy as Prompt"
-    }, 1200)
-  }
-
   installDragAndDrop() {
     this.topLevelStepRowsForDrag().forEach((card) => {
       card.setAttribute("draggable", "false")
@@ -921,6 +1009,7 @@ export default class extends Controller {
     }
 
     this.draggedCard = event.currentTarget
+    this.dragCardSiblingsOrder = this.visibleCards().slice()
     event.dataTransfer.setData("text/plain", "step")
     event.dataTransfer.effectAllowed = "move"
     event.currentTarget.classList.add("dragging")
@@ -957,8 +1046,16 @@ export default class extends Controller {
     event.currentTarget.classList.remove("dragging")
     event.currentTarget.setAttribute("draggable", "false")
     this.clearDropIndicator()
+    const before = this.dragCardSiblingsOrder
     this.draggedCard = null
     this.dragArmedCard = null
+    const after = this.visibleCards()
+    const orderChanged =
+      !before ||
+      before.length !== after.length ||
+      after.some((c, i) => c !== before[i])
+    this.dragCardSiblingsOrder = null
+    if (orderChanged) this.queueStructureAutosave()
   }
 
   armDrag(event) {
@@ -1016,7 +1113,7 @@ export default class extends Controller {
       const upButton = card.querySelector('[data-step-control="up"]')
       const downButton = card.querySelector('[data-step-control="down"]')
 
-      label.textContent = String(index + 1)
+      if (label) label.textContent = formatStepOrdinalLabelForStepRow(card, index + 1)
       positionInput.value = String(index + 1)
       if (prefix) {
         const base = `${prefix}[steps_attributes][${index}]`
@@ -1036,13 +1133,13 @@ export default class extends Controller {
   reindexPipelineSteps() {
     const cards = this.visibleCards()
     cards.forEach((card, index) => {
-      const article = card.querySelector(":scope > article.transformation-pipeline-step-card")
+      const article = card.querySelector(":scope > article.bundle-pipeline-step-card")
       if (!article) return
 
-      const label = article.querySelector(".transformation-pipeline-step-number [data-sequence-editor-target=\"stepLabel\"]")
+      const label = article.querySelector(".bundle-pipeline-step-number [data-sequence-editor-target=\"stepLabel\"]")
       const meta = article.querySelector(":scope > .step-hidden-fields")
       const positionInput = meta?.querySelector('[data-sequence-editor-target="positionInput"]')
-      const sequenceIdField = article.querySelector(".transformation-pipeline-sequence-id-field")
+      const sequenceIdField = article.querySelector(".bundle-pipeline-sequence-id-field")
       const upButton = card.querySelector(':scope > .step-order-rail [data-step-control="up"]')
       const downButton = card.querySelector(':scope > .step-order-rail [data-step-control="down"]')
 
@@ -1060,11 +1157,11 @@ export default class extends Controller {
       }
 
       const hiddenId = article.querySelector(
-        '.transformation-step-picker-area input.transformation-pipeline-sequence-id-field[type="hidden"]'
+        '.bundle-step-picker-area input.bundle-pipeline-sequence-id-field[type="hidden"]'
       )
       const childId = hiddenId?.value
-      const titleInput = article.querySelector(".transformation-pipeline-child-title-input")
-      const intentInput = article.querySelector(".transformation-pipeline-child-intent-input")
+      const titleInput = article.querySelector(".bundle-pipeline-child-title-input")
+      const intentInput = article.querySelector(".bundle-pipeline-child-intent-input")
       if (titleInput && childId) titleInput.name = `nested_sequences[${childId}][title]`
       if (intentInput && childId) intentInput.name = `nested_sequences[${childId}][intent]`
 
@@ -1072,12 +1169,12 @@ export default class extends Controller {
       if (downButton) downButton.disabled = index === cards.length - 1
 
       const readonlySeqLabel = article.querySelector(
-        ".transformation-readonly-sequence-index .step-label"
+        ".bundle-readonly-sequence-index .step-label"
       )
       if (readonlySeqLabel) readonlySeqLabel.textContent = String(index + 1)
 
-      article.querySelectorAll(".transformation-readonly-nested-step-row").forEach((row, stepIdx) => {
-        const compound = row.querySelector(".transformation-readonly-nested-index .step-label")
+      article.querySelectorAll(".bundle-readonly-nested-step-row").forEach((row, stepIdx) => {
+        const compound = row.querySelector(".bundle-readonly-nested-index .step-label")
         if (compound) compound.textContent = `${index + 1}.${stepIdx + 1}`
       })
     })
@@ -1087,7 +1184,7 @@ export default class extends Controller {
     if (this.pipelineModeValue && !this.nestedValue) {
       return event.currentTarget.closest('[data-sequence-editor-target="pipelineStepRow"]')
     }
-    return event.currentTarget.closest(".step-row")
+    return event.currentTarget.closest(SEQUENCE_STEP_ROW_SELECTOR)
   }
 
   insertStep({ anchorCard = null, placeBefore = false, content = "", sequenceId = "" }) {
@@ -1130,6 +1227,231 @@ export default class extends Controller {
     this.installDragAndDrop()
     this.reindexSteps()
     return card
+  }
+
+  setupAutosaveListeners() {
+    this.boundGenerativeStepFocusOut = this.onGenerativeStepEditorFocusOut.bind(this)
+    this.boundPipelineMetaFocusOut = this.onPipelineMetaFocusOut.bind(this)
+    this.boundNestedEditorFocusOut = this.onNestedStepEditorFocusOut.bind(this)
+    this.boundDocVisibility = this.onDocumentVisibilityChange.bind(this)
+    this.boundPageHide = this.onDocumentPageHide.bind(this)
+
+    if (!this.nestedValue) {
+      document.addEventListener("visibilitychange", this.boundDocVisibility)
+      window.addEventListener("pagehide", this.boundPageHide)
+    }
+
+    if (!this.nestedValue && !this.pipelineModeValue) {
+      this.element.addEventListener("focusout", this.boundGenerativeStepFocusOut, true)
+    }
+    if (this.pipelineModeValue && !this.nestedValue) {
+      this.element.addEventListener("focusout", this.boundPipelineMetaFocusOut, true)
+      this.boundPipelineChildInput = this.onPipelineChildInput.bind(this)
+      this.element.addEventListener("input", this.boundPipelineChildInput, true)
+    }
+    if (this.nestedValue) {
+      this.element.addEventListener("focusout", this.boundNestedEditorFocusOut, true)
+    }
+  }
+
+  teardownAutosaveListeners() {
+    if (this.boundGenerativeStepFocusOut) {
+      this.element.removeEventListener("focusout", this.boundGenerativeStepFocusOut, true)
+    }
+    if (this.boundPipelineMetaFocusOut) {
+      this.element.removeEventListener("focusout", this.boundPipelineMetaFocusOut, true)
+    }
+    if (this.boundPipelineChildInput) {
+      this.element.removeEventListener("input", this.boundPipelineChildInput, true)
+    }
+    if (this.boundNestedEditorFocusOut) {
+      this.element.removeEventListener("focusout", this.boundNestedEditorFocusOut, true)
+    }
+    if (this.boundDocVisibility) {
+      document.removeEventListener("visibilitychange", this.boundDocVisibility)
+    }
+    if (this.boundPageHide) {
+      window.removeEventListener("pagehide", this.boundPageHide)
+    }
+  }
+
+  autosaveFormEl() {
+    if (this.hasFormTarget) return this.formTarget
+    return this.element.closest("form#sequence-edit-form")
+  }
+
+  markAutosaveDirty() {
+    const form = this.autosaveFormEl()
+    if (form) form.dataset.promptlabAutosaveDirty = "1"
+  }
+
+  clearAutosaveDirty(form) {
+    const f = form || this.autosaveFormEl()
+    if (f) delete f.dataset.promptlabAutosaveDirty
+  }
+
+  async autosaveFormAsync(form) {
+    if (!form || this.readonlyValue) return
+    if (this.autosaveInFlight) {
+      this.autosaveQueued = true
+      return
+    }
+    this.syncEditorsBeforeSubmit()
+    this.autosaveInFlight = true
+    try {
+      const res = await fetchAutosaveForm(form)
+      if (res.ok) {
+        this.clearAutosaveDirty(form)
+        const ct = res.headers.get("Content-Type") || ""
+        if (ct.includes("application/json")) {
+          const data = await res.json().catch(() => null)
+          this.applyAutosaveResponseToThreadIndex(data)
+        }
+      } else if (res.status === 422) {
+        const data = await res.json().catch(() => ({}))
+        console.warn("Autosave failed", data.errors)
+      }
+    } catch (err) {
+      console.warn("Autosave request failed", err)
+    } finally {
+      this.autosaveInFlight = false
+      if (this.autosaveQueued) {
+        this.autosaveQueued = false
+        await this.autosaveFormAsync(form)
+      }
+    }
+  }
+
+  flushAutosaveIfDirty() {
+    if (this.readonlyValue) return
+    const form = this.autosaveFormEl()
+    if (!form || form.dataset.promptlabAutosaveDirty !== "1") return
+    void this.autosaveFormAsync(form)
+  }
+
+  onDocumentVisibilityChange() {
+    if (document.visibilityState === "hidden") this.flushAutosaveIfDirty()
+  }
+
+  onDocumentPageHide() {
+    this.flushAutosaveIfDirty()
+  }
+
+  autosaveOnMetaBlur() {
+    if (this.readonlyValue || this.nestedValue) return
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+  }
+
+  markAutosaveDirtyFromInput() {
+    if (this.readonlyValue) return
+    this.markAutosaveDirty()
+  }
+
+  onGenerativeStepEditorFocusOut(event) {
+    if (this.readonlyValue || this.pipelineModeValue || this.nestedValue) return
+    const t = event.target
+    if (!t.matches?.('[data-sequence-editor-target="editor"]')) return
+    const area = t.closest(".step-content-area")
+    const rel = event.relatedTarget
+    if (rel && area?.contains(rel)) return
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+  }
+
+  onPipelineMetaFocusOut(event) {
+    if (this.readonlyValue || !this.pipelineModeValue || this.nestedValue) return
+    const t = event.target
+    if (
+      !t.classList?.contains("bundle-pipeline-child-title-input") &&
+      !t.classList?.contains("bundle-pipeline-child-intent-input") &&
+      !t.classList?.contains("bundle-pipeline-bundle-title-input")
+    ) {
+      return
+    }
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+  }
+
+  onPipelineChildInput(event) {
+    if (this.readonlyValue || !this.pipelineModeValue || this.nestedValue) return
+    const t = event.target
+    if (
+      !t.classList?.contains("bundle-pipeline-child-title-input") &&
+      !t.classList?.contains("bundle-pipeline-child-intent-input") &&
+      !t.classList?.contains("bundle-pipeline-bundle-title-input")
+    ) {
+      return
+    }
+    this.markAutosaveDirty()
+  }
+
+  onNestedStepEditorFocusOut(event) {
+    if (this.readonlyValue || !this.nestedValue) return
+    const t = event.target
+    if (!t.matches?.('[data-sequence-editor-target="editor"]')) return
+    const area = t.closest(".step-content-area")
+    const rel = event.relatedTarget
+    if (rel && area?.contains(rel)) return
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+  }
+
+  queueStructureAutosave() {
+    if (this.readonlyValue) return
+    this.markAutosaveDirty()
+    void this.autosaveFormAsync(this.autosaveFormEl())
+  }
+
+  /** @param {Record<string, unknown> | null} data */
+  applyAutosaveResponseToThreadIndex(data) {
+    if (!data || typeof data !== "object") return
+
+    if (data.sequence_id != null) {
+      const id = String(data.sequence_id)
+      const title = typeof data.title === "string" ? data.title : ""
+      const li = document.querySelector(
+        `.workspace-thread-panel-strand .workspace-thread-strand-row[data-strand-step="s:${CSS.escape(id)}"]`
+      )
+      const nameEl = li?.querySelector(".workspace-thread-tf-title-static .workspace-thread-tf-name")
+      if (nameEl) {
+        nameEl.textContent = this.truncateForThreadIndex(title, 120)
+        nameEl.setAttribute("title", title)
+      }
+    }
+
+    const pipeline = data.pipeline_sequences
+    const bundleId = data.bundle_id
+    if (bundleId != null) {
+      const bEsc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(String(bundleId)) : String(bundleId)
+      const bundleLi = document.querySelector(
+        `.workspace-thread-panel-strand .workspace-thread-strand-row[data-strand-step="b:${bEsc}"]`
+      )
+      if (typeof data.bundle_title === "string") {
+        const bundleIdxHost = bundleLi?.querySelector('[data-controller~="bundle-pipeline-index"]')
+        if (bundleIdxHost) {
+          bundleIdxHost.setAttribute("data-bundle-pipeline-index-bundle-title-value", data.bundle_title)
+        }
+      }
+      if (!Array.isArray(pipeline)) return
+      for (const row of pipeline) {
+        if (!row || typeof row !== "object") continue
+        const sid = row.id
+        if (sid == null) continue
+        const id = String(sid)
+        const title = typeof row.title === "string" ? row.title : ""
+        const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(id) : id
+        const item = bundleLi?.querySelector(
+          `li.workspace-thread-bundle-pipeline-item[data-pipeline-sequence-id="${esc}"]`
+        )
+        const nameEl = item?.querySelector(".workspace-thread-bundle-pipeline-name")
+        if (nameEl) {
+          nameEl.textContent = this.truncateForThreadIndex(title, 120)
+        }
+      }
+    }
+  }
+
+  truncateForThreadIndex(text, maxLen) {
+    const s = String(text)
+    if (s.length <= maxLen) return s
+    return `${s.slice(0, Math.max(0, maxLen - 1))}…`
   }
 
   htmlToText(html) {
