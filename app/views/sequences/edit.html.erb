@@ -1,20 +1,14 @@
 <% content_for :title, "#{@sequence.title.presence || "Sequence"} · #{@project.name}" %>
 
-<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--browsing" if workspace_browsing? %><%= " workspace-shell--v2" if workspace_shell_v2? %>"
-     data-controller="<%= workspace_shell_v2? ? "workspace-assistant-toggle workspace-font-size" : "workspace-assistant-toggle" %>">
+<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--fabric" if workspace_fabric? %>"
+     data-controller="workspace-assistant-toggle workspace-font-size">
   <%= render "workspace_top_header" %>
-  <div class="workspace <%= workspace_browsing? ? "workspace--three-pane workspace--browsing" : "workspace--two-pane" %>"
+  <div class="workspace <%= workspace_fabric? ? "workspace--one-pane" : "workspace--two-pane" %>"
        data-controller="workspace-pane-resize"
-       <% if workspace_shell_v2? %>data-workspace-font-size-target="scaleRoot"<% end %>
+       data-workspace-font-size-target="scaleRoot"
        data-workspace-assistant-toggle-target="workspace">
-  <% if workspace_browsing? %>
-    <%= render "browse_navigator_panel" %>
-    <div class="workspace-middle-column flex min-h-0 flex-1 flex-col">
-      <%= render "workspace_pane_resize_handles" %>
-      <div class="workspace-main">
-        <%= render "sequence_editor_main", modal: false %>
-      </div>
-    </div>
+  <% if workspace_fabric? %>
+    <%= render "fabric_workspace_main" %>
   <% else %>
     <div class="workspace-middle-column flex min-h-0 flex-1 flex-col">
       <%= render "workspace_pane_resize_handles" %>
@@ -22,11 +16,13 @@
     </div>
   <% end %>
 
-  <%= render "workspace_assistant_panel" %>
+  <% unless workspace_fabric? %>
+    <%= render "workspace_assistant_panel" %>
+  <% end %>
   </div>
 </div>
 
-<% if params[:editor_mode].to_s == "edit" && !workspace_browsing? %>
+<% if params[:editor_mode].to_s == "edit" && !workspace_fabric? %>
   <span
     hidden
     data-sequence-modal-auto-open-url="<%= edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options.merge(redirect_to: workspace_modal_save_redirect_path, modal: true)) %>"

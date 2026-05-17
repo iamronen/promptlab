@@ -20,34 +20,34 @@ class ThreadNode < ApplicationRecord
   validate :validate_anchor_on_parent_strand
 
   before_destroy :remember_parent_thread_for_branch_resync, prepend: true
-  after_save :sync_thread_branch_dependency
+  after_save :sync_thread_branch_dependencies_full
   after_destroy :resync_thread_branches_after_destroy
 
   class << self
     # Rewrites thread_branch SequenceDependencies for +parent_thread_id+ from current ThreadNodes:
-    # contiguous positions 1..n, ordered by strand anchor then child_order. Removes stale branch rows whose
-    # child is not listed in thread_nodes (fixes unique (parent_id, position) collisions).
+    # deletes all branch edges for the parent, then inserts contiguous positions 1..n ordered by strand
+    # anchor then child_order (avoids unique (parent_id, position) violations from incremental updates).
     def resync_thread_branch_dependencies_for_parent!(parent_thread_id)
       return if parent_thread_id.blank?
 
       parent = Sequence.find_by(id: parent_thread_id)
       return unless parent&.thread?
 
-      node_child_ids = ThreadNode.where(parent_thread_id: parent_thread_id).distinct.pluck(:child_thread_id)
-      SequenceDependency.where(parent_id: parent_thread_id, kind: :thread_branch)
-        .where.not(child_id: node_child_ids)
-        .delete_all
-
       ordered = ordered_thread_nodes_for_parent(parent_thread_id)
+
+      # Wipe then recreate rows: incremental find/save hits (parent_id, position) unique index
+      # violations when positions are reassigned while another child row still occupies the target slot
+      # (e.g. missing intermediate dep, or stale ordering).
+      SequenceDependency.where(parent_id: parent_thread_id, kind: :thread_branch).delete_all
+
       ordered.each_with_index do |node, i|
-        pos = i + 1
-        dep = SequenceDependency.find_or_initialize_by(child_id: node.child_thread_id, kind: :thread_branch)
-        dep.assign_attributes(
+        SequenceDependency.create!(
           parent_id: parent_thread_id,
-          position: pos,
+          child_id: node.child_thread_id,
+          kind: :thread_branch,
+          position: i + 1,
           anchor_sequence_id: node.parent_generative_sequence_id
         )
-        dep.save!
       end
     end
 
@@ -67,7 +67,11 @@ class ThreadNode < ApplicationRecord
 
   private
 
-  def sync_thread_branch_dependency
+  def sync_thread_branch_dependencies_full
+    if saved_change_to_parent_thread_id?
+      prev = saved_change_to_parent_thread_id[0]
+      self.class.resync_thread_branch_dependencies_for_parent!(prev) if prev.present?
+    end
     self.class.resync_thread_branch_dependencies_for_parent!(parent_thread_id)
   end
 

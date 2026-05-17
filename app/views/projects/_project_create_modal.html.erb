@@ -1,0 +1,46 @@
+<%= turbo_frame_tag "project_create_modal" do %>
+  <div class="project-settings-modal-body">
+    <% if @project.errors.any? %>
+      <section class="errors prompt-form-errors !mb-3 !mt-0" role="alert">
+        <h2>Unable to create project</h2>
+        <ul>
+          <% @project.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <h2 id="project-create-modal-heading" class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading">
+      New project
+    </h2>
+    <p class="m-0 mt-2 text-sm/6 text-prompt-muted">Choose a name for your project.</p>
+
+    <%# _top so a 303 redirect after create performs a full-page visit; a framed POST would
+        follow the redirect inside the frame and show "Content missing" on pages without this frame. %>
+    <%= form_with model: @project,
+                  url: projects_path,
+                  class: "mt-5 flex flex-col gap-4",
+                  data: { turbo_frame: "_top" } do |f| %>
+      <%= f.label :name, "Project name", class: "text-sm font-medium text-prompt-heading" %>
+      <%= f.text_field :name,
+                       required: true,
+                       autocomplete: "off",
+                       aria: { labelledby: "project-create-modal-heading" },
+                       class:
+                         "w-full rounded-lg border border-prompt-field-border px-2 py-2 text-[0.9rem]" %>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <%= f.submit "Create",
+                     class:
+                       "prompt-btn-primary shrink-0 px-4 py-2 text-[0.85rem] font-semibold" %>
+        <button
+          type="button"
+          class="prompt-btn-secondary shrink-0 px-4 py-2 text-[0.85rem]"
+          data-action="click->project-create-modal#close"
+        >
+          Cancel
+        </button>
+      </div>
+    <% end %>
+  </div>
+<% end %>

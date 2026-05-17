@@ -1,8 +1,24 @@
 <% variant = local_assigns.fetch(:variant, :form_builder).to_sym %>
+<% thread_panel_editor_embed = local_assigns.fetch(:thread_panel_editor_embed, false) %>
 <% if variant == :form_builder %>
   <% f = local_assigns.fetch(:f) %>
-  <section class="meta-fields">
-    <div class="sequence-heading-row">
+  <section class="meta-fields prompt-thread-sequence-meta">
+    <div class="sequence-heading-row<%= " sequence-heading-row--with-thread-body-toggle" if thread_panel_editor_embed %>">
+      <% if thread_panel_editor_embed %>
+        <button
+          type="button"
+          class="thread-editor-sequence-body-toggle prompt-thread-panel-icon-btn"
+          data-thread-editor-body-collapse-target="toggle"
+          data-action="click->thread-editor-body-collapse#toggle"
+          aria-expanded="true"
+          title="Show or hide step editors"
+          aria-label="Show or hide step editors for this sequence"
+        >
+          <svg class="thread-editor-body-collapse-chevron" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      <% end %>
       <div class="field field--sequence-title">
         <%= f.text_field :title,
                          required: true,
@@ -31,8 +47,23 @@
     </div>
   </section>
 <% elsif variant == :bundle_child_tags %>
-  <section class="meta-fields">
-    <div class="sequence-heading-row">
+  <section class="meta-fields prompt-thread-sequence-meta">
+    <div class="sequence-heading-row<%= " sequence-heading-row--with-thread-body-toggle" if thread_panel_editor_embed %>">
+      <% if thread_panel_editor_embed %>
+        <button
+          type="button"
+          class="thread-editor-sequence-body-toggle prompt-thread-panel-icon-btn"
+          data-thread-editor-body-collapse-target="toggle"
+          data-action="click->thread-editor-body-collapse#toggle"
+          aria-expanded="true"
+          title="Show or hide step editors"
+          aria-label="Show or hide step editors for this sequence"
+        >
+          <svg class="thread-editor-body-collapse-chevron" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      <% end %>
       <div class="field field--sequence-title">
         <%= text_field_tag local_assigns.fetch(:title_field_name),
                            local_assigns.fetch(:title_value),

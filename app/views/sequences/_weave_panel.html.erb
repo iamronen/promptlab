@@ -1,19 +1,19 @@
-<aside class="workspace-weave-panel" aria-label="Fabric">
-  <div class="workspace-weave-body">
-    <section class="weave-hierarchy-section" aria-labelledby="weave-hierarchy-heading">
-      <h3 id="weave-hierarchy-heading" class="workspace-weave-panel-title">Fabric</h3>
+<aside class="workspace-weave-panel prompt-weave-shell" aria-label="Fabric">
+  <div class="workspace-weave-body prompt-weave-body">
+    <section class="weave-hierarchy-section prompt-weave-section" aria-labelledby="weave-hierarchy-heading">
+      <h3 id="weave-hierarchy-heading" class="workspace-weave-panel-title prompt-weave-heading">Fabric</h3>
       <div
-        class="weave-thread-hierarchy"
+        class="weave-thread-hierarchy prompt-weave-hierarchy"
         id="weave-thread-hierarchy"
         data-controller="weave-panel"
         data-weave-panel-selected-id-value="<%= @selected_weave_thread_id.to_i %>"
       >
         <% if @weave_thread_roots.blank? %>
-          <p class="weave-thread-hierarchy-placeholder">
+          <p class="weave-thread-hierarchy-placeholder prompt-weave-placeholder">
             No weave strands found for this project yet.
           </p>
         <% else %>
-          <ul class="weave-thread-tree" role="tree" aria-label="Thread strands">
+          <ul class="weave-thread-tree prompt-weave-tree" role="tree" aria-label="Thread strands">
             <% @weave_thread_roots.each do |root| %>
               <%= render "sequences/weave_thread_tree_node",
                          thread: root,

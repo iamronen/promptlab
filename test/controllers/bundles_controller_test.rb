@@ -31,10 +31,10 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "v2 bundle edit wires workspace font size controller and scale target" do
-    get edit_project_bundle_path(@project, @bundle, workspace_shell: "v2")
+  test "bundle edit wires workspace font size controller and scale target" do
+    get edit_project_bundle_path(@project, @bundle)
     assert_response :success
-    assert_select ".workspace-shell--v2"
+    assert_select ".workspace-shell"
     assert_select '*[data-controller~="workspace-font-size"]'
     assert_select '*[data-workspace-font-size-target="scaleRoot"]'
   end
@@ -130,8 +130,7 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
       @bundle,
       modal: true,
       weave_thread: child.id,
-      thread_partner: genesis.id,
-      workspace_shell: "v2"
+      thread_partner: genesis.id
     ), headers: { "Turbo-Frame" => "thread_editor_bundle_#{@bundle.id}" }
 
     assert_response :success

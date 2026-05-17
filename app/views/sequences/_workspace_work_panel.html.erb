@@ -1,486 +1,91 @@
-<%# Thread-focused workspace (panel mode). Requires @workspace_thread from WorkspaceSidebarData. %>
 <% editor_return_path = request.fullpath %>
-<% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "sidebar", "editor_mode", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
+<% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "open_threads", "sidebar", "editor_mode", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
 <% embed_query = q_keep.except(:focus_bundle_id, :focus_transformation_id) %>
-<% split = @thread_panel_partner_thread.present? && @workspace_thread.present? %>
-<div class="workspace-work-shell" aria-label="Thread workspace">
-  <% if split %>
-    <% parent_thread = @thread_panel_partner_thread %>
-    <% child_thread = @workspace_thread %>
-    <% parent_steps = parent_thread.ordered_steps %>
-    <% parent_has_steps = parent_steps.any? %>
-    <% child_steps = child_thread.ordered_steps %>
-    <% child_has_steps = child_steps.any? %>
+<% panel_threads = @thread_workspace_open_thread_records.presence || [@genesis_thread].compact %>
+<% panel_threads = Array.wrap(@project.sequences.threads.order(:position).first).compact if panel_threads.blank? %>
+<% allowed_thread_ids = @project.sequences.threads.pluck(:id) %>
+<div
+  class="workspace-work-shell h-full min-h-0 flex min-w-0 flex-1 flex-col"
+  aria-label="Thread workspace"
+  data-controller="thread-workspace"
+  data-thread-workspace-project-id-value="<%= @project.id %>"
+  data-thread-workspace-allowed-ids-value="<%= allowed_thread_ids.to_json %>"
+  data-thread-workspace-focus-id-value="<%= @selected_weave_thread_id.to_i %>"
+>
+  <% if panel_threads.size >= 2 %>
+    <% strip_focus_idx = panel_threads.index { |t| t.id == @selected_weave_thread_id.to_i } || 0 %>
     <div
-      class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-split-outer"
-      data-controller="workspace-work"
-      data-workspace-work-mode-value="panel"
+      class="thread-strip-nav sticky left-0 z-10 flex w-full min-w-0 max-w-full shrink-0 justify-center bg-transparent pt-0.5 mb-5"
+      data-thread-workspace-target="stripNav"
+      hidden
+      aria-hidden="true"
     >
-      <div class="workspace-thread-panel-layout workspace-thread-panel-layout--split">
-        <div class="workspace-thread-panel-split-column workspace-thread-panel-split-column--partner">
-          <div
-            id="workspace-thread-panel-split-partner-root"
-            class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-root"
-            data-controller="workspace-work workspace-thread-panel"
-            data-workspace-work-mode-value="panel"
-            data-workspace-thread-panel-expanded-value="false"
-            data-workspace-thread-panel-storage-key-value="promptlab.workspaceThreadPanelSplitPartner"
-          >
-            <%# Apply persisted panel width before inner layout parses — avoids narrow first paint then Stimulus re-adding --maximized. %>
-            <script>
-              (function () {
-                var root = document.getElementById("workspace-thread-panel-split-partner-root");
-                if (!root) return;
-                try {
-                  var v = localStorage.getItem("promptlab.workspaceThreadPanelSplitPartner");
-                  if (v === "true") root.classList.add("workspace-thread-panel-root--maximized");
-                  else root.classList.remove("workspace-thread-panel-root--maximized");
-                } catch (e) {}
-              })();
-            </script>
-            <div class="workspace-thread-panel-layout">
-              <div class="workspace-thread-panel-shell">
-                <header class="workspace-thread-panel-header">
-                  <div class="workspace-thread-panel-header-text">
-                    <%= render "sequences/workspace_thread_panel_title_row",
-                               project: @project,
-                               thread: parent_thread,
-                               heading_id: "workspace-thread-panel-heading-partner" %>
-                  </div>
-                  <% if parent_has_steps %>
-                    <div class="workspace-thread-panel-header-actions">
-                      <div class="workspace-thread-panel-window-controls" role="group" aria-label="Thread panel layout">
-                        <button
-                          type="button"
-                          class="workspace-thread-panel-win-btn"
-                          data-workspace-thread-panel-target="collapseBtn"
-                          data-action="workspace-thread-panel#collapse"
-                          title="Index only"
-                          aria-label="Index only — titles on this strand"
-                          aria-pressed="false"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <rect x="9" y="5" width="6" height="14" rx="1"/>
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          class="workspace-thread-panel-win-btn"
-                          data-workspace-thread-panel-target="expandBtn"
-                          data-action="workspace-thread-panel#expand"
-                          title="Full editors"
-                          aria-label="Open full editors for this strand"
-                          aria-pressed="true"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
-                            <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-                            <line x1="10" x2="10" y1="7.25" y2="16.75" stroke-linecap="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  <% end %>
-                </header>
-
-                <% if parent_has_steps %>
-                  <% parent_branch_map = parent_thread.branch_child_threads_by_anchor_generative_sequence_id %>
-                  <div
-                    class="workspace-thread-panel-split"
-                    data-controller="thread-strand-panel workspace-thread-index-resize"
-                    data-thread-strand-panel-update-url-value="<%= thread_update_steps_project_sequence_path(@project, parent_thread) %>"
-                    data-thread-strand-panel-editor-return-value="<%= editor_return_path %>"
-                    data-thread-strand-panel-weave-thread-value="<%= @selected_weave_thread_id %>"
-                  >
-                    <div
-                      class="workspace-thread-panel-index-pane"
-                      data-workspace-thread-index-resize-target="indexPane"
-                    >
-                      <div class="workspace-thread-panel-body">
-                        <ol class="workspace-thread-panel-strand" data-thread-strand-panel-target="indexList">
-                          <% parent_steps.each_with_index do |row, row_index| %>
-                            <%= render "sequences/workspace_thread_strand_step_row",
-                                       row: row,
-                                       row_index: row_index,
-                                       strand_steps: parent_steps,
-                                       strand_thread: parent_thread,
-                                       editor_return_path: editor_return_path,
-                                       show_view_in_menu: true,
-                                       branch_child_threads_by_anchor: parent_branch_map,
-                                       thread_index_embed_query: embed_query %>
-                          <% end %>
-                        </ol>
-                        <div class="workspace-thread-panel-footer">
-                          <%= button_to "Add Sequence",
-                                        thread_insert_sequence_project_sequence_path(@project, parent_thread),
-                                        method: :post,
-                                        params: {
-                                          insert: "end",
-                                          redirect_to: editor_return_path
-                                        }.merge(workspace_thread_scope_params).compact,
-                                        class: "secondary-button workspace-thread-add-tf" %>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      class="workspace-thread-panel-index-resize-handle"
-                      aria-label="Drag to resize thread index. Double-click to reset width."
-                      tabindex="0"
-                      data-workspace-thread-index-resize-target="handle"
-                      data-action="
-                        pointerdown->workspace-thread-index-resize#grab
-                        dblclick->workspace-thread-index-resize#resetWidth
-                        keydown->workspace-thread-index-resize#keyResize
-                      "
-                    ></button>
-
-                    <div
-                      class="workspace-thread-panel-editor-pane"
-                      data-workspace-thread-panel-target="editorColumn"
-                    >
-                      <div
-                        class="workspace-thread-panel-editor-stack"
-                        role="region"
-                        aria-label="Full thread editors"
-                        data-thread-strand-panel-target="editorStack"
-                      >
-                        <% parent_steps.each_with_index do |row, idx| %>
-                          <%= render "sequences/workspace_thread_strand_editor_child",
-                                     row: row,
-                                     row_index: idx,
-                                     strand_steps: parent_steps,
-                                     strand_step_number: idx + 1,
-                                     strand_thread: parent_thread,
-                                     editor_return_path: editor_return_path,
-                                     embed_query: embed_query %>
-                        <% end %>
-                      </div>
-                    </div>
-                  </div>
-                <% else %>
-                  <div class="workspace-thread-panel-body workspace-thread-panel-body--empty-strand">
-                    <p class="workspace-thread-panel-empty workspace-thread-panel-empty--in-shell">No bundles or sequences on this strand yet.</p>
-                    <%= button_to "Add Sequence",
-                                  thread_insert_sequence_project_sequence_path(@project, parent_thread),
-                                  method: :post,
-                                  params: {
-                                    insert: "end",
-                                    redirect_to: editor_return_path
-                                  }.merge(workspace_thread_scope_params).compact,
-                                  class: "secondary-button workspace-thread-add-tf" %>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="workspace-thread-panel-split-column workspace-thread-panel-split-column--primary">
-          <div
-            class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-root workspace-thread-panel-root--maximized"
-            data-controller="workspace-work workspace-thread-panel"
-            data-workspace-work-mode-value="panel"
-            data-workspace-thread-panel-expanded-value="true"
-            data-workspace-thread-panel-storage-key-value="promptlab.workspaceThreadPanelSplitChild"
-          >
-            <div class="workspace-thread-panel-layout">
-              <div class="workspace-thread-panel-shell">
-                <header class="workspace-thread-panel-header">
-                  <div class="workspace-thread-panel-header-text">
-                    <% if child_thread %>
-                      <%= render "sequences/workspace_thread_panel_title_row",
-                                 project: @project,
-                                 thread: child_thread,
-                                 heading_id: "workspace-thread-panel-heading-main" %>
-                    <% else %>
-                      <h2 id="workspace-thread-panel-heading-main" class="workspace-thread-panel-title">No strand selected</h2>
-                    <% end %>
-                  </div>
-                  <% if child_thread && child_has_steps %>
-                    <div class="workspace-thread-panel-header-actions">
-                      <div class="workspace-thread-panel-window-controls" role="group" aria-label="Thread panel layout">
-                        <button
-                          type="button"
-                          class="workspace-thread-panel-win-btn"
-                          data-workspace-thread-panel-target="collapseBtn"
-                          data-action="workspace-thread-panel#collapse"
-                          title="Index only"
-                          aria-label="Index only — titles on this strand"
-                          aria-pressed="false"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <rect x="9" y="5" width="6" height="14" rx="1"/>
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          class="workspace-thread-panel-win-btn"
-                          data-workspace-thread-panel-target="expandBtn"
-                          data-action="workspace-thread-panel#expand"
-                          title="Full editors"
-                          aria-label="Open full editors for this strand"
-                          aria-pressed="true"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
-                            <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-                            <line x1="10" x2="10" y1="7.25" y2="16.75" stroke-linecap="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  <% end %>
-                </header>
-
-                <% if child_thread %>
-                  <% if child_has_steps %>
-                    <% child_branch_map = child_thread.branch_child_threads_by_anchor_generative_sequence_id %>
-                    <div
-                      class="workspace-thread-panel-split"
-                      data-controller="thread-strand-panel workspace-thread-index-resize"
-                      data-thread-strand-panel-update-url-value="<%= thread_update_steps_project_sequence_path(@project, child_thread) %>"
-                      data-thread-strand-panel-editor-return-value="<%= editor_return_path %>"
-                      data-thread-strand-panel-weave-thread-value="<%= @selected_weave_thread_id %>"
-                    >
-                      <div
-                        class="workspace-thread-panel-index-pane"
-                        data-workspace-thread-index-resize-target="indexPane"
-                      >
-                        <div class="workspace-thread-panel-body">
-                          <ol class="workspace-thread-panel-strand" data-thread-strand-panel-target="indexList">
-                            <% child_steps.each_with_index do |row, row_index| %>
-                              <%= render "sequences/workspace_thread_strand_step_row",
-                                         row: row,
-                                         row_index: row_index,
-                                         strand_steps: child_steps,
-                                         strand_thread: child_thread,
-                                         editor_return_path: editor_return_path,
-                                         branch_child_threads_by_anchor: child_branch_map,
-                                         thread_index_embed_query: embed_query %>
-                            <% end %>
-                          </ol>
-                          <div class="workspace-thread-panel-footer">
-                            <%= button_to "Add Sequence",
-                                          thread_insert_sequence_project_sequence_path(@project, child_thread),
-                                          method: :post,
-                                          params: {
-                                            insert: "end",
-                                            redirect_to: editor_return_path
-                                          }.merge(workspace_thread_scope_params).compact,
-                                          class: "secondary-button workspace-thread-add-tf" %>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        class="workspace-thread-panel-index-resize-handle"
-                        aria-label="Drag to resize thread index. Double-click to reset width."
-                        tabindex="0"
-                        data-workspace-thread-index-resize-target="handle"
-                        data-action="
-                          pointerdown->workspace-thread-index-resize#grab
-                          dblclick->workspace-thread-index-resize#resetWidth
-                          keydown->workspace-thread-index-resize#keyResize
-                        "
-                      ></button>
-
-                      <div
-                        class="workspace-thread-panel-editor-pane"
-                        data-workspace-thread-panel-target="editorColumn"
-                      >
-                        <div
-                          class="workspace-thread-panel-editor-stack"
-                          role="region"
-                          aria-label="Full thread editors"
-                          data-thread-strand-panel-target="editorStack"
-                        >
-                          <% child_steps.each_with_index do |row, idx| %>
-                            <%= render "sequences/workspace_thread_strand_editor_child",
-                                       row: row,
-                                       row_index: idx,
-                                       strand_steps: child_steps,
-                                       strand_step_number: idx + 1,
-                                       strand_thread: child_thread,
-                                       editor_return_path: editor_return_path,
-                                       embed_query: embed_query %>
-                          <% end %>
-                        </div>
-                      </div>
-                    </div>
-                  <% else %>
-                    <div class="workspace-thread-panel-body workspace-thread-panel-body--empty-strand">
-                      <p class="workspace-thread-panel-empty workspace-thread-panel-empty--in-shell">No bundles or sequences on this strand yet.</p>
-                      <%= button_to "Add Sequence",
-                                    thread_insert_sequence_project_sequence_path(@project, child_thread),
-                                    method: :post,
-                                    params: {
-                                      insert: "end",
-                                      redirect_to: editor_return_path
-                                    }.merge(workspace_thread_scope_params).compact,
-                                    class: "secondary-button workspace-thread-add-tf" %>
-                    </div>
-                  <% end %>
-                <% else %>
-                  <p class="workspace-thread-panel-empty workspace-thread-panel-empty--in-shell">Select a strand in the weave.</p>
-                <% end %>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  <% else %>
-    <% strand_steps = @workspace_thread&.ordered_steps || [] %>
-    <% has_strand_steps = strand_steps.any? %>
-    <div
-      class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-root workspace-thread-panel-root--maximized"
-      data-controller="workspace-work workspace-thread-panel"
-      data-workspace-work-mode-value="panel"
-      data-workspace-thread-panel-expanded-value="true"
-    >
-      <div class="workspace-thread-panel-layout">
-        <div class="workspace-thread-panel-shell">
-          <header class="workspace-thread-panel-header">
-            <div class="workspace-thread-panel-header-text">
-              <% if @workspace_thread %>
-                <%= render "sequences/workspace_thread_panel_title_row",
-                           project: @project,
-                           thread: @workspace_thread,
-                           heading_id: "workspace-thread-panel-heading" %>
-              <% else %>
-                <h2 id="workspace-thread-panel-heading" class="workspace-thread-panel-title">No strand selected</h2>
-              <% end %>
-            </div>
-            <% if @workspace_thread && has_strand_steps %>
-              <div class="workspace-thread-panel-header-actions">
-                <div class="workspace-thread-panel-window-controls" role="group" aria-label="Thread panel layout">
-                  <button
-                    type="button"
-                    class="workspace-thread-panel-win-btn"
-                    data-workspace-thread-panel-target="collapseBtn"
-                    data-action="workspace-thread-panel#collapse"
-                    title="Index only"
-                    aria-label="Index only — titles on this strand"
-                    aria-pressed="false"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <rect x="9" y="5" width="6" height="14" rx="1"/>
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    class="workspace-thread-panel-win-btn"
-                    data-workspace-thread-panel-target="expandBtn"
-                    data-action="workspace-thread-panel#expand"
-                    title="Full editors"
-                    aria-label="Open full editors for this strand"
-                    aria-pressed="true"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
-                      <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-                      <line x1="10" x2="10" y1="7.25" y2="16.75" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            <% end %>
-          </header>
-
-          <% if @workspace_thread %>
-            <% if has_strand_steps %>
-              <% strand_branch_map = @workspace_thread.branch_child_threads_by_anchor_generative_sequence_id %>
+      <div
+        id="workspace-thread-strip-carousel"
+        class="relative inline-flex max-w-full flex-col items-center"
+        data-thread-workspace-target="carouselRoot"
+      >
+        <%# Flowbite Carousel placeholder slides (programmatic init); visually hidden %>
+        <div
+          class="pointer-events-none absolute -left-[9999px] top-0 h-4 w-24 opacity-0"
+          aria-hidden="true"
+        >
+          <div class="relative h-4 w-24">
+            <% panel_threads.each_with_index do |_panel_thread, idx| %>
               <div
-                class="workspace-thread-panel-split"
-                data-controller="thread-strand-panel workspace-thread-index-resize"
-                data-thread-strand-panel-update-url-value="<%= thread_update_steps_project_sequence_path(@project, @workspace_thread) %>"
-                data-thread-strand-panel-editor-return-value="<%= editor_return_path %>"
-                data-thread-strand-panel-weave-thread-value="<%= @selected_weave_thread_id %>"
-              >
-                <div
-                  class="workspace-thread-panel-index-pane"
-                  data-workspace-thread-index-resize-target="indexPane"
-                >
-                  <div class="workspace-thread-panel-body">
-                    <ol class="workspace-thread-panel-strand" data-thread-strand-panel-target="indexList">
-                      <% strand_steps.each_with_index do |row, row_index| %>
-                        <%= render "sequences/workspace_thread_strand_step_row",
-                                   row: row,
-                                   row_index: row_index,
-                                   strand_steps: strand_steps,
-                                   strand_thread: @workspace_thread,
-                                   editor_return_path: editor_return_path,
-                                   branch_child_threads_by_anchor: strand_branch_map,
-                                   thread_index_embed_query: embed_query %>
-                      <% end %>
-                    </ol>
-                    <div class="workspace-thread-panel-footer">
-                      <%= button_to "Add Sequence",
-                                    thread_insert_sequence_project_sequence_path(@project, @workspace_thread),
-                                    method: :post,
-                                    params: {
-                                      insert: "end",
-                                      redirect_to: editor_return_path
-                                    }.merge(workspace_thread_scope_params).compact,
-                                    class: "secondary-button workspace-thread-add-tf" %>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  class="workspace-thread-panel-index-resize-handle"
-                  aria-label="Drag to resize thread index. Double-click to reset width."
-                  tabindex="0"
-                  data-workspace-thread-index-resize-target="handle"
-                  data-action="
-                    pointerdown->workspace-thread-index-resize#grab
-                    dblclick->workspace-thread-index-resize#resetWidth
-                    keydown->workspace-thread-index-resize#keyResize
-                  "
-                ></button>
-
-                <div
-                  class="workspace-thread-panel-editor-pane"
-                  data-workspace-thread-panel-target="editorColumn"
-                >
-                  <div
-                    class="workspace-thread-panel-editor-stack"
-                    role="region"
-                    aria-label="Full thread editors"
-                    data-thread-strand-panel-target="editorStack"
-                  >
-                    <% strand_steps.each_with_index do |row, idx| %>
-                      <%= render "sequences/workspace_thread_strand_editor_child",
-                                 row: row,
-                                 row_index: idx,
-                                 strand_steps: strand_steps,
-                                 strand_step_number: idx + 1,
-                                 strand_thread: @workspace_thread,
-                                 editor_return_path: editor_return_path,
-                                 embed_query: embed_query %>
-                    <% end %>
-                  </div>
-                </div>
-              </div>
-            <% else %>
-              <div class="workspace-thread-panel-body workspace-thread-panel-body--empty-strand">
-                <p class="workspace-thread-panel-empty workspace-thread-panel-empty--in-shell">No bundles or sequences on this strand yet.</p>
-                <%= button_to "Add Sequence",
-                              thread_insert_sequence_project_sequence_path(@project, @workspace_thread),
-                              method: :post,
-                              params: {
-                                insert: "end",
-                                redirect_to: editor_return_path
-                              }.merge(workspace_thread_scope_params).compact,
-                              class: "secondary-button workspace-thread-add-tf" %>
-              </div>
+                id="workspace-thread-carousel-slide-<%= idx %>"
+                data-carousel-item
+                class="hidden"
+              ></div>
             <% end %>
-          <% else %>
-            <p class="workspace-thread-panel-empty workspace-thread-panel-empty--in-shell">Select a strand in the weave.</p>
+          </div>
+        </div>
+        <div
+          class="flex flex-wrap items-center justify-center gap-3.5"
+          role="tablist"
+          aria-label="Open threads"
+        >
+          <% panel_threads.each_with_index do |panel_thread, idx| %>
+            <span class="group relative inline-flex">
+              <button
+                type="button"
+                id="workspace-thread-carousel-indicator-<%= idx %>"
+                data-thread-strip-nav-indicator
+                data-action="click->thread-workspace#stripNavIndicatorClick"
+                data-thread-workspace-thread-id-param="<%= panel_thread.id %>"
+                class="thread-strip-nav-indicator box-border inline-flex h-3 w-3 min-h-[1.25rem] min-w-[1.25rem] shrink-0 appearance-none items-center justify-center rounded-sm p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500<%= idx == strip_focus_idx ? " thread-strip-nav--is-active" : " thread-strip-nav--is-inactive" %>"
+                aria-label="<%= panel_thread.title.to_s.truncate(120) %>"
+                title="<%= h(panel_thread.title.to_s) %>"
+                aria-current="<%= (panel_thread.id == @selected_weave_thread_id.to_i) ? "true" : "false" %>"
+              >
+                <span class="sr-only"><%= panel_thread.title.to_s.truncate(120) %></span>
+              </button>
+              <span
+                id="workspace-thread-nav-tooltip-<%= idx %>"
+                role="tooltip"
+                class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 w-max max-w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md bg-gray-900 px-2 py-1 text-left text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-700"
+              >
+                <%= panel_thread.title.to_s.presence || "Thread" %>
+              </span>
+            </span>
           <% end %>
         </div>
       </div>
     </div>
   <% end %>
+  <div
+    id="workspace-thread-workspace-strip"
+    class="workspace-thread-workspace-strip flex h-full min-h-0 min-w-0 flex-1 flex-row overflow-x-auto overflow-y-hidden"
+    data-thread-workspace-target="strip"
+  >
+    <% scope_h = workspace_thread_scope_params %>
+    <% panel_threads.each do |panel_thread| %>
+      <%= render "sequences/workspace_thread_panel_column",
+                 panel_thread: panel_thread,
+                 embed_query: embed_query,
+                 editor_return_path: editor_return_path,
+                 selected_weave_thread_id: @selected_weave_thread_id,
+                 workspace_thread_scope_hash: scope_h %>
+    <% end %>
+  </div>
 </div>

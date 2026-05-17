@@ -11,6 +11,10 @@ import {
   THREAD_INDEX_REORDER_SUBMIT_DELAY_MS
 } from "thread_panel_index_drag"
 import { fetchAutosavePost } from "workspace_autosave"
+import {
+  disconnectThreadBranchStrandBridgeAlignment,
+  syncThreadBranchStrandBridgeAlignment
+} from "thread_branch_indicator_alignment"
 
 export default class extends Controller {
   static targets = ["indexList", "editorStack"]
@@ -41,6 +45,12 @@ export default class extends Controller {
     }
 
     this.scrollStrandRowIntoViewIfNeeded()
+
+    syncThreadBranchStrandBridgeAlignment(this.element)
+    this.boundThreadBranchAlign = () => syncThreadBranchStrandBridgeAlignment(this.element)
+    if (this.hasEditorStackTarget) {
+      this.editorStackTarget.addEventListener("turbo:frame-load", this.boundThreadBranchAlign)
+    }
   }
 
   disconnect() {
@@ -54,6 +64,10 @@ export default class extends Controller {
       this.editorStackTarget.removeEventListener("drop", this.boundDrop)
     }
     clearThreadPanelIndexDrag(threadPanelRootFrom(this.element))
+    if (this.hasEditorStackTarget && this.boundThreadBranchAlign) {
+      this.editorStackTarget.removeEventListener("turbo:frame-load", this.boundThreadBranchAlign)
+    }
+    disconnectThreadBranchStrandBridgeAlignment(this.element)
   }
 
   scrollStrandRowIntoViewIfNeeded() {

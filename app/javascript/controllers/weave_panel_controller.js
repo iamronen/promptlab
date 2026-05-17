@@ -1,7 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
-import { Turbo } from "@hotwired/turbo-rails"
 
-// Thread strand tree: select a strand and refresh the workspace (work panel + URL ?weave_thread=).
+// Thread strand tree: delegated to sequencing thread-workspace manager (see thread_workspace_controller).
 export default class extends Controller {
   static values = { selectedId: Number }
 
@@ -10,6 +9,9 @@ export default class extends Controller {
   }
 
   select(event) {
+    event.preventDefault()
+    event.stopPropagation()
+
     const raw = event.currentTarget.dataset.threadId
     const id = parseInt(raw, 10)
     if (!id) return
@@ -17,10 +19,7 @@ export default class extends Controller {
     this.selectedIdValue = id
     this.syncSelectionVisual()
 
-    const url = new URL(window.location.href)
-    url.searchParams.set("weave_thread", String(id))
-    url.searchParams.delete("thread_partner")
-    Turbo.visit(url.toString(), { action: "replace" })
+    window.dispatchEvent(new CustomEvent("thread-workspace:open", { detail: { threadId: id } }))
   }
 
   selectedIdValueChanged() {

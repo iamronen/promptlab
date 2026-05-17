@@ -1,0 +1,23 @@
+<%# locals: indicator_sequence (optional Sequence) %>
+<% indicator_sequence = local_assigns[:indicator_sequence] %>
+<% if indicator_sequence.present?
+     anchored_threads = indicator_sequence.anchored_child_threads_ordered
+     thread_names = anchored_threads.map { |t| t.title.to_s.presence || Sequence::UNTITLED_THREAD_BRANCH_TITLE }
+     branches_label =
+       if thread_names.one?
+         "This sequence branches to thread: #{thread_names.first}."
+       else
+         "This sequence branches to threads: #{thread_names.join(', ')}."
+       end
+   else
+     branches_label = "This sequence has one or more child threads branching from it."
+   end %>
+<div class="thread-branch-strand-rail-marker">
+  <span
+    class="sequence-has-threads-indicator sequence-has-threads-indicator--strand-rail"
+    title="<%= branches_label %>"
+    aria-label="<%= branches_label %>"
+  >
+    <%= render "sequences/thread_branch_threads_icon_svg", size: 14 %>
+  </span>
+</div>

@@ -3,11 +3,17 @@
 <% editor_form_data = { sequence_editor_target: "form", action: "submit->sequence-editor#syncEditorsBeforeSubmit" } %>
 <% editor_form_data[:turbo_frame] = "_top" if modal_mode %>
 <% if modal_mode %>
-<div class="thread-strand-sequence-container thread-editor-sequence">
+<div
+  class="thread-strand-sequence-container thread-editor-sequence<%= " prompt-thread-sequence-shell" if thread_panel_editor_embed %>"
+<% if thread_panel_editor_embed %>
+  data-controller="thread-editor-body-collapse"
+  data-thread-editor-body-collapse-expanded-value="true"
+<% end %>
+>
 <% end %>
     <main
       id="thread_editor_sequence_inner_<%= @sequence.id %>"
-      class="sequence-editor sequence-editor--readonly<%= " sequence-editor--modal" if modal_mode %>"
+      class="sequence-editor sequence-editor--readonly<%= " sequence-editor--modal prompt-thread-sequence-editor" if modal_mode %>"
       data-controller="sequence-editor"
       data-sequence-editor-readonly-value="true"
       data-sequence-editor-default-title-value="<%= Sequence::DEFAULT_TITLE %>"
@@ -29,14 +35,14 @@
         <% if modal_mode && params[:redirect_to].present? %>
           <%= hidden_field_tag :redirect_to, params[:redirect_to] %>
         <% end %>
+        <% if modal_mode && @strand_thread_chip_parent %>
+          <%= hidden_field_tag :strand_thread_chip_parent, "1" %>
+        <% end %>
         <% if workspace_mode_param.present? %>
           <%= hidden_field_tag :workspace_mode, workspace_mode_param %>
         <% end %>
-        <% if workspace_shell_param.present? %>
-          <%= hidden_field_tag :workspace_shell, workspace_shell_param %>
-        <% end %>
         <% if @sequence.errors.any? %>
-          <section class="errors">
+          <section class="errors prompt-form-errors">
             <h2>Unable to save sequence</h2>
             <ul>
               <% @sequence.errors.full_messages.each do |message| %>
@@ -48,16 +54,20 @@
 
         <%= render "sequences/thread_editor_sequence_meta",
                    variant: :form_builder,
-                   f: f %>
+                   f: f,
+                   thread_panel_editor_embed: thread_panel_editor_embed %>
 
-        <section class="steps-section">
+        <section class="steps-section<%= thread_panel_editor_embed ? " prompt-thread-steps-section thread-editor-collapsible-body" : "" %>">
           <%= render "sequences/thread_editor_sequence_steps_list_footer",
                      steps: @sequence.ordered_steps,
                      form_field_prefix: "sequence",
                      thread_panel_editor_embed: thread_panel_editor_embed,
                      nested_step_card: false,
-                     steps_list_class: "steps-list",
-                     footer_class: "steps-footer" %>
+                     indicator_sequence: @sequence,
+                     suppress_footer_thread_branch_tail: @strand_thread_chip_parent,
+                     insert_after_panel_thread_id: @workspace_thread&.id,
+                     steps_list_class: thread_panel_editor_embed ? "steps-list prompt-thread-steps-list" : "steps-list",
+                     footer_class: thread_panel_editor_embed ? "steps-footer prompt-thread-steps-footer" : "steps-footer" %>
         </section>
 
       <% end %>
@@ -71,14 +81,13 @@
                    redirect_to: (params[:redirect_to] if modal_mode),
                    weave_thread: @selected_weave_thread_id,
                    thread_partner: (@thread_panel_partner_thread&.id),
-                   workspace_mode: workspace_mode_param,
-                   workspace_shell: workspace_shell_param
+                   workspace_mode: workspace_mode_param
                  }.compact %>
             <%= button_to "Delete sequence",
                           project_sequence_path(@project, @sequence),
                           method: :delete,
                           params: delete_btn_params,
-                          class: "danger-button",
+                          class: "prompt-btn-danger",
                           form: {
                             data: {
                               turbo_confirm: "Delete this sequence? This cannot be undone.",

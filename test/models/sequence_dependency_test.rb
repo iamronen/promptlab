@@ -81,4 +81,48 @@ class SequenceDependencyTest < ActiveSupport::TestCase
     dep = SequenceDependency.new(parent: genesis, child: tf, kind: :thread_step_bundle, position: 1)
     assert dep.valid?
   end
+
+  test "destroying generative sequence removes thread_branch deps that reference anchor_sequence_id" do
+    project = Project.create!(name: "AnchorDel")
+    genesis = project.genesis_thread
+    g_anchor = project.sequences.create!(
+      kind: :sequence,
+      title: "Hook",
+      intent: "g",
+      position: 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    bundle = project.sequences.create!(
+      kind: :bundle,
+      title: "B",
+      intent: "b",
+      position: 1,
+      steps_data: [{ "sequence_id" => g_anchor.id }],
+      is_term: false
+    )
+    genesis.update!(steps_data: [{ "bundle_id" => bundle.id }])
+
+    child_thread = project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "c",
+      position: project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    SequenceDependency.create!(
+      parent_id: genesis.id,
+      child_id: child_thread.id,
+      kind: :thread_branch,
+      position: 1,
+      anchor_sequence_id: g_anchor.id
+    )
+
+    assert_difference -> { SequenceDependency.where(anchor_sequence_id: g_anchor.id).count }, -1 do
+      g_anchor.destroy!
+    end
+  end
 end

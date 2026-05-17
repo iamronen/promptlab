@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_09_143000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_15_140002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,47 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_09_143000) do
     t.index ["project_id"], name: "index_sequences_unique_orphans_thread_per_project", unique: true, where: "(((kind)::text = 'thread'::text) AND (is_orphans IS TRUE))"
   end
 
+  create_table "taxonomies", force: :cascade do |t|
+    t.string "cardinality", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.bigint "project_id", null: false
+    t.string "single_select_ui"
+    t.datetime "updated_at", null: false
+    t.index "project_id, lower((name)::text)", name: "index_taxonomies_on_project_id_lower_name", unique: true
+    t.index ["project_id"], name: "index_taxonomies_on_project_id"
+  end
+
+  create_table "taxonomy_assignments", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "label_snapshot", null: false
+    t.bigint "project_id", null: false
+    t.bigint "sequence_id", null: false
+    t.boolean "single_value_taxonomy_copy", null: false
+    t.bigint "taxonomy_id", null: false
+    t.bigint "taxonomy_term_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "taxonomy_id"], name: "index_taxonomy_assignments_on_project_id_and_taxonomy_id"
+    t.index ["project_id"], name: "index_taxonomy_assignments_on_project_id"
+    t.index ["sequence_id", "taxonomy_id"], name: "index_taxonomy_assignments_unique_single_taxonomy", unique: true, where: "(single_value_taxonomy_copy = true)"
+    t.index ["sequence_id", "taxonomy_term_id"], name: "index_taxonomy_assignments_unique_sequence_term", unique: true
+    t.index ["sequence_id"], name: "index_taxonomy_assignments_on_sequence_id"
+    t.index ["taxonomy_id", "taxonomy_term_id"], name: "index_taxonomy_assignments_on_taxonomy_id_and_taxonomy_term_id"
+    t.index ["taxonomy_id"], name: "index_taxonomy_assignments_on_taxonomy_id"
+    t.index ["taxonomy_term_id"], name: "index_taxonomy_assignments_on_taxonomy_term_id"
+  end
+
+  create_table "taxonomy_terms", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "label", null: false
+    t.integer "position", null: false
+    t.bigint "taxonomy_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["taxonomy_id", "position"], name: "index_taxonomy_terms_on_taxonomy_id_and_position", unique: true
+    t.index ["taxonomy_id"], name: "index_taxonomy_terms_on_taxonomy_id"
+  end
+
   create_table "thread_nodes", force: :cascade do |t|
     t.integer "child_order", null: false
     t.bigint "child_thread_id", null: false
@@ -75,6 +116,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_09_143000) do
   add_foreign_key "sequence_dependencies", "sequences", column: "child_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "parent_id"
   add_foreign_key "sequences", "projects"
+  add_foreign_key "taxonomies", "projects"
+  add_foreign_key "taxonomy_assignments", "projects"
+  add_foreign_key "taxonomy_assignments", "sequences"
+  add_foreign_key "taxonomy_assignments", "taxonomies"
+  add_foreign_key "taxonomy_assignments", "taxonomy_terms", on_delete: :restrict
+  add_foreign_key "taxonomy_terms", "taxonomies"
   add_foreign_key "thread_nodes", "sequences", column: "child_thread_id"
   add_foreign_key "thread_nodes", "sequences", column: "parent_bundle_id"
   add_foreign_key "thread_nodes", "sequences", column: "parent_generative_sequence_id"

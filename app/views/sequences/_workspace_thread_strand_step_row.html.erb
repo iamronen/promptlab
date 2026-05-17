@@ -8,7 +8,7 @@
 <% step_key = is_bundle ? "b:#{row.bundle_id}" : "s:#{row.sequence_id}" %>
 <% ref_id = is_bundle ? row.bundle_id : row.sequence_id %>
 <li
-  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row"
+  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row prompt-thread-index-strand-row"
   data-strand-step="<%= step_key %>"
 >
   <%= render "sequences/workspace_thread_strand_handle_block",
@@ -20,12 +20,12 @@
              strand_steps: strand_steps,
              row_index: row_index,
              show_view_in_menu: show_view_in_menu %>
-  <div class="thread-strand-child__content workspace-thread-tf-child-content workspace-thread-tf-index-card">
+  <div class="thread-strand-child__content workspace-thread-tf-child-content workspace-thread-tf-index-card prompt-thread-index-card">
     <% if is_bundle %>
       <% bundle_record = @project.sequences.bundles.find(ref_id) %>
       <% pipeline_children = bundle_record&.pipeline_generative_children_ordered || [] %>
       <%= content_tag :div,
-                      class: "workspace-thread-bundle-pipeline-index",
+                      class: "workspace-thread-bundle-pipeline-index prompt-thread-index-bundle-root",
                       data: {
                         controller: "bundle-pipeline-index",
                         bundle_pipeline_index_update_url_value: project_bundle_path(@project, bundle_record),
@@ -37,19 +37,19 @@
                       }.merge(
                         @selected_weave_thread_id.present? ? { bundle_pipeline_index_weave_thread_value: @selected_weave_thread_id } : {}
                       ) do %>
-        <div class="workspace-thread-bundle-index-heading" title="<%= h(bundle_record.title.to_s) %>">
+        <div class="workspace-thread-bundle-index-heading prompt-thread-index-bundle-heading" title="<%= h(bundle_record.title.to_s) %>">
           <%= bundle_record.title.to_s.truncate(120) %>
         </div>
         <% if pipeline_children.any? %>
-          <ol class="workspace-thread-bundle-pipeline-list" data-bundle-pipeline-index-target="list">
+          <ol class="workspace-thread-bundle-pipeline-list prompt-thread-index-pipeline-list" data-bundle-pipeline-index-target="list">
             <% pipeline_children.each do |child| %>
               <li
-                class="workspace-thread-bundle-pipeline-item"
+                class="workspace-thread-bundle-pipeline-item prompt-thread-index-pipeline-item"
                 data-pipeline-sequence-id="<%= child.id %>"
                 draggable="true"
               >
                 <span
-                  class="workspace-thread-tf-order-btn workspace-thread-bundle-pipeline-drag"
+                  class="workspace-thread-tf-order-btn workspace-thread-bundle-pipeline-drag prompt-thread-index-pipeline-drag"
                   title="Drag to reorder"
                   aria-hidden="true"
                 >
@@ -73,7 +73,7 @@
                            thread_index_embed_query: thread_index_embed_query %>
                 <button
                   type="button"
-                  class="workspace-thread-tf-icon-btn workspace-thread-bundle-pipeline-eye"
+                  class="workspace-thread-tf-icon-btn workspace-thread-bundle-pipeline-eye prompt-thread-index-icon-btn"
                   title="Open in thread editor"
                   aria-label="Open in thread editor"
                   data-pipeline-sequence-id="<%= child.id %>"
@@ -85,11 +85,11 @@
             <% end %>
           </ol>
         <% else %>
-          <p class="workspace-thread-bundle-pipeline-empty">No sequences in this bundle yet.</p>
+          <p class="workspace-thread-bundle-pipeline-empty prompt-thread-index-bundle-empty">No sequences in this bundle yet.</p>
         <% end %>
       <% end %>
     <% else %>
-      <div class="workspace-thread-tf-index-row">
+      <div class="workspace-thread-tf-index-row prompt-thread-index-seq-row">
         <div class="workspace-thread-tf-title-static">
           <span class="workspace-thread-tf-name" title="<%= h(row.title.to_s) %>"><%= row.title.to_s.truncate(120) %></span>
         </div>
@@ -100,7 +100,7 @@
                    thread_index_embed_query: thread_index_embed_query %>
         <button
           type="button"
-          class="workspace-thread-tf-icon-btn workspace-thread-tf-seq-eye"
+          class="workspace-thread-tf-icon-btn workspace-thread-tf-seq-eye prompt-thread-index-icon-btn"
           title="Open in thread editor"
           aria-label="Open in thread editor"
           data-action="thread-strand-panel#viewInThreadEditor"

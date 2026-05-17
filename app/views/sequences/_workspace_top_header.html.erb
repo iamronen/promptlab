@@ -1,48 +1,48 @@
-<header class="workspace-header-strip" aria-label="Project workspace">
-  <div class="workspace-header-strip-inner">
-    <div class="workspace-header-strip-lead">
-      <div class="workspace-header-strip-title-block">
-        <%= link_to "<< all projects", projects_path, class: "workspace-header-strip-back" %>
-        <h1 class="workspace-header-strip-title"><%= @project.name.to_s.truncate(80) %></h1>
-      </div>
+<header class="prompt-workspace-header" aria-label="Project workspace">
+  <div class="prompt-workspace-header-inner">
+    <div class="min-w-0 justify-self-start">
+      <%= link_to "<< all projects",
+                  projects_path,
+                  class: "prompt-workspace-header-back" %>
+      <h1 class="prompt-workspace-header-title">
+        <%= @project.name.to_s.truncate(80) %>
+      </h1>
     </div>
 
-    <div class="workspace-header-strip-center" role="presentation">
+    <div class="justify-self-center md:order-none md:justify-self-center" role="presentation">
       <% base = workspace_editor_redirect_options.except(:workspace_mode) %>
       <% if @sequence.bundle? %>
-        <% first_gen = @project.sequences.generative_sequences.order(:position).first %>
-        <% browsing_href =
-             if first_gen
-               edit_project_sequence_path(@project, first_gen, **base.merge(workspace_mode: :browsing, sidebar: "sequences"))
-             else
-               open_project_path(@project, **workspace_editor_redirect_options.slice(:workspace_shell))
-             end %>
         <% sequencing_href = edit_project_bundle_path(@project, @sequence, **base) %>
+        <% fabric_href = edit_project_bundle_path(@project, @sequence, **base.merge(workspace_mode: :fabric)) %>
       <% else %>
-        <% browsing_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :browsing)) %>
         <% sequencing_href = edit_project_sequence_path(@project, @sequence, **base) %>
+        <% fabric_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :fabric)) %>
       <% end %>
-      <nav class="workspace-mode-switch" aria-label="Workspace mode">
-        <% if workspace_browsing? %>
-          <%= link_to "Sequencing", sequencing_href, class: "workspace-mode-switch-btn", role: "tab" %>
-          <%= link_to "Browsing", browsing_href, class: "workspace-mode-switch-btn workspace-mode-switch-btn--active", role: "tab", aria: { current: "page" } %>
-        <% else %>
-          <%= link_to "Sequencing", sequencing_href, class: "workspace-mode-switch-btn workspace-mode-switch-btn--active", role: "tab", aria: { current: "page" } %>
-          <%= link_to "Browsing", browsing_href, class: "workspace-mode-switch-btn", role: "tab" %>
-        <% end %>
+      <% sequencing_active = !workspace_fabric? %>
+      <nav class="prompt-workspace-header-tabs" aria-label="Workspace mode">
+        <%= link_to "Fabric",
+                    fabric_href,
+                    class: workspace_fabric? ? "prompt-workspace-header-tab-active" : "prompt-workspace-header-tab",
+                    role: "tab",
+                    aria: (workspace_fabric? ? { current: "page" } : {}) %>
+        <%= link_to "Sequencing",
+                    sequencing_href,
+                    class: sequencing_active ? "prompt-workspace-header-tab-active" : "prompt-workspace-header-tab",
+                    role: "tab",
+                    aria: (sequencing_active ? { current: "page" } : {}) %>
       </nav>
     </div>
 
-    <div class="workspace-header-strip-trail">
+    <div class="prompt-workspace-header-toolbar">
       <div
-        class="sequence-mode-toggle workspace-header-strip-mode"
+        class="prompt-workspace-header-btn-group"
         role="group"
         aria-label="Editor mode"
         data-controller="sequence-list-mode"
       >
         <button
           type="button"
-          class="sequence-mode-btn"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--first"
           data-sequence-list-mode-target="modeReadonly"
           data-mode="readonly"
           data-action="sequence-list-mode#setMode"
@@ -50,10 +50,11 @@
           title="Read-only"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="sr-only">Read-only</span>
         </button>
         <button
           type="button"
-          class="sequence-mode-btn"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--last"
           data-sequence-list-mode-target="modeEdit"
           data-mode="edit"
           data-action="sequence-list-mode#setMode"
@@ -61,11 +62,55 @@
           title="Edit"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span class="sr-only">Edit</span>
         </button>
       </div>
+      <div
+        class="prompt-workspace-header-btn-group--ring"
+        role="group"
+        aria-label="Workspace text size"
+      >
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--first prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierSm"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="sm"
+          aria-pressed="false"
+          title="Smaller text in workspace content"
+          aria-label="Smaller workspace text"
+        >
+          A−
+        </button>
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--mid prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierMd"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="md"
+          aria-pressed="true"
+          title="Default text size in workspace content"
+          aria-label="Default workspace text size"
+        >
+          A
+        </button>
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--last prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierLg"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="lg"
+          aria-pressed="false"
+          title="Larger text in workspace content"
+          aria-label="Larger workspace text"
+        >
+          A+
+        </button>
+      </div>
+      <% unless workspace_fabric? %>
       <button
         type="button"
-        class="workspace-assistant-toggle-btn"
+        class="prompt-workspace-header-icon-btn"
         data-workspace-assistant-toggle-target="button"
         data-action="workspace-assistant-toggle#toggle"
         aria-expanded="true"
@@ -74,11 +119,13 @@
         title="Hide assistant panel"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="12" fill="#111827" />
+          <circle cx="12" cy="12" r="12" class="fill-gray-900 dark:fill-white" />
           <rect x="5.25" y="5.5" width="13.5" height="9" rx="2.25" fill="#fff" />
           <path fill="#fff" d="M8.4 14.25h2.05l-0.95 3.35a.42.42 0 0 1-.8.05l-0.3-3.4z" />
         </svg>
+        <span class="sr-only">Toggle assistant panel</span>
       </button>
+      <% end %>
     </div>
   </div>
 </header>

@@ -3,7 +3,9 @@
 class SequenceDependency < ApplicationRecord
   belongs_to :parent, class_name: "Sequence", inverse_of: :child_dependencies
   belongs_to :child, class_name: "Sequence", inverse_of: :parent_dependencies
-  belongs_to :anchor_sequence, class_name: "Sequence", foreign_key: :anchor_sequence_id, optional: true
+  belongs_to :anchor_sequence, class_name: "Sequence", foreign_key: :anchor_sequence_id,
+                              inverse_of: :thread_branch_deps_as_anchor,
+                              optional: true
 
   enum :kind, {
     sequence_step: "sequence_step",

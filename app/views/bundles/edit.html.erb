@@ -1,12 +1,15 @@
 <% content_for :title, "#{@sequence.title.presence || "Bundle"} · #{@project.name}" %>
 
-<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--v2" if workspace_shell_v2? %>"
-     data-controller="<%= workspace_shell_v2? ? "workspace-assistant-toggle workspace-font-size" : "workspace-assistant-toggle" %>">
+<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--fabric" if workspace_fabric? %>"
+     data-controller="workspace-assistant-toggle workspace-font-size">
   <%= render "sequences/workspace_top_header" %>
-  <div class="workspace workspace--three-pane"
+  <div class="workspace <%= workspace_fabric? ? "workspace--one-pane" : "workspace--three-pane" %>"
        data-controller="workspace-pane-resize"
-       <% if workspace_shell_v2? %>data-workspace-font-size-target="scaleRoot"<% end %>
+       data-workspace-font-size-target="scaleRoot"
        data-workspace-assistant-toggle-target="workspace">
+  <% if workspace_fabric? %>
+    <%= render "sequences/fabric_workspace_main" %>
+  <% else %>
   <%= render "sequences/weave_panel" %>
 
   <div class="workspace-middle-column">
@@ -15,5 +18,6 @@
   </div>
 
   <%= render "sequences/workspace_assistant_panel" %>
+  <% end %>
   </div>
 </div>

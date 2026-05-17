@@ -1,0 +1,22 @@
+---
+description: Avoid polluting the development database when running exploratory Rails scripts
+alwaysApply: true
+---
+
+# Rails runner and database safety
+
+Scratch code (e.g. `Project.create!(...)`, debugging `destroy`, ad-hoc association checks) must **not** write to **development** by default unless the user explicitly asked to mutate their dev data.
+
+Prefer:
+
+1. **`bin/rails runner -e test`** for throwaway mutations (uses the test database and avoids listing noise in development).
+2. For one-off probes against the **development** schema **without leaving rows**:
+
+   ```ruby
+   ApplicationRecord.transaction do
+     # experiment here
+     raise ActiveRecord::Rollback
+   end
+   ```
+
+Treat development `rails runner` that persists records like **real user data**: only run when diagnosing or fixing something the user requested, or after checking with them.

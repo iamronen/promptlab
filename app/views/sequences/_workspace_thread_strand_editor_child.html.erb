@@ -3,11 +3,20 @@
 <% is_bundle = row.bundle_id.present? %>
 <% step_key = is_bundle ? "b:#{row.bundle_id}" : "s:#{row.sequence_id}" %>
 <% ref_id = is_bundle ? row.bundle_id : row.sequence_id %>
+<% anchor_sequence_for_chip =
+     (!is_bundle && row.sequence_id.present?) ? @project.sequences.generative_sequences.find_by(id: row.sequence_id) : nil %>
+<% strand_thread_branch_chip = anchor_sequence_for_chip&.anchors_child_threads? %>
+<% sequence_modal_embed_query =
+     strand_thread_branch_chip ? embed_query.merge(strand_thread_chip_parent: "1") : embed_query %>
 <div
-  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row workspace-thread-editor-child workspace-thread-editor-child--<%= is_bundle ? "bundle" : "sequence" %>"
+  class="workspace-thread-tf thread-strand-child workspace-thread-strand-row workspace-thread-editor-child workspace-thread-editor-child--<%= is_bundle ? "bundle" : "sequence" %> prompt-thread-editor-strand-row<%= " workspace-thread-editor-child--has-thread-branch-band" if strand_thread_branch_chip %>"
+  data-controller="workspace-thread-editor-strand-row"
   data-strand-step="<%= step_key %>"
+  <% if strand_thread_branch_chip %>
+  style="--thread-branch-link-count: <%= anchor_sequence_for_chip.anchored_child_threads_ordered.size %>"
+  <% end %>
 >
-  <div class="workspace-thread-editor-left-rail">
+  <div class="workspace-thread-editor-left-rail prompt-thread-editor-left-rail">
     <%= render "sequences/workspace_thread_strand_handle_block",
                step_key: step_key,
                is_bundle: is_bundle,
@@ -17,30 +26,37 @@
                strand_steps: strand_steps,
                row_index: row_index,
                show_view_in_menu: false %>
-    <div class="workspace-thread-editor-step-rail" aria-hidden="true">
-      <span class="workspace-thread-editor-step-badge"><%= strand_step_number %></span>
-      <div class="workspace-thread-editor-step-line"></div>
+    <div class="workspace-thread-editor-step-rail prompt-thread-editor-step-rail" aria-hidden="true">
+      <span class="workspace-thread-editor-step-badge prompt-thread-editor-badge"><%= strand_step_number %></span>
+      <div class="workspace-thread-editor-step-line prompt-thread-editor-step-line"></div>
     </div>
   </div>
-  <div class="thread-strand-child__content workspace-thread-editor-child__content">
+  <div class="thread-strand-child__content workspace-thread-editor-child__content prompt-thread-editor-content">
     <% if is_bundle %>
       <div class="thread-strand-editor-bundle-body" data-thread-strand-bundle-child="true">
         <%= turbo_frame_tag "thread_editor_bundle_#{row.bundle_id}",
-                            class: "workspace-thread-panel-editor-frame",
+                            class: "workspace-thread-panel-editor-frame prompt-thread-editor-frame",
                             src: edit_project_bundle_path(@project, row.bundle_id, **embed_query, modal: true, redirect_to: editor_return_path),
                             loading: :lazy do %>
-          <p class="workspace-thread-panel-editor-placeholder">Loading bundle…</p>
+          <p class="workspace-thread-panel-editor-placeholder prompt-thread-editor-placeholder">Loading bundle…</p>
         <% end %>
       </div>
     <% else %>
       <div class="thread-strand-editor-sequence-slot" data-thread-strand-sequence-slot="true">
         <%= turbo_frame_tag "thread_editor_sequence_#{row.sequence_id}",
-                            class: "workspace-thread-panel-editor-frame",
-                            src: edit_project_sequence_path(@project, row.sequence_id, **embed_query, modal: true, redirect_to: editor_return_path),
+                            class: "workspace-thread-panel-editor-frame prompt-thread-editor-frame",
+                            src: edit_project_sequence_path(@project, row.sequence_id, **sequence_modal_embed_query, modal: true, redirect_to: editor_return_path),
                             loading: :lazy do %>
-          <p class="workspace-thread-panel-editor-placeholder">Loading sequence…</p>
+          <p class="workspace-thread-panel-editor-placeholder prompt-thread-editor-placeholder">Loading sequence…</p>
         <% end %>
       </div>
     <% end %>
   </div>
+  <% if strand_thread_branch_chip %>
+    <div class="workspace-thread-editor-child__thread-branch-band">
+      <%= render "sequences/thread_branch_strand_bridge_band",
+                 indicator_sequence: anchor_sequence_for_chip,
+                 insert_after_panel_thread_id: strand_thread&.id %>
+    </div>
+  <% end %>
 </div>

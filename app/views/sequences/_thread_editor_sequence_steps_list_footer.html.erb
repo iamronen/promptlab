@@ -1,4 +1,12 @@
-<%# locals: steps, form_field_prefix, thread_panel_editor_embed, nested_step_card (bool), steps_list_class, footer_class %>
+<%# locals: steps, form_field_prefix, thread_panel_editor_embed, nested_step_card (bool), steps_list_class, footer_class,
+    indicator_sequence: (optional Sequence), suppress_footer_thread_branch_tail: (optional bool),
+    insert_after_panel_thread_id: (optional Integer) %>
+<% indicator_sequence = local_assigns[:indicator_sequence] %>
+<% suppress_footer_thread_branch_tail = local_assigns.fetch(:suppress_footer_thread_branch_tail, false) %>
+<% show_thread_branches_indicator =
+     thread_panel_editor_embed &&
+       indicator_sequence&.anchors_child_threads? %>
+<% show_footer_thread_branch_tail = show_thread_branches_indicator && !suppress_footer_thread_branch_tail %>
 <div class="<%= steps_list_class %>" data-editor-kind="sequence_steps_list" data-sequence-editor-target="stepsList">
   <% steps.each_with_index do |step_row, index| %>
     <%= render "sequences/thread_editor_sequence_step_row",
@@ -9,7 +17,18 @@
                step_row: step_row,
                index: index %>
   <% end %>
+  <% if show_thread_branches_indicator %>
+    <%# Hidden sentinel: nested sequence-editor insertStep inserts before this node %>
+    <div data-sequence-editor-steps-end-anchor hidden aria-hidden="true"></div>
+  <% end %>
 </div>
 <div class="<%= footer_class %>">
-  <button type="button" class="secondary-button add-step-button" data-action="sequence-editor#addStep">Add step</button>
+  <button type="button" class="prompt-btn-secondary add-step-button text-sm" data-action="sequence-editor#addStep">Add step</button>
 </div>
+<% if show_footer_thread_branch_tail %>
+  <div class="thread-editor-thread-branch-indicator-tail">
+    <%= render "sequences/thread_editor_sequence_thread_branches_indicator_row",
+               indicator_sequence: indicator_sequence,
+               insert_after_panel_thread_id: local_assigns[:insert_after_panel_thread_id] %>
+  </div>
+<% end %>

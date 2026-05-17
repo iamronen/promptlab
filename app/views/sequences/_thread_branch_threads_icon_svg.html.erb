@@ -1,0 +1,15 @@
+<%# locals: size: (optional, default 14) — same fork glyph as thread-index branch menu %>
+<% icon_size = (local_assigns[:size] || 14).to_i %>
+<svg xmlns="http://www.w3.org/2000/svg" width="<%= icon_size %>" height="<%= icon_size %>" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+  <path
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.85"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M 6 12H 9M 9 12C 10.8 9.6 14.2 7 18 7M 9 12C 10.8 14.4 14.2 17 18 17"
+  />
+  <rect x="2" y="10" width="4" height="4" rx="1.15" ry="1.15"/>
+  <rect x="18" y="5" width="4" height="4" rx="1.15" ry="1.15"/>
+  <rect x="18" y="15" width="4" height="4" rx="1.15" ry="1.15"/>
+</svg>

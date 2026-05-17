@@ -1,8 +1,35 @@
-<%# locals: step_badge_text (String) — compound strand step label e.g. "3.2" %>
-<div class="bundle-pipeline-thread-child-leading-strip">
-  <%= render "sequences/bundle_pipeline_thread_child_sequence_rail" %>
-  <div class="workspace-thread-editor-step-rail bundle-pipeline-thread-child-strand-rail">
-    <span class="workspace-thread-editor-step-badge bundle-pipeline-thread-child-strand-badge" aria-label="<%= "Step #{step_badge_text}" %>"><%= step_badge_text %></span>
-    <div class="workspace-thread-editor-step-line bundle-pipeline-thread-child-strand-line" aria-hidden="true"></div>
+<%# locals: step_badge_text (String), render_child_threads_indicator: (optional bool), indicator_sequence: (optional Sequence) %>
+<% render_child_threads_indicator = local_assigns.fetch(:render_child_threads_indicator, false) %>
+<% indicator_sequence = local_assigns[:indicator_sequence] %>
+<% if render_child_threads_indicator && indicator_sequence.present?
+     anchored_threads = indicator_sequence.anchored_child_threads_ordered
+     thread_names = anchored_threads.map { |t| t.title.to_s.presence || Sequence::UNTITLED_THREAD_BRANCH_TITLE }
+     branches_label =
+       if thread_names.one?
+         "This sequence branches to thread: #{thread_names.first}."
+       else
+         "This sequence branches to threads: #{thread_names.join(', ')}."
+       end
+   end %>
+<div class="bundle-pipeline-thread-child-leading-strip prompt-thread-bundle-leading-strip">
+  <%= render "sequences/bundle_pipeline_thread_child_sequence_rail",
+             strand_thread: @workspace_thread,
+             anchor_sequence: indicator_sequence,
+             attach_bundle_id: @sequence.id,
+             attach_editor_return_path: params[:redirect_to].presence || request.fullpath %>
+  <div class="workspace-thread-editor-step-rail bundle-pipeline-thread-child-strand-rail prompt-thread-bundle-strand-rail<%= " bundle-pipeline-thread-child-strand-rail--has-thread-branch-chip" if render_child_threads_indicator %>">
+    <span class="workspace-thread-editor-step-badge bundle-pipeline-thread-child-strand-badge prompt-thread-bundle-strand-badge" aria-label="<%= "Step #{step_badge_text}" %>"><%= step_badge_text %></span>
+    <div class="workspace-thread-editor-step-line bundle-pipeline-thread-child-strand-line prompt-thread-bundle-strand-line" aria-hidden="true"></div>
+    <% if render_child_threads_indicator && indicator_sequence.present? %>
+      <div class="thread-branch-strand-rail-marker">
+        <span
+          class="sequence-has-threads-indicator sequence-has-threads-indicator--strand-rail"
+          title="<%= branches_label %>"
+          aria-label="<%= branches_label %>"
+        >
+          <%= render "sequences/thread_branch_threads_icon_svg", size: 14 %>
+        </span>
+      </div>
+    <% end %>
   </div>
 </div>

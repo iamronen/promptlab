@@ -5,12 +5,8 @@ import { fetchAutosaveForm } from "workspace_autosave"
 /** Generative step row (vs bundle pipeline slot: data-editor-kind="bundle_pipeline_slot"). */
 const SEQUENCE_STEP_ROW_SELECTOR = '[data-editor-kind="sequence_step"]'
 const SEQUENCE_STEP_ROW_ACTIVE_DRAG_CLASS = "step-row--sequence-active"
-
-function formatStepOrdinalLabelForStepRow(stepRowEl, ordinal) {
-  const stepCard = stepRowEl.querySelector(":scope > article.step-card.step-card--thread-embed-steps")
-  if (stepCard) return `${ordinal}:`
-  return String(ordinal)
-}
+/** Sentinel row at end of steps list (thread-branch indicator); new steps insert before this. */
+const STEPS_LIST_END_ANCHOR_SELECTOR = "[data-sequence-editor-steps-end-anchor]"
 
 const PIPELINE_SCROLL_AFTER_CREATE_KEY = "promptlab:scrollBundlePipelineSeqId"
 
@@ -953,7 +949,7 @@ export default class extends Controller {
         const upButton = card.querySelector('[data-step-control="up"]')
         const downButton = card.querySelector('[data-step-control="down"]')
 
-        if (label) label.textContent = formatStepOrdinalLabelForStepRow(card, index + 1)
+        if (label) label.textContent = String(index + 1)
         if (positionInput) {
           positionInput.value = String(index + 1)
           if (prefix) positionInput.name = `${prefix}[steps_attributes][${index}][position]`
@@ -1113,7 +1109,7 @@ export default class extends Controller {
       const upButton = card.querySelector('[data-step-control="up"]')
       const downButton = card.querySelector('[data-step-control="down"]')
 
-      if (label) label.textContent = formatStepOrdinalLabelForStepRow(card, index + 1)
+      if (label) label.textContent = String(index + 1)
       positionInput.value = String(index + 1)
       if (prefix) {
         const base = `${prefix}[steps_attributes][${index}]`
@@ -1193,10 +1189,19 @@ export default class extends Controller {
     const html = this.stepTemplateTarget.innerHTML.replaceAll("NEW_RECORD", token)
 
     const list = this.stepsListElement()
+    const endAnchor = list.querySelector(STEPS_LIST_END_ANCHOR_SELECTOR)
+
     if (anchorCard && placeBefore) {
       anchorCard.insertAdjacentHTML("beforebegin", html)
     } else if (anchorCard) {
-      anchorCard.insertAdjacentHTML("afterend", html)
+      const next = anchorCard.nextElementSibling
+      if (next && next.matches(STEPS_LIST_END_ANCHOR_SELECTOR)) {
+        next.insertAdjacentHTML("beforebegin", html)
+      } else {
+        anchorCard.insertAdjacentHTML("afterend", html)
+      }
+    } else if (endAnchor) {
+      endAnchor.insertAdjacentHTML("beforebegin", html)
     } else {
       list.insertAdjacentHTML("beforeend", html)
     }

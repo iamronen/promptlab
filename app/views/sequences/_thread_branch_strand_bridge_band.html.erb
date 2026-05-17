@@ -1,0 +1,35 @@
+<%# locals: indicator_sequence (Sequence), layout: (optional :strand_row | :bundle_nested),
+    insert_after_panel_thread_id: (optional Integer) %>
+<% layout = local_assigns.fetch(:layout, :strand_row) %>
+<% anchored_threads = indicator_sequence.anchored_child_threads_ordered %>
+<% thread_names = anchored_threads.map { |t| t.title.to_s.presence || Sequence::UNTITLED_THREAD_BRANCH_TITLE } %>
+<% branches_label =
+     if thread_names.one?
+       "This sequence branches to thread: #{thread_names.first}."
+     else
+       "This sequence branches to threads: #{thread_names.join(', ')}."
+     end %>
+<div
+  class="thread-branch-strand-bridge-band thread-branch-strand-bridge-band--<%= layout.to_s.dasherize %> thread-branch-strand-bridge-band--count-<%= anchored_threads.size %>"
+  style="--thread-branch-link-count: <%= anchored_threads.size %>"
+  role="group"
+  aria-label="Branched threads"
+>
+  <% if layout == :strand_row %>
+    <div class="thread-branch-strand-bridge-band__handle-gutter" aria-hidden="true"></div>
+    <div class="thread-branch-strand-bridge-band__timeline-col">
+      <span
+        class="sequence-has-threads-indicator sequence-has-threads-indicator--strand-rail"
+        title="<%= branches_label %>"
+        aria-label="<%= branches_label %>"
+      >
+        <%= render "sequences/thread_branch_threads_icon_svg", size: 14 %>
+      </span>
+    </div>
+  <% end %>
+  <div class="thread-branch-strand-bridge-band__content-col">
+    <%= render "sequences/thread_branch_indicator_links",
+               anchored_threads: anchored_threads,
+               insert_after_panel_thread_id: local_assigns[:insert_after_panel_thread_id] %>
+  </div>
+</div>

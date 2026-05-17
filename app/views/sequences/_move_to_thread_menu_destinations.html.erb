@@ -1,0 +1,95 @@
+<%#
+  locals:
+    destinations: Array<Sequence>
+    variant: :workspace | :embed
+    source_thread: Sequence (thread) — POST member route
+    generative_sequence_id: Integer — omit when bundle_id is set (strand bundle step)
+    bundle_id: (optional) Integer — whole bundle move; POST thread_move_bundle_to_thread
+    from_bundle_id: (optional) Integer bundle id when moving from a pipeline
+    editor_return_path: String
+    scope_params: Hash — e.g. workspace_thread_scope_params
+%>
+<% destinations = Array.wrap(local_assigns[:destinations]) %>
+<% variant = (local_assigns[:variant] || :workspace).to_sym %>
+<% source_thread = local_assigns.fetch(:source_thread) %>
+<% bundle_id = local_assigns[:bundle_id] %>
+<% bundle_move = bundle_id.to_i.positive? %>
+<% from_bundle_id = local_assigns[:from_bundle_id] %>
+<% editor_return_path = local_assigns.fetch(:editor_return_path) %>
+<% scope_hash = local_assigns.fetch(:scope_params) { workspace_thread_scope_params } %>
+<% scope_h = scope_hash.respond_to?(:to_unsafe_h) ? scope_hash.to_unsafe_h : scope_hash.to_h %>
+<% if bundle_move %>
+  <% move_base = { bundle_id: bundle_id, redirect_to: editor_return_path } %>
+  <% move_path = thread_move_bundle_to_thread_project_sequence_path(@project, source_thread) %>
+<% else %>
+  <% generative_sequence_id = local_assigns.fetch(:generative_sequence_id) %>
+  <% move_base = { sequence_id: generative_sequence_id, redirect_to: editor_return_path } %>
+  <% move_base[:from_bundle_id] = from_bundle_id if from_bundle_id.to_i.positive? %>
+  <% move_path = thread_move_sequence_to_thread_project_sequence_path(@project, source_thread) %>
+<% end %>
+<% if variant == :workspace %>
+  <div class="workspace-thread-tf-order-menu-group">
+    <button
+      type="button"
+      role="menuitem"
+      class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent"
+      aria-haspopup="true"
+      aria-expanded="false"
+      data-action="thread-strand-panel#toggleOrderSubmenu"
+      data-submenu-id="move-to-thread"
+    >
+      Move to Thread
+      <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
+    </button>
+    <div
+      class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu workspace-thread-tf-order-submenu--scrollable"
+      role="menu"
+      hidden
+      data-submenu-id="move-to-thread"
+    >
+      <% destinations.each do |th| %>
+        <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
+        <%= button_to th.title.to_s.truncate(80),
+                      move_path,
+                      method: :post,
+                      params: mp,
+                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                      role: "menuitem",
+                      class: "workspace-thread-tf-order-menu-item",
+                      title: h(th.title.to_s) %>
+      <% end %>
+      <button
+        type="button"
+        role="menuitem"
+        class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--disabled"
+        disabled
+        aria-disabled="true"
+      >
+        Choose Thread
+      </button>
+    </div>
+  </div>
+<% else %>
+  <div class="step-menu-submenu-host" role="none">
+    <div class="step-menu-submenu-title" aria-hidden="true">
+      Move to Thread
+      <span class="step-menu-flyout-chevron">▸</span>
+    </div>
+    <div class="step-submenu step-submenu--scrollable" role="presentation">
+      <% destinations.each do |th| %>
+        <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
+        <%= button_to th.title.to_s.truncate(80),
+                      move_path,
+                      method: :post,
+                      params: mp,
+                      form: { class: "step-menu--thread-handle-form", data: { turbo_submits_with: "…" } },
+                      role: "menuitem",
+                      class: "step-menu--thread-handle-submit",
+                      title: h(th.title.to_s) %>
+      <% end %>
+      <button type="button" role="menuitem" disabled aria-disabled="true">
+        Choose Thread
+      </button>
+    </div>
+  </div>
+<% end %>

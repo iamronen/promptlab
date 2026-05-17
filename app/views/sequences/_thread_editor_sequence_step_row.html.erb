@@ -1,13 +1,16 @@
 <%# locals: form_field_prefix, thread_panel_editor_embed, nested_step_card: (optional bool), placeholder: (optional bool), step_row:, index: (ignored when placeholder) %>
 <% placeholder = local_assigns.fetch(:placeholder, false) %>
 <% nested_step_card = local_assigns.fetch(:nested_step_card, false) %>
+<% suppress_move_to_thread = nested_step_card && thread_panel_editor_embed %>
 <% sa = "#{form_field_prefix}[steps_attributes]" %>
 <% step_card_classes = ["step-card"] %>
 <% step_card_classes << "bundle-nested-step-card" if nested_step_card %>
 <% step_card_classes << "step-card--thread-embed-steps" if thread_panel_editor_embed %>
-<div class="step-row" draggable="false" data-editor-kind="sequence_step" data-sequence-editor-target="stepCard">
+<% step_card_classes << "prompt-thread-step-card" if thread_panel_editor_embed %>
+<div class="step-row<%= " prompt-thread-step-row" if thread_panel_editor_embed %>" draggable="false" data-editor-kind="sequence_step" data-sequence-editor-target="stepCard">
   <% if thread_panel_editor_embed %>
-    <%= render "sequences/thread_embed_sequence_step_rail" %>
+    <%= render "sequences/thread_embed_sequence_step_rail",
+               suppress_move_to_thread: suppress_move_to_thread %>
   <% else %>
     <%= render "sequences/thread_editor_sequence_order_rail_standard" %>
   <% end %>
@@ -27,8 +30,6 @@
       <% step_label_text =
            if placeholder
              "Step"
-           elsif thread_panel_editor_embed
-             "#{step_row.position}:"
            else
              step_row.position.to_s
            end %>

@@ -434,7 +434,421 @@ module ThreadStrandMutations
     end
   end
 
+  def thread_move_sequence_to_thread
+    source_thread = @sequence
+    gen_id = params[:sequence_id].to_i
+    target_tid = params[:target_thread_id].to_i
+    from_bundle_id = params[:from_bundle_id].to_i
+
+    if gen_id <= 0 || target_tid <= 0
+      respond_move_sequence_failure("Invalid request.")
+      return
+    end
+
+    target_thread = @project.sequences.threads.find_by(id: target_tid)
+    unless target_thread && target_thread.id != source_thread.id
+      respond_move_sequence_failure("Invalid target thread.")
+      return
+    end
+
+    if ThreadNode.exists?(
+      parent_thread_id: source_thread.id,
+      parent_generative_sequence_id: gen_id,
+      child_thread_id: target_thread.id
+    )
+      respond_move_sequence_failure("Cannot move a sequence into a thread branched from that sequence.")
+      return
+    end
+
+    gen = @project.sequences.generative_sequences.find_by(id: gen_id)
+    unless gen
+      respond_move_sequence_failure("Sequence not found.")
+      return
+    end
+
+    dest_tid = target_tid
+    err_msg = nil
+    ActiveRecord::Base.transaction do
+      ThreadNode
+        .where(parent_thread_id: source_thread.id, parent_generative_sequence_id: gen_id)
+        .find_each(&:destroy!)
+
+      if from_bundle_id.positive?
+        err_msg = apply_move_sequence_off_bundle!(source_thread, from_bundle_id, gen)
+      else
+        err_msg = apply_move_sequence_off_strand_step!(source_thread, gen_id)
+      end
+
+      if err_msg.present?
+        raise ActiveRecord::Rollback
+      end
+
+      if target_thread.flattened_generative_sequence_ids_on_strand.include?(gen_id)
+        err_msg = "Sequence is already on the target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      new_target_pairs = target_thread.strand_step_pairs + [[:sequence, gen_id]]
+      unless strand_pairs_referential_integrity?(new_target_pairs)
+        err_msg = "Cannot add sequence to the target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      target_thread.steps_data =
+        new_target_pairs.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
+      unless target_thread.save
+        err_msg = target_thread.errors.full_messages.to_sentence.presence || "Could not update target strand."
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    if err_msg.blank?
+      merged_opts =
+        workspace_editor_redirect_options.stringify_keys.merge(
+          "weave_thread" => dest_tid.to_s,
+          "focus_transformation_id" => gen_id.to_s,
+          "open_threads" => move_sequence_redirect_open_threads(dest_tid),
+          "focus_bundle_id" => ""
+        )
+      ref = params[:redirect_to].to_s
+      next_url =
+        if ref.start_with?("/") && !ref.include?("..")
+          merge_query_for_url("#{request.protocol}#{request.host_with_port}#{ref}", merged_opts)
+        else
+          thread_redirect_url(merged_opts.symbolize_keys)
+        end
+      redirect_to next_url, notice: "Sequence moved to thread."
+    else
+      respond_move_sequence_failure(err_msg)
+    end
+  end
+
+  def thread_move_bundle_to_thread
+    source_thread = @sequence
+    bundle_id = params[:bundle_id].to_i
+    target_tid = params[:target_thread_id].to_i
+
+    if bundle_id <= 0 || target_tid <= 0
+      respond_move_sequence_failure("Invalid request.")
+      return
+    end
+
+    target_thread = @project.sequences.threads.find_by(id: target_tid)
+    unless target_thread && target_thread.id != source_thread.id
+      respond_move_sequence_failure("Invalid target thread.")
+      return
+    end
+
+    bundle = @project.sequences.bundles.find_by(id: bundle_id)
+    unless bundle
+      respond_move_sequence_failure("Bundle not found.")
+      return
+    end
+
+    pairs = source_thread.strand_step_pairs
+    unless pairs.index([:bundle, bundle_id])
+      respond_move_sequence_failure("Bundle is not on this strand.")
+      return
+    end
+
+    pipeline_ids = bundle.pipeline_generative_sequence_ids
+
+    pipeline_ids.each do |gen_id|
+      if ThreadNode.exists?(
+        parent_thread_id: source_thread.id,
+        parent_generative_sequence_id: gen_id,
+        child_thread_id: target_thread.id
+      )
+        respond_move_sequence_failure("Cannot move a bundle into a thread branched from a sequence in that bundle.")
+        return
+      end
+    end
+
+    dest_tid = target_tid
+    err_msg = nil
+    ActiveRecord::Base.transaction do
+      pipeline_ids.each do |gen_id|
+        ThreadNode
+          .where(parent_thread_id: source_thread.id, parent_generative_sequence_id: gen_id)
+          .find_each(&:destroy!)
+      end
+
+      source_pairs = pairs.reject { |k, sid| k == :bundle && sid == bundle_id }
+      unless strand_pairs_referential_integrity?(source_pairs)
+        err_msg = "Cannot update source strand."
+        raise ActiveRecord::Rollback
+      end
+
+      source_thread.steps_data =
+        source_pairs.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
+      unless source_thread.save
+        err_msg = source_thread.errors.full_messages.to_sentence.presence || "Could not update source strand."
+        raise ActiveRecord::Rollback
+      end
+
+      tgt_flat = target_thread.flattened_generative_sequence_ids_on_strand
+      if pipeline_ids.any? { |sid| tgt_flat.include?(sid) }
+        err_msg = "A sequence in this bundle is already on the target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      if target_thread.strand_step_pairs.include?([:bundle, bundle_id])
+        err_msg = "Bundle is already on the target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      new_target_pairs = target_thread.strand_step_pairs + [[:bundle, bundle_id]]
+      unless strand_pairs_referential_integrity?(new_target_pairs)
+        err_msg = "Cannot add bundle to the target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      target_thread.steps_data =
+        new_target_pairs.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
+      unless target_thread.save
+        err_msg = target_thread.errors.full_messages.to_sentence.presence || "Could not update target strand."
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    if err_msg.blank?
+      merged_opts =
+        workspace_editor_redirect_options.stringify_keys.merge(
+          "weave_thread" => dest_tid.to_s,
+          "focus_bundle_id" => bundle_id.to_s,
+          "focus_transformation_id" => "",
+          "open_threads" => move_sequence_redirect_open_threads(dest_tid)
+        )
+      ref = params[:redirect_to].to_s
+      next_url =
+        if ref.start_with?("/") && !ref.include?("..")
+          merge_query_for_url("#{request.protocol}#{request.host_with_port}#{ref}", merged_opts)
+        else
+          thread_redirect_url(merged_opts.symbolize_keys)
+        end
+      redirect_to next_url, notice: "Bundle moved to thread."
+    else
+      respond_move_sequence_failure(err_msg)
+    end
+  end
+
+  def thread_attach_branch_thread
+    child_tid = params[:child_thread_id].to_i
+    anchor_sid = params[:anchor_sequence_id].to_i
+    anchor_bid = params[:anchor_bundle_id].to_i
+    anchor_bid = nil unless anchor_bid.positive?
+
+    if child_tid <= 0 || anchor_sid <= 0
+      respond_move_sequence_failure("Invalid request.")
+      return
+    end
+
+    child_thread = @project.sequences.threads.find_by(id: child_tid)
+    unless child_thread && child_thread.id != @sequence.id
+      respond_move_sequence_failure("Invalid branch thread.")
+      return
+    end
+
+    if child_thread.is_genesis? || child_thread.is_orphans?
+      respond_move_sequence_failure("Cannot reattach this thread.")
+      return
+    end
+
+    node = ThreadNode.find_by(child_thread_id: child_tid)
+    unless node
+      respond_move_sequence_failure("Thread is not branched.")
+      return
+    end
+
+    unless @sequence.flattened_generative_sequence_ids_on_strand.include?(anchor_sid)
+      respond_move_sequence_failure("Anchor is not on this strand.")
+      return
+    end
+
+    if anchor_bid
+      bundle = @project.sequences.bundles.find_by(id: anchor_bid)
+      unless bundle && @sequence.thread_bundle_ids.include?(anchor_bid) && bundle.pipeline_generative_sequence_ids.include?(anchor_sid)
+        respond_move_sequence_failure("Invalid bundle anchor.")
+        return
+      end
+    elsif @sequence.bundle_containing_generative_sequence(anchor_sid) &&
+          @sequence.thread_direct_generative_sequence_ids.exclude?(anchor_sid)
+      respond_move_sequence_failure("Specify bundle for this anchor.")
+      return
+    end
+
+    if thread_branch_attach_would_cycle?(child_thread, @sequence)
+      respond_move_sequence_failure("Cannot attach branch: would create a cycle.")
+      return
+    end
+
+    if node.parent_thread_id == @sequence.id &&
+        node.parent_generative_sequence_id == anchor_sid &&
+        (node.parent_bundle_id || 0) == (anchor_bid || 0)
+      respond_move_sequence_failure("Already attached at this anchor.")
+      return
+    end
+
+    old_parent_id = node.parent_thread_id
+
+    sibling_max =
+      ThreadNode
+      .where(parent_thread_id: @sequence.id, parent_generative_sequence_id: anchor_sid)
+      .where.not(id: node.id)
+      .maximum(:child_order)
+      .to_i
+
+    err_msg = nil
+    ActiveRecord::Base.transaction do
+      node.parent_thread_id = @sequence.id
+      node.parent_generative_sequence_id = anchor_sid
+      node.parent_bundle_id = anchor_bid
+      node.child_order = sibling_max + 1
+      if node.save
+        nil
+      else
+        err_msg = node.errors.full_messages.to_sentence.presence || "Could not attach thread."
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    if err_msg.blank?
+      merged_opts =
+        workspace_editor_redirect_options.stringify_keys.merge(
+          "weave_thread" => @sequence.id.to_s,
+          "open_threads" => attach_branch_redirect_open_threads(@sequence.id, old_parent_id, child_tid)
+        )
+      ref = params[:redirect_to].to_s
+      next_url =
+        if ref.start_with?("/") && !ref.include?("..")
+          merge_query_for_url("#{request.protocol}#{request.host_with_port}#{ref}", merged_opts)
+        else
+          thread_redirect_url(merged_opts.symbolize_keys)
+        end
+      redirect_to next_url, notice: "Thread branch attached."
+    else
+      respond_move_sequence_failure(err_msg)
+    end
+  end
+
   private
+
+  def apply_move_sequence_off_strand_step!(source_thread, gen_id)
+    pairs = source_thread.strand_step_pairs
+    unless pairs.index([:sequence, gen_id])
+      return "Sequence is not on this strand."
+    end
+
+    new_pairs = pairs.reject { |k, sid| k == :sequence && sid == gen_id }
+    unless strand_pairs_referential_integrity?(new_pairs)
+      return "Cannot update source strand."
+    end
+
+    source_thread.steps_data =
+      new_pairs.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
+    source_thread.save ? nil : (source_thread.errors.full_messages.to_sentence.presence || "Could not update source strand.")
+  end
+
+  def apply_move_sequence_off_bundle!(source_thread, bundle_id, gen)
+    bundle = @project.sequences.bundles.find_by(id: bundle_id)
+    unless bundle && gen
+      return "Bundle or sequence not found."
+    end
+
+    pairs = source_thread.strand_step_pairs
+    unless pairs.index([:bundle, bundle.id])
+      return "Bundle is not on this strand."
+    end
+
+    pipeline_ids = bundle.pipeline_generative_sequence_ids
+    unless pipeline_ids.include?(gen.id)
+      return "Sequence is not in this bundle."
+    end
+
+    remaining_ids = pipeline_ids.reject { |sid| sid == gen.id }
+    new_bundle_steps = Array.wrap(bundle.steps_data).reject do |raw|
+      raw.is_a?(Hash) && raw.stringify_keys["sequence_id"].to_i == gen.id
+    end
+
+    pairs_work = pairs.dup
+    bundle_idx = pairs_work.index([:bundle, bundle.id])
+    return "Could not update strand." unless bundle_idx
+
+    if remaining_ids.empty?
+      pairs_work.delete_at(bundle_idx)
+    elsif remaining_ids.size == 1
+      pairs_work[bundle_idx] = [:sequence, remaining_ids.first]
+    end
+
+    unless strand_pairs_referential_integrity?(pairs_work)
+      return "Would create a duplicate entry on the source strand."
+    end
+
+    if remaining_ids.size >= 2
+      bundle.steps_data = new_bundle_steps
+      unless bundle.save
+        return bundle.errors.full_messages.to_sentence.presence || "Could not update bundle."
+      end
+    end
+
+    source_thread.steps_data =
+      pairs_work.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
+    unless source_thread.save
+      return source_thread.errors.full_messages.to_sentence.presence || "Could not update source strand."
+    end
+
+    if remaining_ids.size < 2
+      unless bundle.destroy
+        return bundle.errors.full_messages.to_sentence.presence || "Could not remove bundle."
+      end
+    end
+
+    nil
+  end
+
+  def move_sequence_redirect_open_threads(include_thread_id)
+    ot = params[:open_threads].to_s.strip
+    ids =
+      ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
+    ids << include_thread_id.to_i unless ids.include?(include_thread_id.to_i)
+    ids.join(",")
+  end
+
+  # After reattaching a branch, keep strip panels for old parent, new parent, and the child thread open when possible.
+  def attach_branch_redirect_open_threads(new_parent_id, old_parent_id, child_thread_id)
+    ot = params[:open_threads].to_s.strip
+    ids =
+      ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
+    [new_parent_id, old_parent_id, child_thread_id].each do |tid|
+      tid = tid.to_i
+      next if tid <= 0
+
+      ids << tid unless ids.include?(tid)
+    end
+    ids.join(",")
+  end
+
+  def thread_branch_attach_would_cycle?(child_thread, parent_thread)
+    seen = {}
+    cur = parent_thread
+    while cur
+      return true if cur.id == child_thread.id
+      return true if seen[cur.id]
+
+      seen[cur.id] = true
+      node = ThreadNode.find_by(child_thread_id: cur.id)
+      cur = node&.parent_thread
+    end
+    false
+  end
+
+  def respond_move_sequence_failure(message)
+    if workspace_autosave_request?
+      head :unprocessable_entity
+    else
+      redirect_to thread_redirect_url, alert: message
+    end
+  end
 
   def apply_adjacent_strand_merge!(project, thread, pairs, left_idx, left, right)
     suffix = pairs[(left_idx + 2)..] || []
@@ -575,7 +989,7 @@ module ThreadStrandMutations
     @sequence = @project.sequences.threads.find_by(id: params[:id])
     return if @sequence
 
-    redirect_to open_project_path(@project, **workspace_shell_redirect_fragment), alert: "Thread not found."
+    redirect_to open_project_path(@project), alert: "Thread not found."
     nil
   end
 
@@ -649,8 +1063,10 @@ module ThreadStrandMutations
     uri = URI.parse(url)
     q = Rack::Utils.parse_nested_query(uri.query.to_s)
     extra.each do |k, v|
-      next if v.nil?
-
+      if v.nil? || v.to_s.empty?
+        q.delete(k.to_s)
+        next
+      end
       q[k.to_s] = v.to_s
     end
     uri.query = q.to_query.presence

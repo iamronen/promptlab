@@ -1,0 +1,86 @@
+<%#
+  locals:
+    candidates: Array<Sequence> — branch threads to reattach
+    variant: :workspace | :embed
+    target_parent_thread: Sequence (thread) — POST member route
+    anchor_sequence_id: Integer
+    anchor_bundle_id: (optional) Integer
+    editor_return_path: String
+    scope_params: Hash — e.g. workspace_thread_scope_params
+%>
+<% candidates = Array.wrap(local_assigns[:candidates]) %>
+<% variant = (local_assigns[:variant] || :workspace).to_sym %>
+<% target_parent_thread = local_assigns.fetch(:target_parent_thread) %>
+<% anchor_sequence_id = local_assigns.fetch(:anchor_sequence_id) %>
+<% anchor_bundle_id = local_assigns[:anchor_bundle_id] %>
+<% editor_return_path = local_assigns.fetch(:editor_return_path) %>
+<% scope_hash = local_assigns.fetch(:scope_params) { workspace_thread_scope_params } %>
+<% scope_h = scope_hash.respond_to?(:to_unsafe_h) ? scope_hash.to_unsafe_h : scope_hash.to_h %>
+<% attach_base = { anchor_sequence_id: anchor_sequence_id, redirect_to: editor_return_path } %>
+<% attach_base[:anchor_bundle_id] = anchor_bundle_id if anchor_bundle_id.to_i.positive? %>
+<% if variant == :workspace %>
+  <div class="workspace-thread-tf-order-menu-group">
+    <button
+      type="button"
+      role="menuitem"
+      class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--parent"
+      aria-haspopup="true"
+      aria-expanded="false"
+      data-action="thread-strand-panel#toggleOrderSubmenu"
+      data-submenu-id="attach-branch-thread"
+    >
+      Attach to Existing Thread
+      <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
+    </button>
+    <div
+      class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu workspace-thread-tf-order-submenu--scrollable"
+      role="menu"
+      hidden
+      data-submenu-id="attach-branch-thread"
+    >
+      <% candidates.each do |th| %>
+        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.id).compact %>
+        <%= button_to th.title.to_s.truncate(80),
+                      thread_attach_branch_thread_project_sequence_path(@project, target_parent_thread),
+                      method: :post,
+                      params: mp,
+                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                      role: "menuitem",
+                      class: "workspace-thread-tf-order-menu-item",
+                      title: h(th.title.to_s) %>
+      <% end %>
+      <button
+        type="button"
+        role="menuitem"
+        class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--disabled"
+        disabled
+        aria-disabled="true"
+      >
+        Choose thread
+      </button>
+    </div>
+  </div>
+<% else %>
+  <div class="step-menu-submenu-host" role="none">
+    <div class="step-menu-submenu-title" aria-hidden="true">
+      Attach to Existing Thread
+      <span class="step-menu-flyout-chevron">▸</span>
+    </div>
+    <div class="step-submenu step-submenu--scrollable" role="presentation">
+      <% candidates.each do |th| %>
+        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.id).compact %>
+        <%= button_to th.title.to_s.truncate(80),
+                      thread_attach_branch_thread_project_sequence_path(@project, target_parent_thread),
+                      method: :post,
+                      params: mp,
+                      form: { class: "step-menu--thread-handle-form", data: { turbo_submits_with: "…" } },
+                      role: "menuitem",
+                      class: "step-menu--thread-handle-submit",
+                      title: h(th.title.to_s) %>
+      <% end %>
+      <button type="button" role="menuitem" disabled aria-disabled="true">
+        Choose thread
+      </button>
+    </div>
+  </div>
+<% end %>

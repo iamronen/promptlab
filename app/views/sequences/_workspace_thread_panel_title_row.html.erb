@@ -1,33 +1,194 @@
-<%# locals: project:, thread:, heading_id: %>
+<%# locals: project:, thread:, heading_id:, panel_owner_thread:, editor_return_path:, workspace_thread_scope_hash: (optional) %>
+<% panel_owner_thread = local_assigns.fetch(:panel_owner_thread, thread) %>
+<% editor_return_path = local_assigns.fetch(:editor_return_path) %>
+<% scope_for_destroy = local_assigns.fetch(:workspace_thread_scope_hash) { workspace_thread_scope_params } %>
+<% destroy_params = { redirect_to: editor_return_path }.merge(scope_for_destroy).compact %>
+<% has_strand_content = thread.strand_step_pairs.any? %>
+<% crumb_payload = thread.thread_workspace_breadcrumb_payload %>
+<% lineage_nav_label = crumb_payload ? "Thread lineage: #{crumb_payload.lineage_label_text}" : nil %>
 <div
-  class="workspace-thread-panel-header-title-row"
+  class="workspace-thread-panel-header-title-row prompt-thread-panel-header-title-row"
   data-controller="workspace-thread-panel-title"
   data-workspace-thread-panel-title-update-url-value="<%= project_sequence_path(project, thread) %>"
 >
-  <h2
-    id="<%= heading_id %>"
-    class="workspace-thread-panel-title"
-    data-workspace-thread-panel-title-target="display"
-  >
-    <%= thread.title %>
-  </h2>
+  <div class="workspace-thread-panel-title-menu-wrap">
+    <button
+      type="button"
+      class="workspace-thread-panel-title-menu-trigger prompt-thread-panel-icon-btn"
+      data-workspace-thread-panel-title-target="menuTrigger"
+      data-action="workspace-thread-panel-title#toggleTitleMenu"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      title="Strand options"
+      aria-label="Strand options"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <line x1="4" x2="20" y1="6" y2="6"/>
+        <line x1="4" x2="20" y1="12" y2="12"/>
+        <line x1="4" x2="20" y1="18" y2="18"/>
+      </svg>
+    </button>
+    <div
+      role="menu"
+      class="workspace-thread-panel-title-menu-panel"
+      hidden
+      data-workspace-thread-panel-title-target="menuPanel"
+      data-action="click->workspace-thread-panel-title#stopMenuPanelBubble"
+    >
+      <button
+        type="button"
+        role="menuitem"
+        class="workspace-thread-panel-title-menu-item"
+        data-action="workspace-thread-panel-title#renameFromMenu"
+      >
+        Rename
+      </button>
+      <div class="workspace-thread-panel-title-menu-group">
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-panel-title-menu-item workspace-thread-panel-title-menu-item--parent"
+          aria-haspopup="true"
+          aria-expanded="false"
+          data-action="workspace-thread-panel-title#toggleMoveSubmenu"
+          data-submenu-id="strip-move"
+        >
+          Move
+          <span class="workspace-thread-panel-title-menu-chevron" aria-hidden="true">›</span>
+        </button>
+        <div
+          role="menu"
+          class="workspace-thread-panel-title-submenu"
+          hidden
+          data-submenu-id="strip-move"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            class="workspace-thread-panel-title-menu-item"
+            data-action="workspace-thread-panel-title#menuItemActivate click->thread-workspace#movePanelLeft"
+            data-thread-workspace-thread-id-param="<%= thread.id %>"
+          >
+            Left
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="workspace-thread-panel-title-menu-item"
+            data-action="workspace-thread-panel-title#menuItemActivate click->thread-workspace#movePanelRight"
+            data-thread-workspace-thread-id-param="<%= thread.id %>"
+          >
+            Right
+          </button>
+        </div>
+      </div>
+      <% unless thread.is_genesis? || thread.is_orphans? %>
+        <hr class="workspace-thread-panel-title-menu-sep" role="separator" aria-hidden="true" />
+        <% if has_strand_content %>
+          <button
+            type="button"
+            role="menuitem"
+            class="workspace-thread-panel-title-menu-item workspace-thread-panel-title-menu-item--danger"
+            data-action="workspace-thread-panel-title#openDeleteConfirm"
+          >
+            Delete
+          </button>
+        <% else %>
+          <%= button_to "Delete",
+                        project_sequence_path(project, thread),
+                        method: :delete,
+                        params: destroy_params,
+                        form: {
+                          class: "workspace-thread-panel-title-menu-form",
+                          data: { turbo_submits_with: "…" }
+                        },
+                        class: "workspace-thread-panel-title-menu-item workspace-thread-panel-title-menu-item--danger" %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+  <% if has_strand_content && !(thread.is_genesis? || thread.is_orphans?) %>
+    <dialog
+      id="thread-panel-delete-thread-dialog-<%= thread.id %>"
+      class="thread-panel-delete-thread-dialog"
+      aria-labelledby="thread-panel-delete-thread-heading-<%= thread.id %>"
+      data-workspace-thread-panel-title-target="deleteDialog"
+    >
+      <div class="thread-panel-delete-thread-dialog-panel">
+        <h3 id="thread-panel-delete-thread-heading-<%= thread.id %>" class="thread-panel-delete-thread-dialog-title">
+          Delete this thread?
+        </h3>
+        <p class="thread-panel-delete-thread-dialog-copy">
+          This thread has strands with sequences or bundles. Deleting removes the thread from the weave workspace. This cannot be undone.
+        </p>
+        <div class="thread-panel-delete-thread-dialog-actions">
+          <button
+            type="button"
+            class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+            data-action="workspace-thread-panel-title#cancelDeleteConfirm"
+          >
+            Cancel
+          </button>
+          <%= button_to "Delete thread",
+                        project_sequence_path(project, thread),
+                        method: :delete,
+                        params: destroy_params,
+                        form: {
+                          class: "thread-panel-delete-thread-dialog-delete-form",
+                          data: { turbo_submits_with: "…" }
+                        },
+                        class:
+                          "shrink-0 rounded-lg px-3 py-2 text-[0.85rem] font-semibold text-white bg-[#b42318] hover:brightness-[0.93] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500" %>
+        </div>
+      </div>
+    </dialog>
+  <% end %>
+  <% if crumb_payload %>
+    <h2
+      id="<%= heading_id %>"
+      class="workspace-thread-panel-title workspace-thread-panel-title--breadcrumb prompt-thread-panel-title"
+    >
+      <nav class="workspace-thread-panel-title-breadcrumb" aria-label="<%= h lineage_nav_label %>">
+        <% if crumb_payload.ellipsis %>
+          <span class="workspace-thread-panel-title-breadcrumb-ellipsis" aria-hidden="true">…</span>
+          <span class="workspace-thread-panel-title-breadcrumb-sep workspace-thread-panel-title-breadcrumb-sep--ellipsis" aria-hidden="true">/</span>
+        <% end %>
+        <% crumb_payload.visible_segments.each_with_index do |seg, idx| %>
+          <% unless idx.zero? %>
+            <span class="workspace-thread-panel-title-breadcrumb-sep" aria-hidden="true">/</span>
+          <% end %>
+          <% if seg.id == thread.id %>
+            <span
+              class="workspace-thread-panel-title-breadcrumb-current prompt-thread-panel-title"
+              data-workspace-thread-panel-title-target="currentTitle"
+            ><%= seg.title %></span>
+          <% else %>
+            <button
+              type="button"
+              class="workspace-thread-panel-title-breadcrumb-ancestor"
+              data-action="click->thread-workspace#focusOrOpenAncestorFromBreadcrumb"
+              data-thread-workspace-ancestor-id-param="<%= seg.id %>"
+              data-thread-workspace-panel-owner-id-param="<%= panel_owner_thread.id %>"
+            >
+              <%= seg.title %>
+            </button>
+          <% end %>
+        <% end %>
+      </nav>
+    </h2>
+  <% else %>
+    <h2
+      id="<%= heading_id %>"
+      class="workspace-thread-panel-title prompt-thread-panel-title"
+      data-workspace-thread-panel-title-target="currentTitle"
+    >
+      <%= thread.title %>
+    </h2>
+  <% end %>
   <div class="workspace-thread-panel-title-actions" role="group" aria-label="Thread title">
     <button
       type="button"
-      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-edit-btn"
-      data-workspace-thread-panel-title-target="editButton"
-      data-action="workspace-thread-panel-title#openEditor"
-      title="Edit thread title"
-      aria-label="Edit thread title"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-        <path d="m15 5 4 4"/>
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-save-btn"
+      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-save-btn prompt-thread-panel-icon-btn"
       data-workspace-thread-panel-title-target="saveButton"
       data-action="workspace-thread-panel-title#save"
       title="Save thread title"
@@ -40,7 +201,7 @@
     </button>
     <button
       type="button"
-      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-cancel-btn"
+      class="workspace-thread-panel-title-action-btn workspace-thread-panel-title-cancel-btn prompt-thread-panel-icon-btn"
       data-workspace-thread-panel-title-target="cancelButton"
       data-action="workspace-thread-panel-title#cancelEdit"
       title="Cancel editing thread title"
@@ -55,7 +216,7 @@
   </div>
   <button
     type="button"
-    class="workspace-thread-panel-map-btn"
+    class="workspace-thread-panel-map-btn prompt-thread-panel-icon-btn"
     title="Weave map"
     aria-label="Weave map"
   >
@@ -66,6 +227,6 @@
     </svg>
   </button>
   <% if thread.is_orphans? %>
-    <span class="weave-strand-badge workspace-thread-panel-badge">Orphans</span>
+    <span class="weave-strand-badge prompt-weave-strand-badge workspace-thread-panel-badge">Orphans</span>
   <% end %>
 </div>

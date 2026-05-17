@@ -4,8 +4,6 @@ class BundlesController < ApplicationController
   include SequenceEditing
   include WorkspaceSidebarData
 
-  prepend_before_action :prepend_workspace_shell_v2_views, only: %i[edit update], if: :workspace_shell_v2?
-
   before_action :set_project
   before_action :set_bundle, only: %i[edit update destroy duplicate create_pipeline_sequence]
   before_action :set_sidebar_sequences, only: %i[edit update duplicate]
@@ -14,16 +12,9 @@ class BundlesController < ApplicationController
 
   def edit
     ensure_steps_placeholder
-    if workspace_mode_param == "browsing"
-      gen = @project.sequences.generative_sequences.order(:position).first
-      if gen
-        return redirect_to edit_project_sequence_path(@project, gen, **workspace_editor_redirect_options.merge(sidebar: "sequences")),
-                          status: :see_other
-      end
-
-      return redirect_to open_project_path(@project, **workspace_shell_redirect_fragment),
-                          alert: "No sequences or terms to browse yet.",
-                          status: :see_other
+    if params[:workspace_mode].to_s == "browsing" && !bundle_modal_request?
+      return redirect_to edit_project_bundle_path(@project, @sequence, **workspace_editor_redirect_options),
+                        status: :see_other
     end
     if bundle_modal_request?
       @bundle_modal_frame_id = modal_bundle_frame_id_from_request
@@ -46,7 +37,7 @@ class BundlesController < ApplicationController
     redirect_to edit_project_bundle_path(@project, sequence, editor_mode: "edit", **workspace_editor_redirect_options),
                 notice: "Bundle created."
   rescue ActiveRecord::RecordInvalid
-    redirect_to open_project_path(@project, **workspace_shell_redirect_fragment), alert: "Could not create bundle."
+    redirect_to open_project_path(@project), alert: "Could not create bundle."
   end
 
   def assign_sequence_attributes
@@ -359,10 +350,6 @@ class BundlesController < ApplicationController
       return
     end
 
-    redirect_to open_project_path(@project, **workspace_shell_redirect_fragment), notice: "Bundle deleted."
-  end
-
-  def prepend_workspace_shell_v2_views
-    prepend_view_path Rails.root.join("app/views/workspace_shell_v2")
+    redirect_to open_project_path(@project), notice: "Bundle deleted."
   end
 end

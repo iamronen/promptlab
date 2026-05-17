@@ -3,7 +3,9 @@
 <% editor_form_data = { sequence_editor_target: "form", action: "submit->sequence-editor#syncEditorsBeforeSubmit" } %>
 <% editor_form_data[:turbo_frame] = "_top" if modal_mode %>
 <% if modal_mode && thread_panel_editor_embed %>
-<div class="thread-strand-sequence-container thread-editor-sequence bundle-thread-shell-root">
+<div class="thread-strand-sequence-container thread-editor-sequence bundle-thread-shell-root"
+     data-controller="thread-editor-body-collapse"
+     data-thread-editor-body-collapse-expanded-value="true">
 <% end %>
     <main
       class="sequence-editor sequence-editor--bundle sequence-editor--readonly<%= " sequence-editor--modal" if modal_mode %>"
@@ -34,11 +36,8 @@
         <% if workspace_mode_param.present? %>
           <%= hidden_field_tag :workspace_mode, workspace_mode_param %>
         <% end %>
-        <% if workspace_shell_param.present? %>
-          <%= hidden_field_tag :workspace_shell, workspace_shell_param %>
-        <% end %>
         <% if @sequence.errors.any? %>
-          <section class="errors">
+          <section class="errors prompt-form-errors">
             <h2>Unable to save bundle</h2>
             <ul>
               <% @sequence.errors.full_messages.each do |message| %>
@@ -56,8 +55,21 @@
 
         <% if thread_panel_editor_embed %>
           <%= f.hidden_field :intent %>
-          <header class="bundle-thread-editor-bundle-title-row">
-            <div class="field field--sequence-title">
+          <header class="bundle-thread-editor-bundle-title-row bundle-thread-editor-bundle-title-row--with-thread-body-toggle">
+            <button
+              type="button"
+              class="thread-editor-sequence-body-toggle prompt-thread-panel-icon-btn"
+              data-thread-editor-body-collapse-target="toggle"
+              data-action="click->thread-editor-body-collapse#toggle"
+              aria-expanded="true"
+              title="Show or hide pipeline editors"
+              aria-label="Show or hide generative sequences in this bundle"
+            >
+              <svg class="thread-editor-body-collapse-chevron" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="field field--sequence-title bundle-thread-editor-bundle-title-field">
               <%= f.text_field :title,
                                required: true,
                                autocomplete: "off",
@@ -75,7 +87,7 @@
           <%= f.hidden_field :intent %>
         <% end %>
 
-        <section class="steps-section bundle-pipeline-section">
+        <section class="steps-section bundle-pipeline-section<%= " bundle-pipeline-section--thread-embed-collapsible thread-editor-collapsible-body" if thread_panel_editor_embed %>">
           <% unless thread_panel_editor_embed %>
           <h3 class="bundle-pipeline-heading">Generative sequence pipeline</h3>
           <p class="bundle-pipeline-hint bundle-pipeline-hint--edit">Ordered steps reference generative sequences in this project.</p>
@@ -122,10 +134,21 @@
                       <%= hidden_field_tag "sequence[steps_attributes][#{index}][position]", step_row.position, id: false, data: { sequence_editor_target: "positionInput" } %>
                       <%= hidden_field_tag "sequence[steps_attributes][#{index}][_destroy]", "false", id: false, data: { sequence_editor_target: "destroyInput" } %>
                     </span>
-                    <div class="bundle-pipeline-thread-editor-child-shell">
+                    <div
+                      class="bundle-pipeline-thread-editor-child-shell<%= " bundle-pipeline-thread-editor-child-shell--has-thread-branch-band" if child&.anchors_child_threads? %>"
+                      <% if child&.anchors_child_threads? %>
+                      style="--thread-branch-link-count: <%= child.anchored_child_threads_ordered.size %>"
+                      <% end %>
+                    >
                       <%= render "sequences/bundle_pipeline_thread_child_leading_strip",
-                                 step_badge_text: pipeline_step_badge %>
-                      <div class="thread-strand-sequence-container thread-editor-sequence bundle-pipeline-thread-child-sequence bundle-pipeline-thread-child-sequence-column">
+                                 step_badge_text: pipeline_step_badge,
+                                 render_child_threads_indicator: child&.anchors_child_threads?,
+                                 indicator_sequence: child %>
+                      <div
+                      class="thread-strand-sequence-container thread-editor-sequence bundle-pipeline-thread-child-sequence bundle-pipeline-thread-child-sequence-column"
+                      data-controller="thread-editor-body-collapse"
+                      data-thread-editor-body-collapse-expanded-value="true"
+                    >
                         <%= hidden_field_tag "sequence[steps_attributes][#{index}][sequence_id]",
                                              child.id,
                                              id: nil,
@@ -136,14 +159,24 @@
                                    title_field_name: "nested_sequences[#{child.id}][title]",
                                    title_value: child.title,
                                    intent_field_name: "nested_sequences[#{child.id}][intent]",
-                                   intent_value: child.intent %>
-                        <section class="steps-section bundle-pipeline-nested-thread-steps">
+                                   intent_value: child.intent,
+                                   thread_panel_editor_embed: thread_panel_editor_embed %>
+                        <section class="steps-section bundle-pipeline-nested-thread-steps thread-editor-collapsible-body">
                           <%= render "sequences/nested_generative_steps",
                                      child_sequence: child,
                                      form_field_prefix: "nested_sequences[#{child.id}]",
                                      thread_panel_editor_embed: thread_panel_editor_embed,
-                                     suppress_sequence_wrapper: true %>
+                                     suppress_sequence_wrapper: true,
+                                     suppress_footer_thread_branch_tail: true %>
                         </section>
+                        <% if child&.anchors_child_threads? %>
+                          <div class="bundle-pipeline-thread-child-sequence__thread-branch-band thread-editor-collapsible-body">
+                            <%= render "sequences/thread_branch_strand_bridge_band",
+                                       indicator_sequence: child,
+                                       layout: :bundle_nested,
+                                       insert_after_panel_thread_id: @workspace_thread&.id %>
+                          </div>
+                        <% end %>
                       </div>
                     </div>
                   </article>
@@ -287,7 +320,8 @@
                         <%= render "sequences/nested_generative_steps",
                                    child_sequence: child,
                                    form_field_prefix: "nested_sequences[#{child.id}]",
-                                   thread_panel_editor_embed: thread_panel_editor_embed %>
+                                   thread_panel_editor_embed: thread_panel_editor_embed,
+                                   suppress_footer_thread_branch_tail: true %>
                       </div>
                     <% end %>
                   </div>
@@ -301,7 +335,7 @@
           </div>
 
           <div class="steps-footer bundle-pipeline-footer">
-            <button type="button" class="secondary-button add-step-button" data-action="sequence-editor#addStep">Add Sequence</button>
+            <button type="button" class="prompt-btn-secondary add-step-button text-sm" data-action="sequence-editor#addStep">Add Sequence</button>
           </div>
         </section>
 

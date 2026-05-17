@@ -5,10 +5,10 @@
 <% anchor_seq = @project.sequences.generative_sequences.find_by(id: anchor_id) %>
 <% if branches.present? && anchor_seq && strand_thread %>
 <% qp = thread_index_embed_query.respond_to?(:to_unsafe_h) ? thread_index_embed_query.to_unsafe_h.symbolize_keys : thread_index_embed_query.symbolize_keys %>
-<div class="workspace-thread-branch-menu-host" data-controller="workspace-thread-branch-menu">
+<div class="workspace-thread-branch-menu-host prompt-thread-index-branch-host" data-controller="workspace-thread-branch-menu">
   <button
     type="button"
-    class="workspace-thread-tf-icon-btn workspace-thread-tf-branch-btn"
+    class="workspace-thread-tf-icon-btn workspace-thread-tf-branch-btn prompt-thread-index-icon-btn"
     title="Threads branching from here"
     aria-label="Threads branching from this sequence"
     aria-haspopup="menu"
@@ -16,30 +16,20 @@
     data-action="click->workspace-thread-branch-menu#toggle"
     data-workspace-thread-branch-menu-target="trigger"
   >
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <%# Horizontal fork: stem from left square, symmetric branches into two right squares (rounded terminals) %>
-      <path
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.85"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M 6 12H 9M 9 12C 10.8 9.6 14.2 7 18 7M 9 12C 10.8 14.4 14.2 17 18 17"
-      />
-      <rect x="2" y="10" width="4" height="4" rx="1.15" ry="1.15"/>
-      <rect x="18" y="5" width="4" height="4" rx="1.15" ry="1.15"/>
-      <rect x="18" y="15" width="4" height="4" rx="1.15" ry="1.15"/>
-    </svg>
+    <%= render "sequences/thread_branch_threads_icon_svg", size: 18 %>
   </button>
   <div
-    class="workspace-thread-branch-menu-panel"
+    class="workspace-thread-branch-menu-panel prompt-thread-index-branch-panel"
     hidden
     data-workspace-thread-branch-menu-target="panel"
     role="menu"
     aria-label="Branched threads"
   >
     <% branches.each do |th| %>
-      <% nav = qp.merge(weave_thread: th.id, thread_partner: strand_thread.id).compact %>
+      <% nav = qp.merge(
+            weave_thread: th.id,
+            open_threads: [strand_thread.id, th.id].uniq.join(",")
+          ).compact %>
       <%= link_to th.title.to_s.truncate(100),
                   edit_project_sequence_path(@project, anchor_seq, **nav),
                   class: "workspace-thread-branch-menu-link",

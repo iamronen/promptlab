@@ -21,6 +21,12 @@ class Sequence < ApplicationRecord
   has_many :parent_dependencies, class_name: "SequenceDependency", foreign_key: :child_id, dependent: :destroy,
                                    inverse_of: :child
 
+  # thread_branch deps store the anchored generative sequence here (not parent_id / child_id).
+  has_many :thread_branch_deps_as_anchor, class_name: "SequenceDependency",
+                                            foreign_key: :anchor_sequence_id,
+                                            dependent: :destroy,
+                                            inverse_of: :anchor_sequence
+
   has_many :thread_nodes_as_parent_thread, class_name: "ThreadNode", foreign_key: :parent_thread_id,
                                             dependent: :destroy, inverse_of: :parent_thread
   has_many :thread_nodes_as_parent_bundle, class_name: "ThreadNode", foreign_key: :parent_bundle_id,
@@ -31,6 +37,8 @@ class Sequence < ApplicationRecord
   has_one :thread_node_as_child, class_name: "ThreadNode", foreign_key: :child_thread_id, dependent: :destroy,
                                  inverse_of: :child_thread
 
+  has_many :taxonomy_assignments, dependent: :destroy
+
   enum :kind, { sequence: "sequence", bundle: "bundle", thread: "thread" }, validate: true
 
   scope :generative_sequences, -> { where(kind: :sequence) }
@@ -40,10 +48,27 @@ class Sequence < ApplicationRecord
   scope :orphans_threads, -> { threads.where(is_orphans: true) }
   scope :terms, -> { generative_sequences.where(is_term: true) }
   scope :non_term_sequences, -> { generative_sequences.where(is_term: false) }
+  scope :with_any_taxonomy_term_ids, lambda { |term_ids|
+    term_ids = Array(term_ids).map(&:to_i).uniq
+    next none if term_ids.empty?
+
+    joins(:taxonomy_assignments).where(taxonomy_assignments: { taxonomy_term_id: term_ids }).distinct
+  }
 
   StepRow = Struct.new(:position, :content, keyword_init: true)
   BundleStepRow = Struct.new(:position, :sequence_id, :title, keyword_init: true)
   ThreadStepRow = Struct.new(:position, :bundle_id, :sequence_id, :title, keyword_init: true)
+
+  # Oldest-first thread chain toward Genesis for workspace panel header breadcrumbs (includes Genesis).
+  ThreadWorkspaceBreadcrumb = Struct.new(:full_segments, :ellipsis, keyword_init: true) do
+    def visible_segments
+      ellipsis ? full_segments.last(3) : full_segments
+    end
+
+    def lineage_label_text
+      full_segments.filter_map { |s| s&.title.to_s.presence }.join(", ")
+    end
+  end
 
   validates :title, :intent, :position, presence: true
   validates :position, uniqueness: { scope: [:project_id, :kind] }
@@ -90,6 +115,49 @@ class Sequence < ApplicationRecord
         StepRow.new(position: i, content: h.fetch("content", "").to_s)
       end
     end
+  end
+
+  def anchors_child_threads?
+    thread_nodes_as_anchored_child_threads.exists?
+  end
+
+  def anchored_child_threads_ordered
+    thread_nodes_as_anchored_child_threads
+      .includes(:child_thread)
+      .order(:child_order, :id)
+      .filter_map(&:child_thread)
+  end
+
+  # Thread workspace panel header: lineage oldest→newest including Genesis when reached (never called for Genesis panel).
+  # @return [ThreadWorkspaceBreadcrumb, nil]
+  def thread_workspace_breadcrumb_payload
+    return nil unless thread?
+    return nil if is_genesis?
+
+    ancestors = []
+    cursor = self
+    seen_parents = {}
+    max_hops = 64
+
+    max_hops.times do
+      node = ThreadNode.find_by(child_thread_id: cursor.id)
+      break unless node
+
+      parent = node.parent_thread
+      break unless parent
+      break if seen_parents[parent.id]
+
+      seen_parents[parent.id] = true
+      ancestors.unshift(parent)
+      break if parent.is_genesis?
+
+      cursor = parent
+    end
+
+    full_segments = ancestors + [self]
+    ellipsis = full_segments.size > 3
+
+    ThreadWorkspaceBreadcrumb.new(full_segments: full_segments, ellipsis: ellipsis)
   end
 
   def prerequisite_bundle_ids
@@ -209,6 +277,75 @@ class Sequence < ApplicationRecord
     groups
   end
 
+  # Threads listed under "Move to Thread": other open workspace panels first (order preserved),
+  # then branch-linked child threads in strand-walk order. Deduped by thread id.
+  def move_to_thread_menu_destinations(open_threads:)
+    return [] unless thread?
+
+    seen = {}
+    out = []
+
+    Array.wrap(open_threads).each do |t|
+      next unless t.is_a?(Sequence) && t.thread?
+      next if t.id == id || seen[t.id]
+
+      seen[t.id] = true
+      out << t
+    end
+
+    bmap = branch_child_threads_by_anchor_generative_sequence_id
+
+    flattened_generative_sequence_ids_on_strand.each do |aid|
+      (bmap[aid] || []).each do |ct|
+        next if ct.id == id || seen[ct.id]
+
+        seen[ct.id] = true
+        out << ct
+      end
+    end
+
+    strand_anchor_ids = flattened_generative_sequence_ids_on_strand
+    orphan_anchors = bmap.keys - strand_anchor_ids
+    orphan_anchors.sort.each do |aid|
+      (bmap[aid] || []).each do |ct|
+        next if ct.id == id || seen[ct.id]
+
+        seen[ct.id] = true
+        out << ct
+      end
+    end
+
+    out
+  end
+
+  # Branched threads that can be re-anchored onto +anchor_sequence_id+ (optional +anchor_bundle_id+).
+  # Same ordering/deduping as #move_to_thread_menu_destinations, but only threads that already have a
+  # ThreadNode, excluding genesis/orphans and excluding no-op (already anchored at this anchor).
+  def attach_branch_thread_menu_candidates(open_threads:, anchor_sequence_id:, anchor_bundle_id: nil)
+    return [] unless thread?
+
+    sid = anchor_sequence_id.to_i
+    return [] if sid <= 0
+
+    bid = anchor_bundle_id.to_i
+    bid = nil unless bid.positive?
+
+    move_to_thread_menu_destinations(open_threads: open_threads).filter_map do |t|
+      next unless t.thread?
+      next if t.id == id
+      next if t.is_genesis? || t.is_orphans?
+
+      node = t.thread_node_as_child
+      next unless node
+
+      next if node.parent_thread_id == id &&
+              node.parent_generative_sequence_id == sid &&
+              (node.parent_bundle_id || 0) == (bid || 0)
+
+      t
+    end
+  end
+
   private
 
   def sync_bundle_title_from_first_pipeline
@@ -253,6 +390,7 @@ class Sequence < ApplicationRecord
 
   def prevent_root_thread_destroy
     return unless thread? && (is_genesis? || is_orphans?)
+    return if Thread.current[:wiping_project_id_for_sequences].to_i == project_id.to_i
 
     errors.add(:base, "Cannot destroy root thread")
     throw :abort

@@ -139,6 +139,24 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_match(/thread_partner=#{@genesis.id}/, loc)
   end
 
+  test "thread_fork_strand twice from same generative sequence works" do
+    dest = "/projects/#{@project.id}/open"
+    post thread_fork_strand_project_sequence_path(@project, @genesis),
+         params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+    assert_response :redirect
+
+    post thread_fork_strand_project_sequence_path(@project, @genesis),
+         params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+    assert_response :redirect
+
+    nodes = ThreadNode.where(parent_thread_id: @genesis.id, parent_generative_sequence_id: @g.id).order(:child_order)
+    assert_equal 2, nodes.size
+    assert_equal [1, 2], nodes.pluck(:child_order)
+    deps = SequenceDependency.where(parent_id: @genesis.id, kind: :thread_branch).order(:position)
+    assert_equal 2, deps.size
+    assert_equal [1, 2], deps.pluck(:position)
+  end
+
   test "thread_unbundle_pipeline_sequence places first pipeline sequence before bundle on strand" do
     dest = "/projects/#{@project.id}/open"
     g2 = @project.sequences.create!(
@@ -687,6 +705,678 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
           headers: { "Accept" => "application/json" }
 
     assert_response :not_found
+  end
+
+  test "thread_move_sequence_to_thread moves direct strand sequence to end of target" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Solo",
+      intent: "s",
+      position: 99,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [
+        { "sequence_id" => solo.id },
+        { "bundle_id" => @t1.id },
+        { "bundle_id" => @t2.id }
+      ]
+    )
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: @g.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           sequence_id: solo.id,
+           target_thread_id: other.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id,
+           open_threads: "#{@genesis.id},#{other.id}"
+         }
+
+    assert_response :redirect
+    assert_match(/weave_thread=#{other.id}/, @response.redirect_url)
+    assert_match(/focus_transformation_id=#{solo.id}/, @response.redirect_url)
+    refute_includes @genesis.reload.strand_step_pairs, [:sequence, solo.id]
+    assert_equal [:sequence, solo.id], other.reload.strand_step_pairs.last
+  end
+
+  test "thread_move_sequence_to_thread moves sequence from bundle to target strand" do
+    dest = "/projects/#{@project.id}/open"
+    g_only = @project.sequences.create!(
+      kind: :sequence,
+      title: "OnlyInBundle",
+      intent: "x",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "z" }],
+      is_term: false
+    )
+    bundle_only = @project.sequences.create!(
+      kind: :bundle,
+      title: "SingleSeqBundle",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => g_only.id }],
+      is_term: false
+    )
+    anchor_only = @project.sequences.create!(
+      kind: :sequence,
+      title: "AnchorForBranch",
+      intent: "x",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "a" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "bundle_id" => bundle_only.id }, { "sequence_id" => anchor_only.id }])
+
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: anchor_only.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           sequence_id: g_only.id,
+           target_thread_id: other.id,
+           from_bundle_id: bundle_only.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id
+         }
+
+    assert_response :redirect
+    assert_nil flash[:alert], flash.to_hash.inspect
+    assert_equal "Sequence moved to thread.", flash[:notice]
+    assert_equal [[:sequence, anchor_only.id]], @genesis.reload.strand_step_pairs
+    assert_equal [:sequence, g_only.id], other.reload.strand_step_pairs.last
+  end
+
+  test "thread_move_sequence_to_thread rejects moving to same thread" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Solo",
+      intent: "s",
+      position: 99,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => solo.id }])
+
+    post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           sequence_id: solo.id,
+           target_thread_id: @genesis.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_match(/example\.com#{Regexp.escape(dest)}/, @response.redirect_url)
+    assert_includes flash[:alert].to_s.downcase, "invalid"
+  end
+
+  test "thread_move_sequence_to_thread rejects moving into thread branched from that sequence" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Solo",
+      intent: "s",
+      position: 99,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => solo.id }])
+
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: solo.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           sequence_id: solo.id,
+           target_thread_id: other.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id
+         }
+
+    assert_response :redirect
+    assert_match(/example\.com#{Regexp.escape(dest)}/, @response.redirect_url)
+    assert_includes flash[:alert].to_s, "branched from that sequence"
+    assert_equal [[:sequence, solo.id]], @genesis.reload.strand_step_pairs
+    assert_empty other.reload.strand_step_pairs
+  end
+
+  test "thread_move_bundle_to_thread appends bundle to end of target strand" do
+    dest = "/projects/#{@project.id}/open"
+    anchor = @project.sequences.create!(
+      kind: :sequence,
+      title: "Anchor",
+      intent: "a",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [
+        { "bundle_id" => @t1.id },
+        { "bundle_id" => @t2.id },
+        { "sequence_id" => anchor.id }
+      ]
+    )
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "Dest",
+      intent: "d",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: anchor.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: @t1.id,
+           target_thread_id: other.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id
+         }
+
+    assert_response :redirect
+    assert_equal "Bundle moved to thread.", flash[:notice]
+    assert_equal [[:bundle, @t2.id], [:sequence, anchor.id]], @genesis.reload.strand_step_pairs
+    assert_equal [[:bundle, @t1.id]], other.reload.strand_step_pairs
+    assert_match(/focus_bundle_id=#{@t1.id}/, @response.redirect_url)
+    assert_match(/weave_thread=#{other.id}/, @response.redirect_url)
+  end
+
+  test "thread_move_bundle_to_thread rejects moving to same thread" do
+    dest = "/projects/#{@project.id}/open"
+    post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: @t1.id,
+           target_thread_id: @genesis.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_includes flash[:alert].to_s.downcase, "invalid"
+    assert_equal [[:bundle, @t1.id], [:bundle, @t2.id]], @genesis.reload.strand_step_pairs
+  end
+
+  test "thread_move_bundle_to_thread rejects moving into thread branched from pipeline sequence" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Pipe",
+      intent: "p",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    bundle_only = @project.sequences.create!(
+      kind: :bundle,
+      title: "Pipeline bundle",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => solo.id }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "bundle_id" => bundle_only.id }])
+
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: solo.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: bundle_only.id,
+           target_thread_id: other.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_includes flash[:alert].to_s, "branched from a sequence in that bundle"
+    assert_equal [[:bundle, bundle_only.id]], @genesis.reload.strand_step_pairs
+    assert_empty other.reload.strand_step_pairs
+  end
+
+  test "thread_move_bundle_to_thread rejects when target strand already includes a pipeline sequence" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Dup",
+      intent: "d",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    strand_anchor = @project.sequences.create!(
+      kind: :sequence,
+      title: "StrandAnchor",
+      intent: "x",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "y" }],
+      is_term: false
+    )
+    bundle_moving = @project.sequences.create!(
+      kind: :bundle,
+      title: "WillMove",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => solo.id }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "bundle_id" => bundle_moving.id }, { "sequence_id" => strand_anchor.id }])
+
+    other = @project.sequences.create!(
+      kind: :thread,
+      title: "HasSolo",
+      intent: "o",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => solo.id }],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: strand_anchor.id,
+      child_thread: other,
+      child_order: 1
+    )
+
+    post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: bundle_moving.id,
+           target_thread_id: other.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_includes flash[:alert].to_s, "already on the target strand"
+    assert_equal [[:bundle, bundle_moving.id], [:sequence, strand_anchor.id]], @genesis.reload.strand_step_pairs
+    assert_equal [[:sequence, solo.id]], other.reload.strand_step_pairs
+  end
+
+  test "thread_attach_branch_thread reanchors within same parent thread" do
+    dest = "/projects/#{@project.id}/open"
+    g2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "G2",
+      intent: "x",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "y" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [{ "sequence_id" => @g.id }, { "sequence_id" => g2.id }]
+    )
+    branch = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence: @g,
+      child_thread: branch,
+      child_order: 1
+    )
+
+    post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
+         params: {
+           child_thread_id: branch.id,
+           anchor_sequence_id: g2.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_equal "Thread branch attached.", flash[:notice]
+    node = ThreadNode.find_by(child_thread_id: branch.id)
+    assert_equal @genesis.id, node.parent_thread_id
+    assert_equal g2.id, node.parent_generative_sequence_id
+    assert_nil node.parent_bundle_id
+  end
+
+  test "thread_attach_branch_thread moves branch to another parent thread and resyncs deps" do
+    dest = "/projects/#{@project.id}/open"
+    g2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "G2",
+      intent: "x",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "y" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [{ "sequence_id" => @g.id }, { "sequence_id" => g2.id }]
+    )
+    branch_a = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch A",
+      intent: "a",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    branch_b = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch B",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence: @g,
+      child_thread: branch_a,
+      child_order: 1
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence: g2,
+      child_thread: branch_b,
+      child_order: 1
+    )
+    h = @project.sequences.create!(
+      kind: :sequence,
+      title: "H",
+      intent: "h",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "h" }],
+      is_term: false
+    )
+    branch_b.update!(steps_data: [{ "sequence_id" => h.id }])
+
+    post thread_attach_branch_thread_project_sequence_path(@project, branch_b),
+         params: {
+           child_thread_id: branch_a.id,
+           anchor_sequence_id: h.id,
+           redirect_to: dest,
+           open_threads: "#{@genesis.id},#{branch_a.id},#{branch_b.id}"
+         }
+
+    assert_response :redirect
+    node = ThreadNode.find_by(child_thread_id: branch_a.id)
+    assert_equal branch_b.id, node.parent_thread_id
+    assert_equal h.id, node.parent_generative_sequence_id
+
+    genesis_branch_ids =
+      SequenceDependency.where(parent_id: @genesis.id, kind: :thread_branch).order(:position).pluck(:child_id)
+    assert_equal [branch_b.id], genesis_branch_ids
+
+    b_branch_ids =
+      SequenceDependency.where(parent_id: branch_b.id, kind: :thread_branch).pluck(:child_id)
+    assert_equal [branch_a.id], b_branch_ids
+  end
+
+  test "thread_attach_branch_thread updates bundle anchor" do
+    dest = "/projects/#{@project.id}/open"
+    g1 = @project.sequences.create!(
+      kind: :sequence,
+      title: "GP1",
+      intent: "p",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "p" }],
+      is_term: false
+    )
+    g2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "GP2",
+      intent: "q",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "q" }],
+      is_term: false
+    )
+    b1 = @project.sequences.create!(
+      kind: :bundle,
+      title: "Pipe1",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => g1.id }],
+      is_term: false
+    )
+    b2 = @project.sequences.create!(
+      kind: :bundle,
+      title: "Pipe2",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => g2.id }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "bundle_id" => b1.id }, { "bundle_id" => b2.id }])
+
+    branch = @project.sequences.create!(
+      kind: :thread,
+      title: "FromPipe1",
+      intent: "x",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_bundle: b1,
+      parent_generative_sequence: g1,
+      child_thread: branch,
+      child_order: 1
+    )
+
+    post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
+         params: {
+           child_thread_id: branch.id,
+           anchor_sequence_id: g2.id,
+           anchor_bundle_id: b2.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    node = ThreadNode.find_by(child_thread_id: branch.id)
+    assert_equal b2.id, node.parent_bundle_id
+    assert_equal g2.id, node.parent_generative_sequence_id
+  end
+
+  test "thread_attach_branch_thread rejects no-op and invalid anchor" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "SoloAnchor",
+      intent: "s",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "s" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => solo.id }])
+    branch = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence: solo,
+      child_thread: branch,
+      child_order: 1
+    )
+
+    post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
+         params: {
+           child_thread_id: branch.id,
+           anchor_sequence_id: solo.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_includes flash[:alert].to_s.downcase, "already"
+
+    orphan = @project.sequences.create!(
+      kind: :sequence,
+      title: "Orphan",
+      intent: "o",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "o" }],
+      is_term: false
+    )
+    post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
+         params: {
+           child_thread_id: branch.id,
+           anchor_sequence_id: orphan.id,
+           redirect_to: dest
+         }
+    assert_response :redirect
+    assert_includes flash[:alert].to_s.downcase, "anchor"
+  end
+
+  test "thread_attach_branch_thread rejects cycle when child is ancestor of target parent" do
+    dest = "/projects/#{@project.id}/open"
+    inner = @project.sequences.create!(
+      kind: :sequence,
+      title: "Inner",
+      intent: "i",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "i" }],
+      is_term: false
+    )
+    h = @project.sequences.create!(
+      kind: :sequence,
+      title: "Hstep",
+      intent: "h",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "h" }],
+      is_term: false
+    )
+    k = @project.sequences.create!(
+      kind: :sequence,
+      title: "Kstep",
+      intent: "k",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "k" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => inner.id }])
+
+    mid = @project.sequences.create!(
+      kind: :thread,
+      title: "Mid",
+      intent: "m",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    leaf = @project.sequences.create!(
+      kind: :thread,
+      title: "Leaf",
+      intent: "l",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence: inner,
+      child_thread: mid,
+      child_order: 1
+    )
+    mid.update!(steps_data: [{ "sequence_id" => h.id }])
+    ThreadNode.create!(
+      parent_thread: mid,
+      parent_generative_sequence: h,
+      child_thread: leaf,
+      child_order: 1
+    )
+    leaf.update!(steps_data: [{ "sequence_id" => k.id }])
+
+    post thread_attach_branch_thread_project_sequence_path(@project, leaf),
+         params: {
+           child_thread_id: mid.id,
+           anchor_sequence_id: k.id,
+           redirect_to: dest
+         }
+
+    assert_response :redirect
+    assert_includes flash[:alert].to_s.downcase, "cycle"
+    assert_equal @genesis.id, ThreadNode.find_by(child_thread_id: mid.id).parent_thread_id
   end
 
 end

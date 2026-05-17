@@ -1,5 +1,7 @@
-<%# Vertical grip + menu; matches workspace strand child handle sizing (see workspace_thread_strand_handle_block). %>
-<div class="step-order-rail step-order-rail--thread-handle" aria-label="Reorder step">
+<%# Vertical grip + menu; matches workspace strand child handle sizing (see workspace_thread_strand_handle_block).
+    locals: suppress_move_to_thread (optional bool) — hide Move to Thread (e.g. nested sequences inside bundles). %>
+<% suppress_move_to_thread = local_assigns.fetch(:suppress_move_to_thread, false) %>
+<div class="step-order-rail step-order-rail--thread-handle prompt-thread-step-handle-rail" aria-label="Reorder step">
   <div class="step-menu-wrap thread-step-handle-wrap" data-sequence-editor-target="menuWrap">
     <button
       type="button"
@@ -31,7 +33,7 @@
     <div class="step-menu step-menu--thread-handle" hidden data-sequence-editor-target="menu" role="menu">
       <div class="step-menu-submenu-host" role="none">
         <div class="step-menu-submenu-title" aria-hidden="true">
-          Move
+          Move in Thread
           <span class="step-menu-flyout-chevron">▸</span>
         </div>
         <div class="step-submenu" role="presentation">
@@ -41,7 +43,7 @@
       </div>
       <div class="step-menu-submenu-host" role="none">
         <div class="step-menu-submenu-title" aria-hidden="true">
-          Add step
+          Add Step
           <span class="step-menu-flyout-chevron">▸</span>
         </div>
         <div class="step-submenu" role="presentation">
@@ -49,11 +51,29 @@
           <button type="button" role="menuitem" data-action="sequence-editor#addStepAfter">After</button>
         </div>
       </div>
-      <button type="button" role="menuitem" data-action="sequence-editor#duplicateStep">Duplicate</button>
-      <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete Step</button>
+      <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+      <% if @workspace_thread.present? && !suppress_move_to_thread %>
+        <%= render "sequences/move_to_thread_menu_destinations",
+                   destinations: @workspace_thread.move_to_thread_menu_destinations(open_threads: @thread_workspace_open_thread_records),
+                   variant: :embed,
+                   source_thread: @workspace_thread,
+                   generative_sequence_id: @sequence.id,
+                   editor_return_path: request.fullpath,
+                   scope_params: workspace_thread_scope_params %>
+        <%= render "sequences/attach_branch_thread_menu_destinations",
+                   candidates:
+                     @workspace_thread.attach_branch_thread_menu_candidates(
+                       open_threads: @thread_workspace_open_thread_records,
+                       anchor_sequence_id: @sequence.id
+                     ),
+                   variant: :embed,
+                   target_parent_thread: @workspace_thread,
+                   anchor_sequence_id: @sequence.id,
+                   editor_return_path: request.fullpath,
+                   scope_params: workspace_thread_scope_params %>
+      <% end %>
       <% if @workspace_thread.present? %>
-        <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
-        <%= button_to "Create New Thread",
+        <%= button_to "Create new Thread",
                       thread_fork_strand_project_sequence_path(@project, @workspace_thread),
                       method: :post,
                       params: {
@@ -64,6 +84,9 @@
                       role: "menuitem",
                       class: "step-menu--thread-handle-submit" %>
       <% end %>
+      <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+      <button type="button" role="menuitem" data-action="sequence-editor#duplicateStep">Duplicate</button>
+      <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete</button>
     </div>
   </div>
 </div>

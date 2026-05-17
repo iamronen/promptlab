@@ -1,6 +1,7 @@
-<%# locals: child_sequence (Sequence), form_field_prefix (String), suppress_sequence_wrapper: (optional bool) %>
+<%# locals: child_sequence (Sequence), form_field_prefix (String), suppress_sequence_wrapper: (optional bool), suppress_footer_thread_branch_tail: (optional bool) %>
 <% thread_panel_editor_embed = local_assigns.fetch(:thread_panel_editor_embed, false) %>
 <% suppress_sequence_wrapper = local_assigns.fetch(:suppress_sequence_wrapper, false) %>
+<% suppress_footer_thread_branch_tail = local_assigns.fetch(:suppress_footer_thread_branch_tail, false) %>
 <% steps = child_sequence.ordered_steps %>
 <div
   class="nested-sequence-editor"
@@ -20,8 +21,11 @@
              form_field_prefix: form_field_prefix,
              thread_panel_editor_embed: thread_panel_editor_embed,
              nested_step_card: true,
-             steps_list_class: "nested-sequence-editor-steps steps-list",
-             footer_class: "nested-sequence-editor-footer steps-footer" %>
+             indicator_sequence: child_sequence,
+             suppress_footer_thread_branch_tail: suppress_footer_thread_branch_tail,
+             insert_after_panel_thread_id: @workspace_thread&.id,
+             steps_list_class: thread_panel_editor_embed ? "nested-sequence-editor-steps steps-list prompt-thread-steps-list" : "nested-sequence-editor-steps steps-list",
+             footer_class: thread_panel_editor_embed ? "nested-sequence-editor-footer steps-footer prompt-thread-steps-footer" : "nested-sequence-editor-footer steps-footer" %>
   <% if thread_panel_editor_embed && !suppress_sequence_wrapper %>
   </div>
   <% end %>

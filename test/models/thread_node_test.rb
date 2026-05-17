@@ -151,4 +151,79 @@ class ThreadNodeTest < ActiveSupport::TestCase
     assert_equal 1, dep.position
     assert_equal @genesis.id, dep.parent_id
   end
+
+  test "resync thread_branch deps never collides when positions have gaps or stale rows" do
+    mk_thread = lambda do |title|
+      pos = @project.sequences.threads.maximum(:position).to_i + 1
+      @project.sequences.create!(
+        kind: :thread,
+        title: title,
+        intent: "t",
+        position: pos,
+        steps_data: [],
+        is_term: false,
+        is_genesis: false,
+        is_orphans: false
+      )
+    end
+    c1 = mk_thread.call("C1")
+    c2 = mk_thread.call("C2")
+    c3 = mk_thread.call("C3")
+
+    now = Time.current
+    ThreadNode.insert_all!(
+      [
+        {
+          parent_thread_id: @genesis.id,
+          parent_bundle_id: @t1.id,
+          parent_generative_sequence_id: @g1.id,
+          child_thread_id: c1.id,
+          child_order: 1,
+          created_at: now,
+          updated_at: now
+        },
+        {
+          parent_thread_id: @genesis.id,
+          parent_bundle_id: @t1.id,
+          parent_generative_sequence_id: @g1.id,
+          child_thread_id: c2.id,
+          child_order: 2,
+          created_at: now,
+          updated_at: now
+        },
+        {
+          parent_thread_id: @genesis.id,
+          parent_bundle_id: @t1.id,
+          parent_generative_sequence_id: @g1.id,
+          child_thread_id: c3.id,
+          child_order: 3,
+          created_at: now,
+          updated_at: now
+        }
+      ]
+    )
+
+    SequenceDependency.where(parent_id: @genesis.id, kind: :thread_branch).delete_all
+    SequenceDependency.create!(
+      parent_id: @genesis.id,
+      child_id: c1.id,
+      kind: :thread_branch,
+      position: 1,
+      anchor_sequence_id: @g1.id
+    )
+    SequenceDependency.create!(
+      parent_id: @genesis.id,
+      child_id: c3.id,
+      kind: :thread_branch,
+      position: 2,
+      anchor_sequence_id: @g1.id
+    )
+
+    assert_nothing_raised do
+      ThreadNode.resync_thread_branch_dependencies_for_parent!(@genesis.id)
+    end
+
+    deps = SequenceDependency.where(parent_id: @genesis.id, kind: :thread_branch).order(:position).pluck(:child_id)
+    assert_equal [c1.id, c2.id, c3.id], deps
+  end
 end

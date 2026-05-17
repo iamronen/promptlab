@@ -1,0 +1,36 @@
+<%# locals: branch (FabricThreadTree::ThreadBranch), top_level: %>
+<% top_level = local_assigns.fetch(:top_level, false) %>
+<% thread = branch.thread %>
+<% children = branch.child_branches %>
+<% if children.any? %>
+  <details
+    class="fabric-tree-node fabric-tree-node-thread fabric-tree-thread<%= " fabric-tree-thread--root" if top_level %>"
+    data-controller="fabric-tree-details"
+    <%= "open" if top_level %>
+  >
+    <summary class="fabric-tree-thread-summary">
+      <span class="fabric-tree-row">
+        <span class="fabric-tree-chevron-cell" aria-hidden="true">
+          <%= render "sequences/fabric_tree_chevron" %>
+        </span>
+        <%= render "sequences/fabric_thread_row_menu", thread: thread %>
+        <span class="fabric-tree-thread-label" role="treeitem"><%= thread.title.to_s.truncate(80) %></span>
+      </span>
+    </summary>
+    <ul class="fabric-tree-thread-children" role="group">
+      <% children.each do |sub| %>
+        <li class="fabric-tree-thread-child" role="none">
+          <%= render "sequences/fabric_thread_tree_branch", branch: sub, top_level: false %>
+        </li>
+      <% end %>
+    </ul>
+  </details>
+<% else %>
+  <div class="fabric-tree-node fabric-tree-node-thread fabric-tree-thread fabric-tree-thread--leaf">
+    <div class="fabric-tree-row fabric-tree-row--leaf">
+      <span class="fabric-tree-chevron-cell fabric-tree-chevron-cell--blank" aria-hidden="true"></span>
+      <%= render "sequences/fabric_thread_row_menu", thread: thread %>
+      <span class="fabric-tree-thread-label" role="treeitem"><%= thread.title.to_s.truncate(80) %></span>
+    </div>
+  </div>
+<% end %>

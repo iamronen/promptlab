@@ -1,10 +1,10 @@
 <%# locals: step_key:, is_bundle:, ref_id:, editor_return_path:, show_view_in_menu:, strand_thread:, strand_steps: (optional), row_index: (optional) %>
 <% strand_thread = local_assigns.fetch(:strand_thread) %>
-<div class="thread-strand-child__handle workspace-thread-tf-order-rail" aria-hidden="true">
-  <div class="workspace-thread-tf-order-menu-wrap">
+<div class="thread-strand-child__handle workspace-thread-tf-order-rail prompt-thread-index-order-rail" aria-hidden="true">
+  <div class="workspace-thread-tf-order-menu-wrap prompt-thread-index-order-menu-wrap">
     <button
       type="button"
-      class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle"
+      class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle prompt-thread-index-drag-handle"
       title="Row actions and drag to reorder"
       aria-label="Row actions and drag to reorder"
       aria-haspopup="menu"
@@ -25,7 +25,7 @@
       </svg>
     </button>
     <div
-      class="workspace-thread-tf-order-menu"
+      class="workspace-thread-tf-order-menu prompt-thread-index-order-menu"
       role="menu"
       hidden
       data-strand-step="<%= step_key %>"
@@ -50,11 +50,11 @@
           data-action="thread-strand-panel#toggleOrderSubmenu"
           data-submenu-id="move"
         >
-          Move
+          Move in Thread
           <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
         </button>
         <div
-          class="workspace-thread-tf-order-submenu"
+          class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
           role="menu"
           hidden
           data-submenu-id="move"
@@ -81,7 +81,7 @@
           <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
         </button>
         <div
-          class="workspace-thread-tf-order-submenu"
+          class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
           role="menu"
           hidden
           data-submenu-id="add-sequence"
@@ -142,7 +142,7 @@
               <span class="workspace-thread-tf-order-chevron" aria-hidden="true">›</span>
             </button>
             <div
-              class="workspace-thread-tf-order-submenu"
+              class="workspace-thread-tf-order-submenu prompt-thread-index-order-submenu"
               role="menu"
               hidden
               data-submenu-id="bundle-adjacent"
@@ -175,17 +175,39 @@
           <% end %>
         </div>
       <% end %>
+      <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
+      <%= render "sequences/move_to_thread_menu_destinations",
+                 destinations: strand_thread&.move_to_thread_menu_destinations(open_threads: @thread_workspace_open_thread_records) || [],
+                 variant: :workspace,
+                 source_thread: strand_thread,
+                 **(is_bundle ? { bundle_id: ref_id } : { generative_sequence_id: ref_id }),
+                 editor_return_path: editor_return_path,
+                 scope_params: workspace_thread_scope_params %>
       <% unless is_bundle %>
-        <%= button_to "Duplicate",
-                      thread_duplicate_strand_child_sequence_project_sequence_path(@project, strand_thread),
+        <% if strand_thread.present? %>
+          <%= render "sequences/attach_branch_thread_menu_destinations",
+                     candidates:
+                       strand_thread.attach_branch_thread_menu_candidates(
+                         open_threads: @thread_workspace_open_thread_records,
+                         anchor_sequence_id: ref_id
+                       ),
+                     variant: :workspace,
+                     target_parent_thread: strand_thread,
+                     anchor_sequence_id: ref_id,
+                     editor_return_path: editor_return_path,
+                     scope_params: workspace_thread_scope_params %>
+        <% end %>
+        <%= button_to "Create new Thread",
+                      thread_fork_strand_project_sequence_path(@project, strand_thread),
                       method: :post,
                       params: {
-                        source_sequence_id: ref_id,
+                        parent_generative_sequence_id: ref_id,
                         redirect_to: editor_return_path
                       }.merge(workspace_thread_scope_params).compact,
-                      form: { class: "workspace-thread-tf-order-menu-form" },
+                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
                       class: "workspace-thread-tf-order-menu-item" %>
       <% end %>
+      <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
       <% if is_bundle %>
         <%= button_to "Unbundle",
                       thread_dissolve_strand_bundle_project_sequence_path(@project, strand_thread),
@@ -209,25 +231,24 @@
                       },
                       class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--danger" %>
       <% else %>
-        <%= button_to "Delete Sequence",
+        <%= button_to "Duplicate",
+                      thread_duplicate_strand_child_sequence_project_sequence_path(@project, strand_thread),
+                      method: :post,
+                      params: {
+                        source_sequence_id: ref_id,
+                        redirect_to: editor_return_path
+                      }.merge(workspace_thread_scope_params).compact,
+                      form: { class: "workspace-thread-tf-order-menu-form" },
+                      class: "workspace-thread-tf-order-menu-item" %>
+        <%= button_to "Delete",
                       project_sequence_path(@project, ref_id),
                       method: :delete,
-                      params: { redirect_to: editor_return_path, workspace_mode: workspace_mode_param, workspace_shell: workspace_shell_param }.merge(workspace_thread_scope_params).compact,
+                      params: { redirect_to: editor_return_path, workspace_mode: workspace_mode_param }.merge(workspace_thread_scope_params).compact,
                       form: {
                         class: "workspace-thread-tf-order-menu-form",
                         data: { turbo_confirm: "Delete this sequence? This cannot be undone." }
                       },
                       class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--danger" %>
-        <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
-        <%= button_to "Create New Thread",
-                      thread_fork_strand_project_sequence_path(@project, strand_thread),
-                      method: :post,
-                      params: {
-                        parent_generative_sequence_id: ref_id,
-                        redirect_to: editor_return_path
-                      }.merge(workspace_thread_scope_params).compact,
-                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
-                      class: "workspace-thread-tf-order-menu-item" %>
       <% end %>
     </div>
   </div>

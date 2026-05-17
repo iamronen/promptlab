@@ -9,12 +9,13 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  resources :projects, only: %i[index update] do
+  resources :projects, only: %i[index new create update destroy] do
     member do
       get :open
       get :settings
     end
     resources :sequences, only: %i[edit update create destroy] do
+      resource :taxonomy_assignments, only: %i[show update], controller: "sequence_taxonomy_assignments"
       member do
         post :duplicate
         post :add_to_terms
@@ -27,6 +28,16 @@ Rails.application.routes.draw do
         post :thread_unbundle_pipeline_sequence
         post :thread_dissolve_strand_bundle
         post :thread_merge_adjacent_strand_steps
+        post :thread_move_sequence_to_thread
+        post :thread_move_bundle_to_thread
+        post :thread_attach_branch_thread
+      end
+    end
+    resources :taxonomies, only: %i[index create update destroy] do
+      resources :taxonomy_terms, path: "terms", only: %i[create update destroy] do
+        collection do
+          put :reorder
+        end
       end
     end
     resources :bundles, only: %i[edit update create destroy] do

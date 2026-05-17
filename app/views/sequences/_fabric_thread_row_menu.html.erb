@@ -1,0 +1,41 @@
+<%# locals: thread (Sequence) %>
+<div
+  class="fabric-tree-menu-wrap prompt-fabric-menu-wrap"
+  data-controller="fabric-thread-menu"
+>
+  <button
+    type="button"
+    class="fabric-tree-menu-trigger prompt-fabric-menu-trigger"
+    data-fabric-thread-menu-target="trigger"
+    data-action="fabric-thread-menu#toggle"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-label="Thread options"
+  >
+    <svg
+      class="fabric-tree-menu-icon prompt-fabric-menu-icon"
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  </button>
+  <div
+    role="menu"
+    class="fabric-thread-menu-panel prompt-fabric-thread-menu"
+    hidden
+    data-fabric-thread-menu-target="panel"
+  >
+    <%= link_to "Open",
+                fabric_thread_open_in_sequencing_path(thread),
+                role: "menuitem",
+                class: "fabric-thread-menu-item fabric-thread-menu-open prompt-fabric-menu-item" %>
+  </div>
+</div>

@@ -31,7 +31,7 @@
                 **(active ? { aria: { current: "page" } } : {}),
                 **(use_modal && (list_kind == :sequences || list_kind == :terms) ? { data: { action: "click->workspace-modal#openSequenceFromLink" } } : {})
               ) %>
-          <div class="sequence-nav-menu-wrap">
+          <div class="sequence-nav-menu-wrap prompt-sequence-nav-host">
             <button
               type="button"
               class="tool-button sequence-nav-menu-trigger"

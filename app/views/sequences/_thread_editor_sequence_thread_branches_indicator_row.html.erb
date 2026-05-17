@@ -1,0 +1,40 @@
+<%# locals: indicator_sequence (Sequence), insert_after_panel_thread_id: (optional Integer) — thread embed footer %>
+<% anchored_threads = indicator_sequence.anchored_child_threads_ordered %>
+<% thread_names = anchored_threads.map { |t| t.title.to_s.presence || Sequence::UNTITLED_THREAD_BRANCH_TITLE } %>
+<% branches_label =
+     if thread_names.one?
+       "This sequence branches to thread: #{thread_names.first}."
+     else
+       "This sequence branches to threads: #{thread_names.join(', ')}."
+     end %>
+<div
+  class="step-row step-row--thread-branches-indicator prompt-thread-thread-branches-indicator<%= " step-row--thread-branches-indicator-multi" if anchored_threads.size > 1 %>"
+  draggable="false"
+>
+  <div
+    class="step-order-rail step-order-rail--thread-handle step-order-rail--thread-branches-indicator-spacer"
+    aria-hidden="true"
+  ></div>
+  <article class="step-card step-card--thread-embed-steps step-card--thread-branches-indicator">
+    <div class="step-number-area step-number-area--thread-branches-indicator">
+      <div class="thread-branches-indicator-track">
+        <span
+          class="sequence-has-threads-indicator"
+          title="<%= branches_label %>"
+          aria-label="<%= branches_label %>"
+        >
+          <%= render "sequences/thread_branch_threads_icon_svg", size: 14 %>
+        </span>
+      </div>
+    </div>
+    <div
+      class="step-content-area step-content-area--thread-branches-indicator-gap"
+      role="group"
+      aria-label="Branched threads"
+    >
+      <%= render "sequences/thread_branch_indicator_links",
+                 anchored_threads: anchored_threads,
+                 insert_after_panel_thread_id: local_assigns[:insert_after_panel_thread_id] %>
+    </div>
+  </article>
+</div>

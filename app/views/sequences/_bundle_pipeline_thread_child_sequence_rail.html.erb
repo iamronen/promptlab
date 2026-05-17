@@ -1,5 +1,5 @@
 <%# Vertical grip + menu for bundle pipeline child in thread embed; actions bind to bundle-root sequence-editor only. %>
-<div class="step-order-rail step-order-rail--thread-handle" aria-label="Reorder sequence in bundle">
+<div class="step-order-rail step-order-rail--thread-handle prompt-thread-bundle-order-rail" aria-label="Reorder sequence in bundle">
   <div class="step-menu-wrap thread-step-handle-wrap" data-sequence-editor-target="menuWrap">
     <button
       type="button"
@@ -31,7 +31,7 @@
     <div class="step-menu step-menu--thread-handle" hidden data-sequence-editor-target="menu" role="menu">
       <div class="step-menu-submenu-host" role="none">
         <div class="step-menu-submenu-title" aria-hidden="true">
-          Move
+          Move in Thread
           <span class="step-menu-flyout-chevron">▸</span>
         </div>
         <div class="step-submenu" role="presentation">
@@ -50,7 +50,28 @@
         </div>
       </div>
       <button type="button" role="menuitem" data-action="sequence-editor#unbundlePipelineChild">Unbundle</button>
-      <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete Sequence</button>
+      <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+      <% strand_thread = local_assigns[:strand_thread] %>
+      <% anchor_sequence = local_assigns[:anchor_sequence] %>
+      <% attach_bundle_id = local_assigns[:attach_bundle_id] %>
+      <% attach_editor_return_path = local_assigns.fetch(:attach_editor_return_path) { request.fullpath } %>
+      <% if strand_thread.present? && anchor_sequence.present? %>
+        <%= render "sequences/attach_branch_thread_menu_destinations",
+                   candidates:
+                     strand_thread.attach_branch_thread_menu_candidates(
+                       open_threads: @thread_workspace_open_thread_records,
+                       anchor_sequence_id: anchor_sequence.id,
+                       anchor_bundle_id: attach_bundle_id
+                     ),
+                   variant: :embed,
+                   target_parent_thread: strand_thread,
+                   anchor_sequence_id: anchor_sequence.id,
+                   anchor_bundle_id: attach_bundle_id,
+                   editor_return_path: attach_editor_return_path,
+                   scope_params: workspace_thread_scope_params %>
+      <% end %>
+      <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+      <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete</button>
     </div>
   </div>
 </div>

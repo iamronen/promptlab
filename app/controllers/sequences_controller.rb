@@ -3,8 +3,6 @@ class SequencesController < ApplicationController
   include WorkspaceSidebarData
   include ThreadStrandMutations
 
-  prepend_before_action :prepend_workspace_shell_v2_views, only: %i[edit update], if: :workspace_shell_v2?
-
   before_action :set_project
   before_action :set_sidebar_sequences, only: %i[edit update duplicate add_to_terms remove_from_terms]
   before_action :set_sequence, only: %i[edit update destroy duplicate add_to_terms remove_from_terms]
@@ -18,10 +16,19 @@ class SequencesController < ApplicationController
                   thread_unbundle_pipeline_sequence
                   thread_dissolve_strand_bundle
                   thread_merge_adjacent_strand_steps
+                  thread_move_sequence_to_thread
+                  thread_move_bundle_to_thread
+                  thread_attach_branch_thread
                 ]
 
   def edit
+    if params[:workspace_mode].to_s == "browsing" && !sequence_modal_request?
+      return redirect_to edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options),
+                        status: :see_other
+    end
+
     ensure_steps_placeholder
+    @strand_thread_chip_parent = ActiveModel::Type::Boolean.new.cast(params.fetch(:strand_thread_chip_parent, false))
     if sequence_modal_request?
       @sequence_modal_frame_id = modal_sequence_frame_id_from_request
       return render(:modal_body, layout: false)
@@ -44,15 +51,18 @@ class SequencesController < ApplicationController
     opts = { editor_mode: "edit", sidebar: (wants_term ? "terms" : "sequences") }
     wt = params[:weave_thread].to_s
     opts[:weave_thread] = wt if wt.present? && wt.to_i.positive? && @project.sequences.threads.where(id: wt.to_i).exists?
+    ot = params[:open_threads].to_s.strip
+    if ot.present?
+      kept = ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
+      opts[:open_threads] = kept.join(",") if kept.any?
+    end
     wm = workspace_mode_param
     opts[:workspace_mode] = wm if wm.present?
-    ws = workspace_shell_param
-    opts[:workspace_shell] = ws if ws.present?
 
     redirect_to edit_project_sequence_path(@project, sequence, **opts),
                 notice: wants_term ? "Term created." : "Sequence created."
   rescue ActiveRecord::RecordInvalid
-    redirect_to open_project_path(@project, **workspace_shell_redirect_fragment),
+    redirect_to open_project_path(@project),
                 alert: wants_term ? "Could not create term." : "Could not create sequence."
   end
 
@@ -72,6 +82,7 @@ class SequencesController < ApplicationController
       render json: { errors: @sequence.errors.full_messages }, status: :unprocessable_entity
     elsif sequence_modal_submission_via_redirect?
       @sequence_modal_frame_id = modal_sequence_frame_id_from_request
+      @strand_thread_chip_parent = ActiveModel::Type::Boolean.new.cast(params.fetch(:strand_thread_chip_parent, false))
       render :modal_body, layout: false, status: :unprocessable_entity
     else
       render :edit, status: :unprocessable_entity
@@ -79,8 +90,13 @@ class SequencesController < ApplicationController
   end
 
   def destroy
+    deleted_sequence_id = @sequence.id
+    was_thread = @sequence.thread?
+
     if @sequence.destroy
-      if safe_workspace_editor_redirect?(params[:redirect_to])
+      if was_thread
+        redirect_after_thread_workspace_thread_destroy(deleted_sequence_id)
+      elsif safe_workspace_editor_redirect?(params[:redirect_to])
         redirect_to params[:redirect_to].to_s, notice: "Sequence deleted."
       else
         redirect_after_generative_sequence_destroy
@@ -163,7 +179,7 @@ class SequencesController < ApplicationController
 
   def set_sequence
     @sequence =
-      if %w[edit update].include?(action_name)
+      if %w[edit update destroy].include?(action_name)
         record = @project.sequences.find(params[:id])
         raise ActiveRecord::RecordNotFound unless record.sequence? || record.thread?
 
@@ -185,10 +201,107 @@ class SequencesController < ApplicationController
       return
     end
 
-    redirect_to open_project_path(@project, **workspace_shell_redirect_fragment), notice: "Sequence deleted."
+    redirect_to open_project_path(@project), notice: "Sequence deleted."
   end
 
-  def prepend_workspace_shell_v2_views
-    prepend_view_path Rails.root.join("app/views/workspace_shell_v2")
+  def redirect_after_thread_workspace_thread_destroy(deleted_thread_id)
+    base_url = thread_destroy_redirect_base_full_url
+    extras = thread_destroy_redirect_query_overrides(deleted_thread_id)
+    redirect_to merge_query_for_url(base_url, extras), notice: "Thread deleted."
+  end
+
+  def thread_destroy_redirect_base_full_url
+    rt = params[:redirect_to].to_s
+    if rt.start_with?("/") && !rt.include?("..")
+      return "#{request.protocol}#{request.host_with_port}#{rt}"
+    end
+
+    ref_url = request.headers["Referer"].presence
+    if ref_url.present?
+      begin
+        uri = URI.parse(ref_url)
+        if uri.scheme.blank? || (uri.scheme.in?(%w[http https]) && uri.host == request.host)
+          return ref_url
+        end
+      rescue URI::InvalidURIError
+        nil
+      end
+    end
+
+    next_seq = @project.sequences.generative_sequences.order(:position).first
+    path =
+      if next_seq
+        edit_project_sequence_path(@project, next_seq)
+      else
+        open_project_path(@project)
+      end
+
+    "#{request.protocol}#{request.host_with_port}#{path}"
+  end
+
+  # Matches client closePanel / visitFabricAfterClosingLastPanel wiring for the workspace strip.
+  def thread_destroy_redirect_query_overrides(deleted_thread_id)
+    otp = params[:open_threads].to_s.strip
+
+    ordered =
+      if otp.present?
+        otp.split(",").map(&:strip).map(&:to_i).select(&:positive?)
+      else
+        p = params[:thread_partner].to_i
+        w = params[:weave_thread].to_i
+        if p.positive? && w.positive?
+          [p, w].uniq
+        elsif w.positive?
+          [w]
+        else
+          []
+        end
+      end
+
+    deleted_idx = ordered.index(deleted_thread_id)
+
+    remaining =
+      ordered.reject { |tid| tid == deleted_thread_id }.select do |tid|
+        @project.sequences.threads.exists?(id: tid)
+      end
+
+    if remaining.empty?
+      return {
+        workspace_mode: "fabric",
+        open_threads: nil,
+        weave_thread: nil,
+        thread_partner: nil
+      }
+    end
+
+    focus_was = params[:weave_thread].to_i
+
+    next_focus =
+      if deleted_idx && focus_was == deleted_thread_id
+        prev_tid = deleted_idx.positive? ? ordered[deleted_idx - 1] : nil
+        if prev_tid&.positive? && remaining.include?(prev_tid)
+          prev_tid
+        else
+          remaining.first
+        end
+      elsif focus_was.positive? && remaining.include?(focus_was)
+        focus_was
+      else
+        remaining.first
+      end
+
+    partner_id = params[:thread_partner].to_i
+    partner_out =
+      if partner_id.positive? && partner_id != deleted_thread_id && thread_partner_link_valid?(partner_id, next_focus)
+        partner_id
+      else
+        nil
+      end
+
+    {
+      weave_thread: next_focus,
+      open_threads: remaining.join(","),
+      thread_partner: partner_out
+    }
   end
 end

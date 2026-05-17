@@ -1,0 +1,19 @@
+<main class="workspace-fabric prompt-fabric-main" aria-label="Fabric">
+  <div class="workspace-fabric-body prompt-fabric-body">
+    <h2 class="workspace-fabric-heading prompt-fabric-heading">Fabric</h2>
+    <div class="fabric-thread-tree fabric-thread-tree--explorer prompt-fabric-explorer">
+      <% branches = @fabric_thread_tree_branches %>
+      <% if branches.blank? %>
+        <p class="fabric-thread-tree-empty prompt-fabric-empty">No threads in this project yet.</p>
+      <% else %>
+        <ul class="fabric-thread-tree-roots" role="tree">
+          <% branches.each do |branch| %>
+            <li class="fabric-thread-tree-root-item" role="none">
+              <%= render "sequences/fabric_thread_tree_branch", branch: branch, top_level: true %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </div>
+  </div>
+</main>

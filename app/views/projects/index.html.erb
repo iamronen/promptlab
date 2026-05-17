@@ -1,100 +1,130 @@
 <% content_for :title, "Projects" %>
 
-<div class="mx-auto box-border max-w-[720px] px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0))] pt-8">
-  <header class="mb-6">
-    <h1 class="mb-1.5 text-[1.65rem] font-extrabold tracking-tight text-prompt-heading">Projects</h1>
-    <p class="m-0 text-[0.95rem] leading-snug text-prompt-muted">
-      Open a project to work with its generative sequences.
-    </p>
-  </header>
+<div data-controller="project-create-modal">
+  <div class="mx-auto box-border max-w-[720px] px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0))] pt-8">
+    <header class="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <h1 class="mb-1.5 text-[1.65rem] font-extrabold tracking-tight text-prompt-heading">Projects</h1>
+        <p class="m-0 text-[0.95rem] leading-snug text-prompt-muted">
+          Open a project to work with its generative sequences.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="prompt-btn-primary shrink-0 px-4 py-2 text-[0.875rem] font-semibold"
+        data-action="click->project-create-modal#open"
+        data-create-src="<%= new_project_path %>"
+      >
+        Add Project
+      </button>
+    </header>
 
-  <% if @projects.empty? %>
-    <p class="m-0 text-[0.95rem] text-prompt-subtle">No projects yet.</p>
-  <% else %>
-    <nav aria-label="Projects" data-controller="sequence-nav" class="flex flex-col gap-6">
-      <% @projects.each do |project| %>
-        <% seqs = project.sequences.to_a %>
-        <% threads_count = seqs.count(&:thread?) %>
-        <% sequences_count = seqs.count(&:sequence?) %>
-        <article
-          class="has-[.sequence-nav-menu:not([hidden])]:relative has-[.sequence-nav-menu:not([hidden])]:z-20 w-full rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-          data-controller="project-row"
-        >
-          <div data-project-row-target="viewPanel">
-            <header
-              class="flex min-w-0 items-center justify-between gap-x-3 rounded-t-xl border-b border-gray-200 bg-gray-100 px-4 py-3 sm:px-6 dark:border-gray-700 dark:bg-gray-900/75"
+    <% if @projects.any? %>
+      <%# Settings menu buttons must live inside this controller scope for Stimulus actions to run. %>
+      <div data-controller="project-settings-modal">
+        <nav aria-label="Projects" data-controller="sequence-nav" class="flex flex-col gap-6">
+          <% @projects.each do |project| %>
+            <% seqs = project.sequences.to_a %>
+            <% threads_count = seqs.count(&:thread?) %>
+            <% sequences_count = seqs.count(&:sequence?) %>
+            <article
+              class="has-[.sequence-nav-menu:not([hidden])]:relative has-[.sequence-nav-menu:not([hidden])]:z-20 w-full rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
-              <%= link_to open_project_path(project),
-                          class:
-                            "group min-w-0 flex-1 no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-prompt-accent" do %>
-                <p class="m-0 text-sm/6 font-semibold text-prompt-heading group-hover:text-prompt-accent">
-                  <span class="min-w-0 truncate"><%= project.name %></span>
-                </p>
-              <% end %>
-              <div class="sequence-nav-menu-wrap shrink-0">
-                <button
-                  type="button"
-                  class="tool-button sequence-nav-menu-trigger"
-                  title="Project actions"
-                  aria-label="Project actions"
-                  data-action="click->sequence-nav#toggleMenu"
-                >⋯</button>
-                <div class="sequence-nav-menu" hidden data-sequence-nav-target="menu">
-                  <%= link_to "Open with workspace v1",
-                              open_project_path(project, workspace_shell: "v1"),
-                              class: "sequence-nav-menu-button sequence-nav-menu-link",
-                              data: { turbo_action: "advance" } %>
-                  <%= link_to "Open with workspace v2",
-                              open_project_path(project, workspace_shell: "v2"),
-                              class: "sequence-nav-menu-button sequence-nav-menu-link",
-                              data: { turbo_action: "advance" } %>
-                  <%= link_to "Settings",
-                              settings_project_path(project),
-                              class: "sequence-nav-menu-button sequence-nav-menu-link",
-                              data: { turbo_action: "advance" } %>
+              <header
+                class="flex min-w-0 items-center justify-between gap-x-3 rounded-t-xl border-b border-gray-200 bg-gray-100 px-4 py-3 sm:px-6 dark:border-gray-700 dark:bg-gray-900/75"
+              >
+                <%= link_to open_project_path(project),
+                            class:
+                              "group min-w-0 flex-1 no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-prompt-accent" do %>
+                  <p class="m-0 text-sm/6 font-semibold text-prompt-heading group-hover:text-prompt-accent">
+                    <span class="min-w-0 truncate"><%= project.name %></span>
+                  </p>
+                <% end %>
+                <div class="sequence-nav-menu-wrap shrink-0 prompt-sequence-nav-host">
                   <button
                     type="button"
-                    class="sequence-nav-menu-button"
-                    data-action="click->project-row#showRename"
-                  >
-                    Rename
-                  </button>
+                    class="tool-button sequence-nav-menu-trigger"
+                    title="Project actions"
+                    aria-label="Project actions"
+                    data-action="click->sequence-nav#toggleMenu"
+                  >⋯</button>
+                  <div class="sequence-nav-menu" hidden data-sequence-nav-target="menu">
+                    <%= link_to "Open",
+                                open_project_path(project),
+                                class: "sequence-nav-menu-button sequence-nav-menu-link",
+                                data: { turbo_action: "advance" } %>
+                    <button
+                      type="button"
+                      class="sequence-nav-menu-button"
+                      data-settings-src="<%= settings_project_path(project) %>"
+                      data-action="click->project-settings-modal#open"
+                    >
+                      Settings
+                    </button>
+                  </div>
                 </div>
+              </header>
+              <div class="rounded-b-xl bg-white px-4 py-4 sm:px-6 dark:bg-gray-800">
+                <p class="m-0 text-sm/6 text-prompt-muted">
+                  <%= pluralize(threads_count, "thread") %>
+                  <span class="text-prompt-subtle" aria-hidden="true"> · </span>
+                  <%= pluralize(sequences_count, "sequence") %>
+                </p>
+                <% if project.description.present? %>
+                  <p class="mt-2 line-clamp-3 text-xs/5 text-prompt-muted"><%= project.description %></p>
+                <% end %>
               </div>
-            </header>
-            <div class="rounded-b-xl bg-white px-4 py-4 sm:px-6 dark:bg-gray-800">
-              <p class="m-0 text-sm/6 text-prompt-muted">
-                <%= pluralize(threads_count, "thread") %>
-                <span class="text-prompt-subtle" aria-hidden="true"> · </span>
-                <%= pluralize(sequences_count, "sequence") %>
-              </p>
-              <% if project.description.present? %>
-                <p class="mt-2 line-clamp-3 text-xs/5 text-prompt-muted"><%= project.description %></p>
-              <% end %>
-            </div>
-          </div>
+            </article>
+          <% end %>
+        </nav>
 
-          <div
-            class="rounded-xl border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40 sm:px-6 sm:pb-5"
-            hidden
-            data-project-row-target="renamePanel"
-          >
-            <%= form_with model: project, url: project_path(project), method: :patch, class: "flex flex-wrap items-center gap-[0.45rem]" do |f| %>
-              <%= f.label :name, "Project name", class: "visually-hidden" %>
-              <%= f.text_field :name,
-                               required: true,
-                               autocomplete: "off",
-                               class:
-                                 "min-w-0 flex-1 rounded-lg border border-prompt-field-border px-2 py-[0.45rem] text-[0.9rem]",
-                               data: { project_row_target: "nameInput" } %>
-              <%= f.submit "Save", class: "prompt-btn-secondary shrink-0" %>
-              <button type="button" class="prompt-btn-secondary shrink-0" data-action="click->project-row#cancelRename">
-                Cancel
-              </button>
-            <% end %>
+        <dialog
+          class="bundle-edit-dialog bundle-edit-dialog--project-settings"
+          data-project-settings-modal-target="dialog"
+          data-action="click->project-settings-modal#backdropClick"
+        >
+          <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--project-settings-modal">
+            <button
+              type="button"
+              class="bundle-edit-dialog-close"
+              data-action="click->project-settings-modal#close"
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <turbo-frame
+              id="project_settings_modal"
+              class="project-settings-modal-frame min-h-0 flex-1 overflow-y-auto"
+              data-project-settings-modal-target="frame"
+              data-action="turbo:frame-load->project-settings-modal#resetNameEdit"
+            ></turbo-frame>
           </div>
-        </article>
-      <% end %>
-    </nav>
-  <% end %>
+        </dialog>
+      </div>
+    <% else %>
+      <p class="m-0 text-[0.95rem] text-prompt-subtle">No projects yet.</p>
+    <% end %>
+  </div>
+
+  <dialog
+    class="bundle-edit-dialog bundle-edit-dialog--project-settings"
+    data-project-create-modal-target="dialog"
+    data-action="click->project-create-modal#backdropClick"
+  >
+    <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--project-settings-modal">
+      <button
+        type="button"
+        class="bundle-edit-dialog-close"
+        data-action="click->project-create-modal#close"
+        aria-label="Close"
+      >
+        ×
+      </button>
+      <turbo-frame
+        id="project_create_modal"
+        class="project-settings-modal-frame min-h-0 flex-1 overflow-y-auto"
+        data-project-create-modal-target="frame"
+      ></turbo-frame>
+    </div>
+  </dialog>
 </div>

@@ -1,11 +1,12 @@
 /*
  * Tailwind v4 entry (tailwindcss-rails).
- * Preflight is omitted so legacy globals in stylesheets/application.css stay in control during parallel rollout.
+ * Preflight resets browser defaults (Tailwind base). Legacy globals load first via application.css link order.
  */
 
 @layer theme, base, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 /*
@@ -19,6 +20,9 @@
 
 @theme {
   /* Mirrors legacy chrome in stylesheets/application.css (:root body + flash palettes). */
+  --z-context-menu: 400;
+  --z-context-menu-submenu: 410;
+
   --font-sans:
     ui-sans-serif, Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
@@ -48,13 +52,393 @@
 }
 
 @layer components {
-  /* Matches legacy .secondary-button / .primary-button (application.css) for migrated surfaces. */
+  /* Button primitives (legacy .copy-button / .primary-button still in application.css). */
   .prompt-btn-secondary {
     @apply cursor-pointer rounded-[7px] border border-solid border-prompt-btn-border bg-white px-2 py-[0.3rem] text-[0.82rem];
   }
 
   .prompt-btn-primary {
     @apply cursor-pointer rounded-[7px] border border-solid border-prompt-accent bg-prompt-accent px-[0.9rem] py-[0.52rem] text-[0.82rem] text-white;
+  }
+
+  .prompt-btn-danger {
+    @apply cursor-pointer rounded-[7px] border border-solid border-red-300 bg-white px-[0.9rem] py-[0.52rem] text-[0.82rem] font-normal text-red-800 hover:bg-red-50 dark:border-red-800 dark:bg-gray-900 dark:text-red-200 dark:hover:bg-red-950/40;
+  }
+
+  /* Validation summary (sequence/bundle editors + modal project forms). */
+  section.prompt-form-errors,
+  main.sequence-editor section.errors {
+    @apply mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200;
+  }
+
+  section.prompt-form-errors h2,
+  main.sequence-editor section.errors h2 {
+    @apply m-0 mb-2 text-[0.95rem] font-semibold text-red-900 dark:text-red-100;
+  }
+
+  section.prompt-form-errors ul,
+  main.sequence-editor section.errors ul {
+    @apply m-0 list-disc space-y-0.5 pl-5;
+  }
+
+  /*
+   * Project workspace top header (sequences/bundles edit) — Flowbite-style tabs + button groups.
+   * Not the admin Flowbite app shell; lives in app/views/sequences/_workspace_top_header.html.erb.
+   */
+  .prompt-workspace-header {
+    @apply sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .prompt-workspace-header-inner {
+    @apply mx-auto grid max-w-[120rem] grid-cols-1 items-center gap-x-4 gap-y-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)];
+  }
+
+  .prompt-workspace-header-back {
+    @apply block text-sm font-semibold text-prompt-link no-underline hover:underline dark:text-blue-400;
+  }
+
+  .prompt-workspace-header-title {
+    @apply truncate text-base font-semibold text-prompt-heading dark:text-white md:text-lg;
+  }
+
+  .prompt-workspace-header-tabs {
+    @apply flex flex-wrap justify-center gap-1 border-b border-gray-100 dark:border-gray-700/80 md:border-b-0;
+  }
+
+  .prompt-workspace-header-tab {
+    @apply inline-block rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 no-underline hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200;
+  }
+
+  .prompt-workspace-header-tab-active {
+    @apply inline-block rounded-t-lg border-b-2 border-prompt-accent px-4 py-2 text-sm font-medium text-prompt-accent no-underline dark:border-blue-400 dark:text-blue-400;
+  }
+
+  .prompt-workspace-header-toolbar {
+    @apply flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end;
+  }
+
+  .prompt-workspace-header-btn-group {
+    @apply inline-flex rounded-lg shadow-sm;
+  }
+
+  .prompt-workspace-header-btn-group--ring {
+    @apply inline-flex rounded-lg shadow-sm ring-1 ring-gray-200 dark:ring-gray-600;
+  }
+
+  /* Flowbite-style horizontal button group segments */
+  .prompt-workspace-header-segment {
+    @apply inline-flex items-center justify-center border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:focus:ring-gray-500;
+  }
+
+  .prompt-workspace-header-segment--first {
+    @apply -mr-px rounded-l-lg;
+  }
+
+  .prompt-workspace-header-segment--mid {
+    @apply -mr-px rounded-none;
+  }
+
+  .prompt-workspace-header-segment--last {
+    @apply rounded-r-lg;
+  }
+
+  .prompt-workspace-header-segment--compact {
+    @apply min-w-[2.25rem] px-2 font-semibold;
+  }
+
+  .prompt-workspace-header-segment[aria-pressed="true"] {
+    @apply z-10 bg-gray-100 text-prompt-accent ring-1 ring-inset ring-prompt-accent/25 dark:bg-gray-700 dark:text-blue-400 dark:ring-blue-400/30;
+  }
+
+  .prompt-workspace-header-icon-btn {
+    @apply inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium text-gray-500 hover:bg-gray-100 focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600;
+  }
+
+  /*
+   * Fabric / weave — sequencing sidebar strand list + Fabric mode explorer tree.
+   * Companions match thread-panel pattern (.workspace-weave-panel.prompt-weave-shell, etc.).
+   */
+  main.workspace-fabric.prompt-fabric-main {
+    @apply flex min-h-0 flex-1 flex-col bg-white;
+  }
+
+  .workspace-fabric-body.prompt-fabric-body {
+    @apply min-h-0 flex-1 overflow-y-auto px-5 py-4 pb-6;
+  }
+
+  h2.workspace-fabric-heading.prompt-fabric-heading {
+    @apply mb-3 mt-0 text-base font-bold tracking-tight text-prompt-tab-text dark:text-gray-100;
+  }
+
+  .fabric-thread-tree-empty.prompt-fabric-empty {
+    @apply m-0 text-[0.88rem] text-prompt-muted dark:text-gray-400;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer {
+    --fabric-tree-indent: 1.25rem;
+    --fabric-tree-chevron-col: 1rem;
+    --fabric-tree-menu-col: 2rem;
+    --fabric-tree-row-gap: 0.35rem;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-thread-tree-roots {
+    @apply m-0 list-none pb-10 pe-0 ps-0 pt-0;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-thread-tree-root-item {
+    @apply m-0 mb-0.5 last:mb-0;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-node-thread
+    .fabric-tree-thread-summary {
+    @apply m-0 cursor-pointer list-none overflow-visible rounded-md p-0;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-node-thread
+    .fabric-tree-thread-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-row {
+    display: grid;
+    grid-template-columns: var(--fabric-tree-chevron-col) var(--fabric-tree-menu-col) minmax(0, 1fr);
+    gap: var(--fabric-tree-row-gap);
+    @apply min-h-7 items-center rounded-md py-0.5 pe-2 ps-1;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-chevron-cell {
+    @apply flex w-[var(--fabric-tree-chevron-col)] items-center justify-center text-slate-500 dark:text-slate-400;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-chevron-cell--blank {
+    visibility: hidden;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-glyph--chevron {
+    @apply block shrink-0 transition-transform duration-150 ease-out;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-node-thread[open]
+    > .fabric-tree-thread-summary
+    .fabric-tree-glyph--chevron {
+    transform: rotate(90deg);
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-node-thread
+    > .fabric-tree-thread-summary:hover
+    .fabric-tree-row,
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-row--leaf:hover {
+    background: rgba(15, 98, 254, 0.06);
+  }
+
+  .fabric-tree-menu-wrap.prompt-fabric-menu-wrap {
+    @apply relative flex w-[var(--fabric-tree-menu-col)] items-center justify-center;
+  }
+
+  .fabric-tree-menu-trigger.prompt-fabric-menu-trigger {
+    @apply m-0 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent leading-none text-slate-500 hover:bg-blue-500/10 hover:text-prompt-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-prompt-accent/55 focus-visible:ring-offset-1 dark:text-slate-400 dark:hover:text-blue-400;
+  }
+
+  .fabric-tree-menu-icon.prompt-fabric-menu-icon {
+    @apply block;
+  }
+
+  .fabric-thread-menu-panel.prompt-fabric-thread-menu {
+    @apply absolute left-0 right-auto top-[calc(100%+2px)] z-[var(--z-context-menu)] m-0 flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch rounded-lg border border-gray-200 bg-white py-1 shadow-lg ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-800 dark:ring-white/10;
+    padding-inline: 0;
+  }
+
+  .fabric-thread-menu-panel.prompt-fabric-thread-menu[hidden] {
+    display: none !important;
+  }
+
+  a.fabric-thread-menu-item.prompt-fabric-menu-item {
+    @apply box-border block max-w-full cursor-pointer whitespace-nowrap px-3.5 py-2 text-[0.88rem] font-semibold text-prompt-tab-text no-underline hover:bg-blue-500/10 hover:text-prompt-accent dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-blue-400;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-label {
+    @apply block min-w-0 cursor-default select-none text-[0.9rem] font-semibold leading-snug text-prompt-tab-text dark:text-gray-100;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-node-thread,
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread--leaf {
+    @apply overflow-visible rounded-none border-0 bg-transparent;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread--root {
+    @apply mb-0.5;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-node-thread
+    > .fabric-tree-thread-summary:focus-visible
+    .fabric-tree-row {
+    outline: 2px solid rgba(15, 98, 254, 0.45);
+    outline-offset: 1px;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer
+    .fabric-tree-row:has(.fabric-thread-menu-panel:not([hidden])) {
+    @apply relative z-50;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-children {
+    @apply m-0 list-none border-0 py-0 ps-[var(--fabric-tree-indent)] pe-0 pb-0.5 pt-0;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-child {
+    @apply mb-0 mt-0.5 first:mt-0;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-row--leaf {
+    padding-inline-start: 0.15rem;
+  }
+
+  .workspace-weave-panel.prompt-weave-shell {
+    @apply flex min-h-0 flex-col border-e border-prompt-chrome-border bg-white pt-4 dark:border-gray-700 dark:bg-gray-800/95;
+  }
+
+  .workspace-weave-body.prompt-weave-body {
+    @apply flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-3;
+  }
+
+  .workspace-weave-panel-title.prompt-weave-heading {
+    @apply mb-2 px-4 text-base font-bold leading-tight tracking-tight text-prompt-tab-text dark:text-gray-100;
+  }
+
+  .weave-hierarchy-section.prompt-weave-section {
+    @apply m-0;
+  }
+
+  .weave-thread-hierarchy-placeholder.prompt-weave-placeholder {
+    @apply m-0 text-[0.82rem] leading-snug text-prompt-muted dark:text-gray-400;
+  }
+
+  .weave-thread-hierarchy.prompt-weave-hierarchy {
+    @apply m-3 box-border min-h-16 rounded-lg border border-dashed border-gray-300 bg-prompt-surface-subtle p-3 dark:border-gray-600 dark:bg-gray-900/40;
+  }
+
+  .weave-thread-tree.prompt-weave-tree {
+    @apply m-0 list-none p-0;
+  }
+
+  .weave-thread-node-wrap.prompt-weave-node-wrap {
+    @apply m-0 p-0;
+  }
+
+  .weave-thread-select.prompt-weave-thread-select {
+    @apply mb-1 box-border flex w-full cursor-pointer items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-left font-sans text-[0.88rem] font-semibold text-prompt-tab-text hover:bg-blue-50 dark:text-gray-100 dark:hover:bg-gray-800;
+  }
+
+  .weave-thread-select.prompt-weave-thread-select.is-selected {
+    @apply border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40;
+  }
+
+  .weave-thread-select-label.prompt-weave-thread-label {
+    @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  .weave-thread-children.prompt-weave-thread-children {
+    @apply m-0 mb-1.5 ml-2.5 list-none border-s border-prompt-chrome-border py-0 ps-2 dark:border-gray-600;
+  }
+
+  .weave-strand-badge.prompt-weave-strand-badge {
+    @apply shrink-0 rounded px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-prompt-accent [background:#eef4fc] dark:bg-blue-950/50 dark:text-blue-400;
+  }
+
+  /*
+   * Native <dialog> — workspace sequence/bundle modal, project settings/create sheets, thread delete confirm.
+   */
+  .bundle-edit-dialog {
+    box-sizing: border-box;
+    width: min(52rem, calc(100vw - 2rem));
+    max-width: 100vw;
+    max-height: 100vh;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .bundle-edit-dialog::backdrop {
+    background: rgba(22, 32, 48, 0.45);
+  }
+
+  .bundle-edit-dialog--project-settings {
+    width: min(28rem, calc(100vw - 2rem));
+  }
+
+  .bundle-edit-dialog-panel {
+    @apply relative box-border max-h-[min(90vh,760px)] max-w-[min(52rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10;
+  }
+
+  .bundle-edit-dialog-panel--workspace-modal {
+    @apply flex min-h-0 w-full flex-col;
+  }
+
+  .bundle-edit-dialog-panel--project-settings-modal {
+    @apply relative flex max-h-[min(90vh,560px)] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden;
+  }
+
+  .bundle-edit-dialog-close {
+    @apply absolute right-2 top-2 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-0 bg-white/90 text-[1.35rem] font-light leading-none text-gray-500 shadow-sm hover:bg-gray-100 hover:text-prompt-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-prompt-accent dark:bg-gray-800/90 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white;
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog {
+    width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog-panel {
+    max-width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
+    max-height: min(calc(90vh * 1.6), calc(760px * 1.6), 96vh);
+  }
+
+  .thread-panel-delete-thread-dialog {
+    box-sizing: border-box;
+    width: min(28rem, calc(100vw - 2rem));
+    max-width: 100vw;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .thread-panel-delete-thread-dialog::backdrop {
+    background: rgba(22, 32, 48, 0.45);
+  }
+
+  .thread-panel-delete-thread-dialog-panel {
+    @apply relative box-border rounded-xl bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10;
+  }
+
+  .thread-panel-delete-thread-dialog-title {
+    @apply mb-2 mt-0 text-base font-bold tracking-tight text-gray-900 dark:text-white;
+  }
+
+  .thread-panel-delete-thread-dialog-copy {
+    @apply mb-4 mt-0 text-sm leading-snug text-gray-600 dark:text-gray-300;
+  }
+
+  .thread-panel-delete-thread-dialog-actions {
+    @apply flex flex-wrap items-center justify-end gap-2.5;
+  }
+
+  .thread-panel-delete-thread-dialog-delete-form {
+    display: contents;
+  }
+
+  .project-settings-modal-frame {
+    @apply box-border block w-full px-5 pb-5 pt-9;
+  }
+
+  .project-settings-modal-body {
+    @apply box-border;
+  }
+
+  .project-delete-confirm-dialog::backdrop {
+    background: rgba(22, 32, 48, 0.35);
   }
 
   /*
@@ -73,9 +457,12 @@
     @apply flex min-h-0 min-w-0 flex-1 flex-row;
   }
 
-  /* Flowbite-style icon buttons (title row + map) */
+  /* Flowbite-style icon buttons (title row + map + thread sequence body toggle) */
+  .workspace-thread-panel-close-btn.prompt-thread-panel-icon-btn,
+  .workspace-thread-panel-title-menu-trigger.prompt-thread-panel-icon-btn,
   .workspace-thread-panel-map-btn.prompt-thread-panel-icon-btn,
-  .workspace-thread-panel-title-action-btn.prompt-thread-panel-icon-btn {
+  .workspace-thread-panel-title-action-btn.prompt-thread-panel-icon-btn,
+  .thread-editor-sequence-body-toggle.prompt-thread-panel-icon-btn {
     @apply box-border inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-transparent bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-600;
   }
 
@@ -83,17 +470,44 @@
     display: none !important;
   }
 
+  .workspace-thread-panel-close-btn.prompt-thread-panel-icon-btn svg,
+  .workspace-thread-panel-title-menu-trigger.prompt-thread-panel-icon-btn svg,
   .workspace-thread-panel-map-btn.prompt-thread-panel-icon-btn svg,
-  .workspace-thread-panel-title-action-btn.prompt-thread-panel-icon-btn svg {
+  .workspace-thread-panel-title-action-btn.prompt-thread-panel-icon-btn svg,
+  .thread-editor-sequence-body-toggle.prompt-thread-panel-icon-btn svg {
     @apply block;
   }
 
   .workspace-thread-panel-header-title-row.prompt-thread-panel-header-title-row {
-    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1.5;
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-visible;
   }
 
   .workspace-thread-panel-header-title-row.prompt-thread-panel-header-title-row .workspace-thread-panel-title.prompt-thread-panel-title {
     @apply min-w-0 flex-auto truncate text-sm font-bold leading-tight text-gray-900 dark:text-white;
+  }
+
+  .workspace-thread-panel-title.workspace-thread-panel-title--breadcrumb.prompt-thread-panel-title {
+    @apply min-h-0 min-w-0 flex-auto truncate leading-tight;
+  }
+
+  .workspace-thread-panel-title-breadcrumb {
+    @apply flex min-w-0 flex-wrap items-center gap-1 text-sm font-bold leading-tight text-gray-900 dark:text-white;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-ellipsis {
+    @apply shrink-0 font-bold tracking-wide text-gray-400 dark:text-gray-500;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-sep {
+    @apply shrink-0 select-none font-semibold text-gray-300 dark:text-gray-600;
+  }
+
+  button.workspace-thread-panel-title-breadcrumb-ancestor {
+    @apply m-0 max-w-[12rem] shrink cursor-pointer truncate border-0 bg-transparent p-0 text-left text-sm font-semibold text-gray-600 underline-offset-2 hover:text-blue-700 hover:underline focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-300 dark:hover:text-blue-400;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-current.prompt-thread-panel-title {
+    @apply min-w-0 flex-1 truncate font-bold text-gray-900 dark:text-white;
   }
 
   /* Standalone heading (e.g. “No strand selected”) — direct child of header text, not inside title row */
@@ -104,7 +518,7 @@
   }
 
   .workspace-thread-panel-header-text.prompt-thread-panel-header-text {
-    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1;
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-visible;
   }
 
   .workspace-thread-panel-header-title-row.prompt-thread-panel-header-title-row .workspace-thread-panel-title-actions {
@@ -141,6 +555,57 @@
     @apply block;
   }
 
+  /* Same segmented chrome as window-controls — sequence browse density */
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls {
+    @apply inline-flex rounded-lg shadow-sm ring-1 ring-gray-200 dark:ring-gray-600;
+  }
+
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls
+    > .workspace-thread-panel-win-btn.workspace-thread-panel-browse-btn.prompt-thread-panel-browse-btn {
+    @apply relative z-0 box-border inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border-y border-r border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-500;
+  }
+
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls
+    > .workspace-thread-panel-win-btn.workspace-thread-panel-browse-btn.prompt-thread-panel-browse-btn:first-child {
+    @apply ml-0 rounded-s-lg border-l;
+  }
+
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls
+    > .workspace-thread-panel-win-btn.workspace-thread-panel-browse-btn.prompt-thread-panel-browse-btn:last-child:not(:first-child) {
+    @apply -ml-px rounded-e-lg;
+  }
+
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls
+    > .workspace-thread-panel-win-btn.workspace-thread-panel-browse-btn.prompt-thread-panel-browse-btn[aria-pressed="true"] {
+    @apply z-10 bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:ring-blue-800;
+  }
+
+  .workspace-thread-panel-browse-controls.prompt-thread-panel-browse-controls
+    > .workspace-thread-panel-win-btn.workspace-thread-panel-browse-btn.prompt-thread-panel-browse-btn svg {
+    @apply block;
+  }
+
+  /*
+   * Thread strip nav dots: Flowbite Carousel only toggles thread-strip-nav--is-active / --is-inactive
+   * (see thread_workspace_controller.js). Colors live here so they survive classList churn.
+   */
+  .thread-strip-nav-indicator {
+    @apply appearance-none;
+  }
+
+  .thread-strip-nav-indicator.thread-strip-nav--is-inactive {
+    @apply box-border border border-gray-400 bg-white;
+  }
+
+  .thread-strip-nav-indicator.thread-strip-nav--is-active {
+    @apply box-border border border-blue-600 bg-blue-600;
+  }
+
+  /* Active thread strip column: border from SSR or toggled in thread_workspace_controller#applyClientPanelFocus */
+  .workspace-thread-panel-split-column.workspace-thread-panel-column--focused {
+    @apply rounded-xl border-2 border-blue-600 dark:border-blue-500;
+  }
+
   .workspace-thread-panel-index-resize-handle.prompt-thread-panel-index-resize-handle {
     @apply box-border w-1.5 shrink-0 cursor-col-resize appearance-none border-0 bg-gray-300 p-0 touch-none hover:bg-blue-500/15 focus:outline-none focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-600;
   }
@@ -150,8 +615,8 @@
   }
 
   /*
-   * Workspace shell v2 — thread index column (strand list rail beside editors).
-   * Compounds pair with prompt-thread-index-* classes only under workspace_shell_v2 partials.
+   * Workspace shell — thread index column (strand list rail beside editors).
+   * Compounds pair with prompt-thread-index-* classes in sequence workspace partials.
    */
   .workspace-thread-panel-index-pane.prompt-thread-index-pane {
     @apply flex min-h-0 min-w-0 flex-col border-e border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/40;
@@ -166,7 +631,7 @@
   }
 
   .workspace-thread-panel-strand.prompt-thread-index-strand {
-    @apply m-0 list-none space-y-2 px-3 py-2 text-sm leading-snug text-gray-700 dark:text-gray-200;
+    @apply m-0 list-none space-y-2 px-3 pb-10 pt-2 text-sm leading-snug text-gray-700 dark:text-gray-200;
     counter-reset: strandIx;
   }
 
@@ -245,22 +710,19 @@
   }
 
   .workspace-thread-tf-order-menu.prompt-thread-index-order-menu {
-    @apply absolute left-full top-0 z-30 ml-1 min-w-[11rem] rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
+    @apply absolute left-full top-0 z-[var(--z-context-menu)] ml-1 flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
   }
 
   .workspace-thread-tf-order-submenu.prompt-thread-index-order-submenu {
-    @apply absolute left-full top-0 z-[31] ml-0.5 min-w-[9rem] rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
-  }
-
-  .workspace-thread-tf-order-submenu.prompt-thread-index-order-submenu:has(
-    .workspace-thread-tf-order-menu-item--bundle-merge
-  ) {
-    min-width: 14rem;
-    max-width: min(22rem, 90vw);
+    @apply absolute left-full top-0 z-[var(--z-context-menu-submenu)] ml-0.5 flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
   }
 
   .workspace-thread-tf-order-menu.prompt-thread-index-order-menu .workspace-thread-tf-order-menu-item {
-    @apply block w-full cursor-pointer border-0 bg-transparent px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+    @apply box-border block w-auto max-w-full cursor-pointer whitespace-nowrap border-0 bg-transparent px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  .workspace-thread-tf-order-menu.prompt-thread-index-order-menu .workspace-thread-tf-order-menu-item--bundle-merge {
+    @apply whitespace-normal leading-snug;
   }
 
   .workspace-thread-tf-order-menu.prompt-thread-index-order-menu .workspace-thread-tf-order-menu-item--parent {
@@ -287,11 +749,11 @@
   }
 
   .workspace-thread-branch-menu-panel.prompt-thread-index-branch-panel {
-    @apply absolute right-0 top-full z-[35] mt-1 max-h-56 min-w-[12rem] max-w-[min(18rem,70vw)] overflow-y-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
+    @apply absolute right-0 top-full z-[var(--z-context-menu)] mt-1 flex max-h-56 max-w-[min(92vw,42rem)] w-max flex-col items-stretch overflow-x-hidden overflow-y-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
   }
 
   .workspace-thread-branch-menu-panel.prompt-thread-index-branch-panel .workspace-thread-branch-menu-link {
-    @apply block w-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap border-0 bg-transparent px-3 py-2 text-left text-sm text-gray-700 no-underline hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+    @apply box-border block w-auto max-w-full cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-2 text-left text-sm text-gray-700 no-underline hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
   }
 
   .workspace-thread-tf-icon-btn.prompt-thread-index-icon-btn {
@@ -303,7 +765,44 @@
   }
 
   /*
-   * Workspace shell v2 — thread editor column (right pane), outer strand timeline,
+   * Step row context menus — Flowbite-style dropdown (sequence editor, bundles, thread embed rail).
+   * submenu titles match actionable rows (no uppercase); positioning stays in application.css.
+   */
+  .step-menu {
+    @apply box-border flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch gap-0.5 rounded-lg border-0 bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
+  }
+
+  .step-menu button[type="button"] {
+    @apply box-border w-auto max-w-full cursor-pointer whitespace-nowrap rounded-md border-0 bg-transparent px-4 py-2 text-left text-sm font-normal normal-case text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  .step-menu button[type="button"]:disabled {
+    @apply cursor-not-allowed opacity-35 hover:bg-transparent dark:hover:bg-transparent;
+  }
+
+  .step-menu-submenu-title {
+    @apply m-0 flex cursor-default select-none items-center justify-between gap-2 whitespace-nowrap rounded-md px-4 py-2 text-left text-sm font-normal normal-case text-gray-700 dark:text-gray-200;
+  }
+
+  .step-menu-flyout-chevron {
+    @apply shrink-0 text-xs leading-none text-gray-400 dark:text-gray-500;
+  }
+
+  .step-submenu {
+    @apply box-border flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch gap-0.5 rounded-lg border-0 bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
+  }
+
+  .step-menu-sep,
+  .step-menu-sep--thread-handle {
+    @apply my-1 box-border w-full shrink-0 border-0 border-t border-gray-100 dark:border-gray-600;
+  }
+
+  .step-menu--thread-handle .step-menu--thread-handle-submit {
+    @apply box-border w-full cursor-pointer rounded-md border-0 bg-transparent px-4 py-2 text-left text-sm font-normal normal-case text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  /*
+   * Workspace shell — thread editor column (right pane), outer strand timeline,
    * bundle inner timeline (thread embed), and embedded sequence/step chrome.
    */
   .workspace-thread-panel-editor-pane.prompt-thread-editor-pane {
@@ -337,6 +836,17 @@
   }
 
   .workspace-thread-panel-editor-stack.prompt-thread-editor-stack
+    .workspace-thread-editor-child--has-thread-branch-band.prompt-thread-editor-strand-row {
+    @apply self-start;
+  }
+
+  .workspace-thread-panel-editor-stack.prompt-thread-editor-stack
+    .workspace-thread-editor-child--body-collapsed
+    .workspace-thread-editor-child__thread-branch-band {
+    @apply hidden;
+  }
+
+  .workspace-thread-panel-editor-stack.prompt-thread-editor-stack
     .workspace-thread-editor-step-badge.prompt-thread-editor-badge {
     @apply rounded-md bg-gray-700 font-extrabold leading-none tracking-tight text-white dark:bg-gray-600;
     font-size: calc(2em * 0.7);
@@ -366,17 +876,32 @@
     @apply rounded-md border-0 bg-transparent text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400;
   }
 
-  /* Embedded sequence editor (modal thread panel) */
-  .bundle-modal-shell--thread-embed .thread-editor-sequence.prompt-thread-sequence-shell {
+  /* Embedded sequence editor (modal thread panel); min-w-0 would override collapsed width floor loaded later in cascade */
+  .bundle-modal-shell--thread-embed
+    .thread-editor-sequence.prompt-thread-sequence-shell:not(.thread-editor-body-collapsed) {
     @apply min-w-0;
-  }
-
-  .bundle-modal-shell--thread-embed main.sequence-editor.prompt-thread-sequence-editor section.errors {
-    @apply mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200;
   }
 
   .bundle-modal-shell--thread-embed main.sequence-editor.prompt-thread-sequence-editor .meta-fields.prompt-thread-sequence-meta {
     @apply space-y-3;
+  }
+
+  /* Thread embed: title row = chevron + title; intent sits full width below, inset to match title (same gutter as steps). */
+  .bundle-modal-shell--thread-embed
+    .meta-fields.prompt-thread-sequence-meta:has(.sequence-heading-row--with-thread-body-toggle)
+    .field--sequence-intent {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-left: calc(2rem * 0.7 + 0.25rem + 0.35rem);
+  }
+
+  .bundle-modal-shell--thread-embed
+    .thread-editor-sequence:has(.sequence-heading-row--with-thread-body-toggle)
+    section.steps-section.thread-editor-collapsible-body {
+    box-sizing: border-box;
+    padding-left: calc(2rem * 0.7 + 0.25rem + 0.35rem);
   }
 
   .bundle-modal-shell--thread-embed
@@ -396,6 +921,25 @@
 
   .bundle-modal-shell--thread-embed main.sequence-editor.prompt-thread-sequence-editor .steps-section.prompt-thread-steps-section {
     @apply mt-1 border-t border-gray-100 pt-3 dark:border-gray-700;
+  }
+
+  .bundle-modal-shell--thread-embed .thread-editor-body-collapsed .thread-editor-collapsible-body {
+    @apply hidden;
+  }
+
+  .bundle-modal-shell--thread-embed .thread-editor-sequence-body-toggle .thread-editor-body-collapse-chevron {
+    @apply block origin-center transition-transform duration-[140ms] ease-out;
+  }
+  /* Match sequence/bundle title weight + scale (see .sequence-title-input in thread embed) */
+  .bundle-modal-shell--thread-embed
+    .sequence-heading-row--with-thread-body-toggle
+    .thread-editor-sequence-body-toggle.prompt-thread-panel-icon-btn,
+  .bundle-modal-shell--thread-embed
+    .bundle-thread-editor-bundle-title-row--with-thread-body-toggle
+    .thread-editor-sequence-body-toggle.prompt-thread-panel-icon-btn {
+    @apply h-auto w-auto min-h-0 min-w-0 shrink-0 border-0 bg-transparent p-0.5 text-gray-900 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-600;
+    font-size: calc(2em * 0.7);
+    line-height: 1;
   }
 
   .bundle-modal-shell--thread-embed .steps-list.prompt-thread-steps-list {
@@ -422,72 +966,68 @@
     @apply rounded-md border-0 bg-transparent text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400;
   }
 
-  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle {
-    @apply rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
-  }
-
-  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle .step-menu-submenu-title {
-    @apply px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400;
-  }
-
-  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle button[role="menuitem"],
-  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle .step-submenu button[type="button"] {
-    @apply block w-full cursor-pointer border-0 bg-transparent px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
-  }
-
-  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle .step-menu-sep--thread-handle {
-    @apply border-gray-100 dark:border-gray-600;
+  .bundle-modal-shell--thread-embed .step-menu.step-menu--thread-handle .step-submenu.step-submenu--scrollable {
+    max-height: min(50vh, 18rem);
+    @apply overflow-y-auto;
   }
 
   /*
-   * Workspace shell v2 — browse navigator sequence/term list menus.
-   * Scoped so legacy layouts keep stylesheets/application.css rules.
+   * Overflow “⋯” menus — workspace sidebar, projects list cards, taxonomy/value rows (JS).
+   * Add .prompt-sequence-nav-host on the same element as .sequence-nav-menu-wrap.
    */
-  .workspace-shell--v2 .sequence-nav-menu[hidden] {
+  .sequence-nav-menu-wrap.prompt-sequence-nav-host {
+    @apply relative flex shrink-0 items-center self-stretch z-[1];
+  }
+
+  .prompt-sequence-nav-host .sequence-nav-menu[hidden] {
     display: none !important;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu:not([hidden]) {
-    @apply absolute right-0 top-full z-30 mt-1 flex min-w-[11rem] flex-col py-1;
+  .prompt-sequence-nav-host .sequence-nav-menu:not([hidden]) {
+    @apply absolute right-0 top-full z-[200] mt-1 flex max-w-[min(92vw,42rem)] w-max flex-col items-stretch py-1;
     @apply rounded-lg bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600;
     border: 0;
     box-sizing: border-box;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu form {
+  .prompt-sequence-nav-host .sequence-nav-menu form {
     @apply m-0 w-full;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu form.button_to {
+  .prompt-sequence-nav-host .sequence-nav-menu form.button_to {
     @apply w-full;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu .sequence-nav-menu-button {
+  .prompt-sequence-nav-host .sequence-nav-menu .sequence-nav-menu-button {
     @apply block w-full cursor-pointer rounded-none border-0 bg-transparent px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu .sequence-nav-menu-button-danger {
+  .prompt-sequence-nav-host .sequence-nav-menu .sequence-nav-menu-button-danger {
     @apply text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu a.sequence-nav-menu-link {
+  .prompt-sequence-nav-host .sequence-nav-menu a.sequence-nav-menu-link {
     @apply block w-full cursor-pointer border-0 bg-transparent px-4 py-2 text-left text-sm text-gray-700 no-underline hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
   }
 
-  .workspace-shell--v2 .sequence-nav .sequence-nav-link {
+  .prompt-sequence-nav-host .sequence-nav-menu-trigger {
+    @apply min-w-8 rounded-md px-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white;
+  }
+
+  .workspace-shell .sequence-nav .sequence-nav-link {
     @apply border-l-4 border-transparent text-gray-800 dark:text-gray-200;
   }
 
-  .workspace-shell--v2 .sequence-nav .sequence-nav-link:hover {
+  .workspace-shell .sequence-nav .sequence-nav-link:hover {
     @apply bg-gray-100/90 dark:bg-gray-800/50;
   }
 
-  .workspace-shell--v2 .sequence-nav .sequence-nav-link-active {
+  .workspace-shell .sequence-nav .sequence-nav-link-active {
     @apply border-prompt-accent bg-blue-50 font-semibold text-gray-900 dark:border-blue-400 dark:bg-blue-900/30 dark:text-white;
   }
 
-  .workspace-shell--v2 .sequence-nav-menu-wrap .sequence-nav-menu-trigger {
-    @apply rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white;
+  .project-taxonomy-term-row--dragging {
+    @apply opacity-55;
   }
 }
 

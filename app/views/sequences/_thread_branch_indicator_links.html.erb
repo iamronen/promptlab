@@ -1,0 +1,32 @@
+<%# locals: anchored_threads (Array<Sequence>), insert_after_panel_thread_id: (optional Integer) %>
+<% anchored_threads = local_assigns.fetch(:anchored_threads) %>
+<% insert_after = local_assigns[:insert_after_panel_thread_id].presence&.to_i %>
+<div class="thread-branches-indicator-links thread-branches-indicator-links--count-<%= anchored_threads.size %>">
+  <% anchored_threads.each do |child_thread| %>
+    <% link_label = child_thread.title.to_s.presence || Sequence::UNTITLED_THREAD_BRANCH_TITLE %>
+    <div class="sequence-thread-indicator">
+      <span class="sequence-thread-indicator-line" aria-hidden="true"></span>
+      <span
+        class="thread-link-container"
+        title="<%= link_label %>"
+        aria-label="Branched thread: <%= link_label %>"
+      >
+        <span class="thread-link-container__title"><%= link_label %></span>
+        <button
+          type="button"
+          class="sequence-thread-indicator-open-panel"
+          data-controller="workspace-thread-indicator-open"
+          data-workspace-thread-indicator-open-thread-id-value="<%= child_thread.id %>"
+          <% if insert_after&.positive? %>
+          data-workspace-thread-indicator-open-insert-after-panel-thread-id-value="<%= insert_after %>"
+          <% end %>
+          data-action="click->workspace-thread-indicator-open#openPanel"
+          aria-label="Open <%= link_label %> in thread panel"
+          title="Open in thread panel"
+        >
+          <%= render "sequences/thread_branch_indicator_open_panel_eye_svg" %>
+        </button>
+      </span>
+    </div>
+  <% end %>
+</div>
