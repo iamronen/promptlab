@@ -11,10 +11,6 @@ import { buildReconcileWantOrder } from "thread_workspace_reconcile"
 
 const DEBOUNCE_MS = 400
 
-/** Hysteresis: harder to show strip nav, easier to keep it (prevents ResizeObserver ↔ carousel mount thrash). */
-const STRIP_OVERFLOW_SHOW_SLACK_PX = 2
-const STRIP_OVERFLOW_STICKY_SLACK_PX = -6
-
 /** @returns {boolean} */
 function railsEnvIsDevelopment() {
   if (typeof document === "undefined") return false
@@ -74,7 +70,6 @@ export default class extends Controller {
   connect() {
     this.persistTimer = null
     this.stripCarousel = null
-    this._stripNavOverflowShown = false
     /** @type {ResizeObserver | null} */
     this.stripResizeObserver = null
 
@@ -578,35 +573,9 @@ export default class extends Controller {
     saveThreadWorkspaceState(this.projectIdValue, payload)
   }
 
-  /**
-   * Horizontal scroll often clips on `.workspace-middle-column` or `.workspace`, not on `#workspace-thread-workspace-strip`
-   * (strip grows with panels; parent applies overflow-x: auto).
-   * @param {{ slack?: number }} [opts] Positive slack needs more overflow; negative is lenient (hysteresis).
-   */
-  threadWorkspaceOverflowsHorizontally(opts = {}) {
-    const slack = typeof opts.slack === "number" ? opts.slack : 0
-    if (!this.hasStripTarget) return false
-    const strip = this.stripTarget
-    if (strip.scrollWidth > strip.clientWidth + slack) return true
-
-    let el = strip.parentElement
-    while (el && el !== document.documentElement) {
-      const ox = getComputedStyle(el).overflowX
-      if (
-        (ox === "auto" || ox === "scroll" || ox === "overlay") &&
-        el.scrollWidth > el.clientWidth + slack
-      ) {
-        return true
-      }
-      el = el.parentElement
-    }
-    return false
-  }
-
   updateStripNavVisibility() {
     if (!this.hasStripTarget || !this.hasStripNavTarget || !this.hasCarouselRootTarget) {
       this.teardownStripCarousel()
-      this._stripNavOverflowShown = false
       return
     }
 
@@ -614,20 +583,9 @@ export default class extends Controller {
     if (order.length < 2) {
       this.hideStripNav()
       this.teardownStripCarousel()
-      this._stripNavOverflowShown = false
       return
     }
 
-    const slack = this._stripNavOverflowShown ? STRIP_OVERFLOW_STICKY_SLACK_PX : STRIP_OVERFLOW_SHOW_SLACK_PX
-    const overflow = this.threadWorkspaceOverflowsHorizontally({ slack })
-    if (!overflow) {
-      this.hideStripNav()
-      this.teardownStripCarousel()
-      this._stripNavOverflowShown = false
-      return
-    }
-
-    this._stripNavOverflowShown = true
     this.showStripNav()
     this.ensureStripCarousel()
   }
