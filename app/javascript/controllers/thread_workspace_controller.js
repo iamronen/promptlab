@@ -114,7 +114,9 @@ export default class extends Controller {
       if (!navigated) this.schedulePersist()
     })
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => this.updateStripNavVisibility())
+      requestAnimationFrame(() => {
+        this.updateStripNavVisibility()
+      })
     })
   }
 

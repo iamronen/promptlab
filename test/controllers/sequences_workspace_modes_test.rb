@@ -635,9 +635,9 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
   # Regression: flex: 0 1 auto on the maximized editor pane prevents the pane from filling the column
   # height, so .workspace-thread-panel-editor-stack never gets a bounded height and loses its scrollbar (v1).
   test "thread panel editor column stylesheet keeps flex growth for inner vertical scroll" do
-    css = Rails.root.join("app/assets/stylesheets/application.css").read
+    css = Rails.root.join("app/assets/tailwind/application.css").read
     assert_includes css, "Thread editor column — scroll contract",
-                    "keep the scroll-contract comment next to the maximized editor-pane flex rules"
+                    "keep the scroll-contract comment next to the maximized editor-pane flex rules (Tailwind components layer)"
 
     pane_block = css[/
       \.workspace-thread-panel-root--maximized \s+

@@ -32,48 +32,6 @@ body {
   background: #f7f8fa;
 }
 
-.workspace {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-/* Full-width chrome above weave | middle | library */
-.workspace-shell--three-pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-/* Sequencing / bundle workspaces: full-height shell (handles mobile chrome via dvh). */
-.workspace-shell--three-pane {
-  min-height: 100dvh;
-}
-
-.workspace-shell--three-pane > .workspace.workspace--three-pane,
-.workspace-shell--three-pane > .workspace.workspace--two-pane,
-.workspace-shell--three-pane > .workspace.workspace--one-pane {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.workspace--one-pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  align-items: stretch;
-}
-
-.workspace--one-pane .workspace-pane-resize-handle--left,
-.workspace--one-pane .workspace-pane-resize-handle--right {
-  display: none;
-}
-
 .workspace-thread-panel-title-menu-wrap {
   position: relative;
   flex-shrink: 0;
@@ -332,419 +290,6 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
     0 0 0 1px rgba(15, 98, 254, 0.12);
 }
 
-/* Three-pane workspace: weave | work + editor | assistant — widths via resize handles (--ws-*-px) */
-.workspace--three-pane {
-  display: grid;
-  --ws-left-px: 246px;
-  --ws-right-px: 320px;
-  grid-template-columns:
-    clamp(180px, var(--ws-left-px), min(520px, 50vw))
-    minmax(0, 1fr)
-    clamp(220px, var(--ws-right-px), min(640px, 48vw));
-  grid-template-rows: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0;
-  min-height: 0;
-}
-
-/* Sequencing mode (no Fabric sidebar): work | assistant — right width via --ws-right-px */
-.workspace--two-pane {
-  display: grid;
-  --ws-right-px: 320px;
-  grid-template-columns:
-    minmax(0, 1fr)
-    clamp(220px, var(--ws-right-px), min(640px, 48vw));
-  grid-template-rows: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0;
-  min-height: 0;
-}
-
-.workspace--two-pane .workspace-pane-resize-handle--left {
-  display: none;
-}
-
-/* Assistant column hidden: middle track absorbs the right grid column */
-.workspace--three-pane.workspace--assistant-collapsed {
-  grid-template-columns:
-    clamp(180px, var(--ws-left-px), min(520px, 50vw))
-    minmax(0, 1fr);
-}
-
-.workspace--two-pane.workspace--assistant-collapsed {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.workspace--assistant-collapsed .workspace-pane-resize-handle--right {
-  display: none;
-}
-
-.workspace-assistant-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  margin: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  line-height: 0;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.workspace-assistant-toggle-btn:focus-visible {
-  outline: 2px solid #0f62fe;
-  outline-offset: 2px;
-}
-
-.workspace-assistant-toggle-btn:hover svg circle {
-  fill: #1f2937;
-}
-
-.workspace-assistant-toggle-btn:active svg circle {
-  fill: #0f172a;
-}
-
-.workspace-middle-column > .workspace-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.workspace-right-panel-tabs-shell--single {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.workspace-right-panel-tabpanel--solo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.workspace-middle-column {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-self: stretch;
-  min-height: 0;
-  min-width: 0;
-  padding-top: 1em;
-  background: #d8dce3;
-  border-right: 1px solid #e4e8ee;
-}
-
-/* Full editors: allow work area to extend past the grid track; scroll horizontally on this column. */
-.workspace-middle-column:has(.workspace-thread-panel-root--maximized) {
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.workspace-pane-resize-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 8px;
-  z-index: 6;
-  cursor: col-resize;
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  touch-action: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.workspace-pane-resize-handle--left {
-  left: -5px;
-}
-
-.workspace-pane-resize-handle--right {
-  right: -5px;
-}
-
-.workspace-pane-resize-handle:hover {
-  background: rgba(15, 98, 254, 0.1);
-}
-
-.workspace-pane-resize-handle:focus-visible {
-  outline: 2px solid #0f62fe;
-  outline-offset: -1px;
-}
-
-.workspace-work-shell {
-  align-self: stretch;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 1rem 1.1rem;
-  background: #d8dce3;
-  border-bottom: 1px solid #c5cad3;
-  overflow: visible;
-}
-
-/* Fills remaining column height — resize-handle <button>s are extra DOM siblings (:only-child never matched). */
-.workspace-middle-column > .workspace-work-shell {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  border-bottom: none;
-}
-
-.workspace-middle-column:has(.workspace-thread-panel-root--maximized) > .workspace-work-shell {
-  overflow-x: visible;
-  overflow-y: visible;
-}
-
-.workspace-work-inner {
-  flex: 0 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-work-inner--panel {
-  overflow: visible;
-}
-
-.workspace-thread-panel-root.workspace-thread-panel-root--maximized {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-width: none;
-}
-
-.workspace-thread-panel-root--maximized.workspace-work-inner--panel {
-  overflow-x: visible;
-  overflow-y: hidden;
-}
-
-.workspace-thread-panel-layout {
-  display: flex;
-  flex-direction: row;
-  flex: 0 1 auto;
-  align-items: flex-start;
-  gap: 0;
-  min-height: 0;
-  width: 100%;
-}
-
-/* Index-only: inner row must cap like the shell — max-content used shell's intrinsic ~401px while shell used width is 22rem (~352px), leaving dead space (log: partnerColRightMinusShellRight 49). */
-.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-layout {
-  display: flex;
-  width: min(100%, 22rem);
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
-  flex: 1 1 auto;
-  align-items: stretch;
-  min-height: 0;
-  width: fit-content;
-  max-width: none;
-}
-
-.workspace-thread-panel-split-outer {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-split-outer:has(.workspace-thread-panel-root--maximized) {
-  align-self: stretch;
-  width: max-content;
-  min-width: 0;
-  max-width: none;
-}
-
-/* Dual strand rows fill the work area; avoid max-content collapse with side-by-side panels (#workspace-thread-panels-split). */
-.workspace-thread-panel-split-outer:has(#workspace-thread-panels-split) {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* Wide floor only when both strands use index+editor (otherwise intrinsic width + single-panel min). */
-.workspace-thread-panel-split-outer:has(
-    .workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized
-  ):has(
-    .workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized
-  ) {
-  min-width: var(--workspace-thread-split-min-width);
-}
-
-.workspace-thread-panel-layout--split {
-  flex: 1 1 auto;
-  min-height: 0;
-  align-items: stretch;
-  justify-content: flex-start;
-  width: 100%;
-  max-width: 100%;
-  gap: 0.75rem;
-}
-
-/* Horizontal multi-thread workspace strip (sequences): same gutter as legacy split strand row */
-.workspace-thread-workspace-strip {
-  gap: 0.75rem;
-}
-
-/*
- * Strip panel columns used to ship inline min-width: min(100vw, 42rem), which stayed in effect when
- * “Index only” hid the editors — leaving a dead band (~editor width) still inside the blue focus outline.
- * Apply the wide floor only for full-editor panels; hug the strand index rail when collapsed.
- */
-.workspace-thread-workspace-strip > .workspace-thread-workspace-column:has(.workspace-thread-panel-root--maximized) {
-  min-width: min(100vw, 42rem);
-}
-
-.workspace-thread-workspace-strip
-  > .workspace-thread-workspace-column:has(.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized)) {
-  min-width: 0;
-  width: fit-content;
-  max-width: min(100%, 22rem);
-  align-items: flex-start;
-  /* Undo Tailwind `basis-full` on small screens — otherwise the column stays strip-wide with empty gutters. */
-  flex-basis: auto;
-}
-
-.workspace-thread-panel-split-column {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-}
-
-/* Index-only: hug shell width — column stretch can inflate empty space between panels (gap looks too large). */
-.workspace-thread-panel-split-column--partner:not(:has(.workspace-thread-panel-root--maximized)),
-.workspace-thread-panel-split-column--primary:not(:has(.workspace-thread-panel-root--maximized)) {
-  align-items: flex-start;
-  /* v6 log: root 352px but column 401px — 36rem column max still allowed ~25rem intrinsic (log partnerColOffsetW 401). */
-  max-width: min(100%, 22rem);
-  width: auto;
-}
-
-/* Parent panel: hug content when index-only; share horizontal space when full editors are open. */
-.workspace-thread-panel-split-column--partner {
-  flex: 0 0 auto;
-  width: auto;
-  max-width: min(100%, 36rem);
-}
-
-.workspace-thread-panel-split-column--partner:has(.workspace-thread-panel-root--maximized) {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: none;
-}
-
-/* Mirror partner: only grow the column when that thread uses full editors. */
-.workspace-thread-panel-split-column--primary {
-  flex: 0 0 auto;
-  width: auto;
-  max-width: min(100%, 36rem);
-}
-
-.workspace-thread-panel-split-column--primary:has(.workspace-thread-panel-root--maximized) {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: none;
-}
-
-/* Each maximized strand in split gets a usable editor floor (scroll if the row is narrower). */
-.workspace-thread-panel-layout--split
-  .workspace-thread-panel-split-column--partner
-  .workspace-thread-panel-root--maximized,
-.workspace-thread-panel-layout--split
-  .workspace-thread-panel-split-column--primary
-  .workspace-thread-panel-root--maximized {
-  min-width: var(--workspace-thread-single-min-width);
-}
-
-.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
-  width: 100%;
-  max-width: 100%;
-  align-self: stretch;
-}
-
-/* Split index-only: cap root — v5 log showed inner layout 352px but root/column still 401px (49px dead strip). */
-.workspace-thread-panel-split-column--partner
-  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized),
-.workspace-thread-panel-split-column--primary
-  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) {
-  width: min(100%, 22rem);
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-/* Split index-only: same cap as shell so flex row width matches visible card (not max-content intrinsic). */
-.workspace-thread-panel-split-column--partner
-  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized)
-  > .workspace-thread-panel-layout,
-.workspace-thread-panel-split-column--primary
-  > .workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized)
-  > .workspace-thread-panel-layout {
-  display: flex;
-  width: min(100%, 22rem);
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-shell {
-  align-self: stretch;
-  width: 100%;
-  max-width: 100%;
-}
-
-.workspace-thread-panel-split-column--partner .workspace-thread-panel-root--maximized .workspace-thread-panel-split {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* Fill the remaining width to the right of the parent panel (avoid fit-content bands). */
-.workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized .workspace-thread-panel-layout {
-  width: 100%;
-  max-width: 100%;
-  align-self: stretch;
-}
-
-.workspace-thread-panel-split-column--primary .workspace-thread-panel-shell {
-  align-self: stretch;
-  width: 100%;
-  max-width: 100%;
-}
-
-.workspace-thread-panel-split-column--primary .workspace-thread-panel-root--maximized .workspace-thread-panel-split {
-  width: 100%;
-  max-width: 100%;
-}
-
-.workspace-thread-panel-body--empty-strand {
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
 .workspace-thread-tf-order-menu-sep {
   border: 0;
   border-top: 1px solid #d4dde8;
@@ -778,226 +323,14 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
   background: #f2f6fc;
 }
 
-/* Thread panel shell: layout + legacy visuals. Shell v2 pairs .prompt-thread-panel-shell (tailwind) for Flowbite-style surfaces. */
-/* Strand index rail (list + menus): shell v2 adds .prompt-thread-index-* companions; Flowbite-style overlays are in app/assets/tailwind/application.css — keep these rules for v1 and layout/counters. */
-.workspace-thread-panel-shell {
-  align-self: flex-start;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border: 1px solid #cdd4df;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(41, 56, 77, 0.08);
-  box-sizing: border-box;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.workspace-thread-panel-shell .workspace-thread-panel-body {
-  overflow-x: hidden;
-  align-items: stretch;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-shell .workspace-thread-panel-strand {
-  align-self: stretch;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-shell .workspace-thread-panel-footer {
-  align-self: stretch;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-shell .workspace-thread-panel-strand .workspace-thread-tf {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-shell .workspace-thread-panel-strand .workspace-thread-tf-child-content {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-shell {
-  flex: 0 1 auto;
-  width: fit-content;
-  max-width: min(100%, 22rem);
-}
-
-.workspace-thread-panel-root--maximized .workspace-thread-panel-shell {
-  flex: 0 1 auto;
-  align-self: stretch;
-  max-width: 100%;
-  width: fit-content;
-}
-
-.workspace-thread-panel-split {
-  --workspace-thread-index-px: 22rem;
-  display: flex;
-  flex-direction: row;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.workspace-thread-panel-root--maximized .workspace-thread-panel-split {
-  align-self: stretch;
-  width: fit-content;
-  max-width: 100%;
-}
-
-.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-split {
-  flex: 0 1 auto;
-  align-self: stretch;
-  width: auto;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.workspace-thread-panel-index-pane {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-thread-panel-root:not(.workspace-thread-panel-root--maximized) .workspace-thread-panel-index-pane {
-  flex: 1 1 auto;
-  min-width: 0;
-  align-self: stretch;
-}
-
-.workspace-thread-panel-root--maximized .workspace-thread-panel-index-pane {
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  width: var(--workspace-thread-index-px, 22rem);
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  align-self: stretch;
-}
-
-.workspace-thread-panel-root--maximized .workspace-thread-panel-body {
-  max-height: none;
-}
-
-/*
- * Thread editor column — scroll contract (do not regress):
- * Outer .workspace rows use overflow-y: hidden; vertical scrolling must happen on
- * .workspace-thread-panel-editor-stack (overflow-y: auto), not on the pane body.
- * That only works if this pane participates in the flex height chain: flex-grow > 0
- * and min-height: 0. Using flex: 0 1 auto here made the pane content-height only,
- * so the stack grew with content and never showed a scrollbar (v1 has no Tailwind
- * .prompt-thread-editor-pane override). Split and non-split maximized layouts need
- * the same rule.
- */
-.workspace-thread-panel-root--maximized .workspace-thread-panel-editor-pane {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  align-self: stretch;
-}
-
-.workspace-thread-panel-index-resize-handle {
-  display: none;
-  box-sizing: border-box;
-  width: 6px;
-  flex-shrink: 0;
-  align-self: stretch;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: #d3dae4;
-  cursor: col-resize;
-  touch-action: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.workspace-thread-panel-index-resize-handle:hover {
-  background: rgba(15, 98, 254, 0.12);
-}
-
-.workspace-thread-panel-index-resize-handle:focus-visible {
-  outline: 2px solid #0f62fe;
-  outline-offset: -1px;
-  z-index: 2;
-}
-
-.workspace-thread-panel-root--maximized
-  .workspace-thread-panel-split:has(.workspace-thread-panel-editor-pane:not([hidden]))
-  .workspace-thread-panel-index-resize-handle {
-  display: block;
-}
-
-.workspace-thread-panel-editor-pane {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-thread-panel-editor-pane[hidden] {
-  display: none !important;
-}
-
-.workspace-thread-panel-editor-stack {
-  --workspace-thread-editor-stack-gap: 1rem;
-  /* Match thread-embed body text measure so the stack width tracks step content. */
-  --thread-editor-text-max: 72ch;
-  --thread-branch-chip-width: calc(2.75rem * 0.7);
-  /* Measured from .thread-strand-child__handle / .workspace-thread-editor-step-rail at runtime */
-  --thread-branch-timeline-col: 2.75rem;
-  --thread-branch-handle-gutter: 1.35rem;
-  --thread-branch-band-gap: 0.35rem;
-  --thread-branch-content-gap: 0.45rem;
-  --thread-branch-after-chip-gap: 3em;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: visible;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--workspace-thread-editor-stack-gap);
-  padding: 0.35rem 0.65rem 0.85rem;
-  box-sizing: border-box;
-  width: fit-content;
-  max-width: 100%;
-}
-
-.workspace-thread-panel-editor-stack .workspace-thread-editor-child {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
-  min-height: 0;
-  flex: none;
-  box-sizing: border-box;
-  width: fit-content;
-  max-width: 100%;
-}
-
 .workspace-thread-editor-left-rail {
   display: flex;
   flex-direction: row;
   align-items: stretch;
   flex-shrink: 0;
   gap: 0.35rem;
+  /* Let nested step-rail resolve a definite cross size when stretching beside short handle. */
+  min-height: 0;
 }
 
 /* Thread strand step rail + handle: offset to match embedded first title (thread-embed form has no top padding). */
@@ -1054,7 +387,9 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex-shrink: 0;
+  /* Row child beside handle: grow on main axis, stretch on cross axis so column height tracks editor body. */
+  flex: 1 1 auto;
+  align-self: stretch;
   min-width: 1.35rem;
   min-height: 0;
   padding-bottom: 0.15rem;
@@ -1080,17 +415,18 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
 }
 
 .workspace-thread-editor-step-line {
-  flex: 1 1 auto;
+  /* basis 0 so flex distributes remaining column height below the badge (1 1 auto stuck at min-height in practice). */
+  flex: 1 1 0;
   width: 2px;
   min-height: 0.35rem;
-  margin-top: 0.35rem;
+  margin-top: var(--strand-bridge-line-after-badge, 2px);
   background: #5c6370;
   border-radius: 1px;
 }
 
 /*
- * Strand editor stack gap splits the timeline; stitch through rail padding + inter-row gap + next row rail
- * inset (thin bar only). Anchored on .workspace-thread-editor-step-line so bridges sit flush against the strip.
+ * Strand ::after bridges rows: rail padding, stack gap, next rail top inset, next badge, gap under badge,
+ * then in-cell line resumes (bundle pipeline used this math; outer stack was missing the badge segment).
  */
 .workspace-thread-panel-editor-stack
   > .workspace-thread-editor-child:not(:last-child)
@@ -1107,17 +443,18 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
   left: 50%;
   pointer-events: none;
   /*
-   * Negative Y overlap removes sub-pixel seams vs the strip and border radii from either end.
-   * Height: rail pad-bottom + flex gap + next rail pad-top (+ stitch trim).
+   * Height: rail pad-bottom + stack gap + next rail pad-top + next badge block + gap under badge (+ trim).
+   * Overlap into parent line via top (translateY stole downward reach).
    * Next rail top padding depends on follower row (:has(+ ...)); default matches sequence / editable bundle (0.2rem).
    */
   --strand-bridge-into-next: 0.2rem;
-  top: 100%;
+  top: calc(100% - 2px);
   margin-left: -1px;
-  transform: translateY(-2px);
+  transform: none;
   width: 2px;
   height: calc(
-    0.15rem + var(--workspace-thread-editor-stack-gap) + var(--strand-bridge-into-next, 0.2rem) + 3px
+    0.15rem + var(--workspace-thread-editor-stack-gap) + var(--strand-bridge-into-next, 0.2rem) +
+      var(--strand-bridge-badge-block, 2.75rem) + var(--strand-bridge-line-after-badge, 2px) + 3px
   );
   margin-top: 0;
   background: #5c6370;
@@ -1132,6 +469,7 @@ button.workspace-thread-panel-title-menu-item.workspace-thread-panel-title-menu-
   .workspace-thread-editor-step-line::after {
   height: calc(
     0.15rem + var(--workspace-thread-editor-stack-gap) + var(--strand-bridge-into-next, 0.2rem) + 3px +
+      var(--strand-bridge-badge-block, 2.75rem) + var(--strand-bridge-line-after-badge, 2px) +
       var(--thread-branch-strand-band-block, 1.65rem) + var(--thread-branch-after-chip-gap, 0em)
   );
 }
@@ -1237,7 +575,8 @@ ol.workspace-thread-panel-strand
   width: auto;
   max-width: 100%;
   min-width: 0;
-  min-height: 0;
+  /* Match Tailwind prompt stack: do not let min-height: 0 shrink frame below loaded embed (strand row height). */
+  min-height: min-content;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -1254,7 +593,7 @@ ol.workspace-thread-panel-strand
 .workspace-thread-panel-editor-stack .thread-strand-editor-bundle-body,
 .workspace-thread-panel-editor-stack .thread-strand-editor-sequence-slot {
   flex: 0 1 auto;
-  min-height: 0;
+  min-height: min-content;
   width: fit-content;
   max-width: 100%;
 }
@@ -1532,7 +871,7 @@ turbo-frame:has(.bundle-modal-shell--thread-embed),
   --bundle-pipeline-strand-bridge-row-mt: 0.32rem;
   --bundle-pipeline-strand-bridge-next-rail-pt: 0.2rem;
   --bundle-pipeline-strand-bridge-badge-block: 2.75rem;
-  --bundle-pipeline-strand-bridge-line-mt: 0.35rem;
+  --bundle-pipeline-strand-bridge-line-mt: var(--strand-bridge-line-after-badge, 2px);
 }
 
 .bundle-modal-shell--thread-embed
@@ -1550,9 +889,9 @@ turbo-frame:has(.bundle-modal-shell--thread-embed),
   content: "";
   position: absolute;
   left: 50%;
-  top: 100%;
+  top: calc(100% - 2px);
   margin-left: -1px;
-  transform: translateY(-2px);
+  transform: none;
   width: 2px;
   pointer-events: none;
   margin-top: 0;
@@ -2439,6 +1778,11 @@ button.workspace-thread-panel-title-breadcrumb-ancestor:focus-visible {
   min-height: 0;
 }
 
+/* Index .workspace-thread-tf rows stay flex-start; editor stack rows need stretch so left-rail tracks lazy embed height. */
+.workspace-thread-panel-editor-stack .workspace-thread-editor-child.workspace-thread-tf {
+  align-items: stretch;
+}
+
 .workspace-thread-tf-index-card {
   padding: 0.35rem 0.5rem;
   display: flex;
@@ -3030,65 +2374,6 @@ body:has(.workspace-shell--three-pane)
   flex-shrink: 0;
 }
 
-.workspace-right-panel {
-  background: #fff;
-  border-left: 1px solid #e4e8ee;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-top: 1em;
-}
-
-.workspace-right-panel-tabs-shell {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-right-panel-panels {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.workspace-right-panel-tabpanel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.workspace-right-panel-tabpanel[hidden] {
-  display: none !important;
-}
-
-.workspace-right-panel-tabpanel .sequence-nav {
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-right-panel-tabpanel--assistant {
-  overflow: auto;
-}
-
-.workspace-assistant-body {
-  padding: 1rem;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.workspace-assistant-placeholder {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: #6b7c93;
-}
-
 .workspace-sidebar {
   flex: 0 0 520px;
   max-width: 100%;
@@ -3278,126 +2563,6 @@ body:has(.workspace-shell--three-pane)
 .sequence-nav-row .sequence-nav-link {
   flex: 1;
   min-width: 0;
-}
-
-.workspace-main {
-  flex: 1;
-  min-width: 0;
-  background: #f7f8fa;
-}
-
-.workspace--three-pane .workspace-main {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  background: #d8dce3;
-}
-
-.workspace-chat-panel {
-  flex: 0 0 360px;
-  max-width: 100%;
-  background: #fff;
-  border-left: 1px solid #e4e8ee;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.workspace-chat-panel-header {
-  flex-shrink: 0;
-  padding: 1rem 1rem 0.65rem;
-  border-bottom: 1px solid #ebedf2;
-}
-
-.workspace-chat-panel-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #2d3f57;
-}
-
-.workspace-chat-panel-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 1rem;
-}
-
-.workspace-chat-panel-placeholder {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: #6b7c93;
-}
-
-.workspace-main .sequence-editor {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom, 0));
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-@media (max-width: 720px) {
-  .workspace {
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .workspace-pane-resize-handle {
-    display: none;
-  }
-
-  .workspace-shell--three-pane {
-    min-height: 100vh;
-  }
-
-  .workspace--three-pane,
-  .workspace--two-pane,
-  .workspace--one-pane {
-    display: flex;
-    flex-direction: column;
-    grid-template-columns: unset;
-  }
-
-  .workspace-weave-panel,
-  .workspace-middle-column,
-  .workspace-right-panel {
-    flex: none;
-    border-right: none;
-    border-left: none;
-    border-bottom: 1px solid #e4e8ee;
-    max-height: none;
-  }
-
-  .workspace-weave-panel {
-    max-height: 42vh;
-  }
-
-  .workspace-middle-column {
-    min-height: 50vh;
-    flex: 1;
-  }
-
-  .workspace-right-panel {
-    max-height: 44vh;
-  }
-
-  .workspace-sidebar {
-    flex: none;
-    border-right: none;
-    border-bottom: 1px solid #e4e8ee;
-    max-height: 40vh;
-  }
-
-  .workspace-chat-panel {
-    flex: none;
-    border-left: none;
-    border-top: 1px solid #e4e8ee;
-    max-height: 38vh;
-  }
 }
 
 .editor-footer-actions {
