@@ -52,7 +52,7 @@
 }
 
 @layer components {
-  /* Button primitives (legacy .copy-button / .primary-button still in application.css). */
+  /* Button primitives (.prompt-btn-*). */
   .prompt-btn-secondary {
     @apply cursor-pointer rounded-[7px] border border-solid border-prompt-btn-border bg-white px-2 py-[0.3rem] text-[0.82rem];
   }
@@ -623,7 +623,7 @@
   }
 
   .workspace-thread-panel-body.prompt-thread-index-body {
-    @apply flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-visible;
+    @apply flex min-h-0 max-h-[min(85vh,48rem)] flex-1 flex-col overflow-y-auto overflow-x-visible;
   }
 
   .workspace-thread-panel-footer.prompt-thread-index-footer {
@@ -3739,6 +3739,397 @@
 
   .thread-strand-sequence-container {
     min-width: 0;
+    overflow: visible;
+  }
+
+  /*
+   * Slice 7 — thread panel header chrome, placeholders, window controls, breadcrumbs, title input,
+   * empty strand copy, add-sequence control, strand index card row helpers.
+   * (Strand list / body / footer / ::before counters: covered by prompt-thread-index-* in Slice 2.)
+   */
+  .workspace-thread-panel-editor-placeholder:not(.prompt-thread-editor-placeholder) {
+    margin: 0;
+    padding: 0.85rem;
+    font-size: 0.82rem;
+    color: #6b7c93;
+  }
+
+  .workspace-thread-panel-header-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+  }
+
+  .workspace-thread-panel-header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+  }
+
+  .workspace-thread-panel-header-title-row .workspace-thread-panel-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-thread-panel-header-title-row .workspace-thread-panel-title-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .workspace-thread-panel-header-title-row .workspace-thread-panel-map-btn,
+  .workspace-thread-panel-header-title-row .workspace-thread-panel-title-action-btn {
+    flex-shrink: 0;
+  }
+
+  .workspace-thread-panel-header-title-row .workspace-thread-panel-badge {
+    flex-shrink: 0;
+  }
+
+  .workspace-thread-panel-header-trailing {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .workspace-thread-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .workspace-thread-panel-window-controls {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.15rem;
+    align-items: center;
+  }
+
+  .workspace-thread-panel-browse-controls {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.15rem;
+    align-items: center;
+  }
+
+  .workspace-thread-panel-close-btn,
+  .workspace-thread-panel-win-btn,
+  .workspace-thread-panel-map-btn,
+  .workspace-thread-panel-title-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #4a5d72;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+
+  /* [hidden] alone is overridden by `display: flex` above (author CSS beats UA). */
+  .workspace-thread-panel-title-action-btn[hidden] {
+    display: none !important;
+  }
+
+  .workspace-thread-panel-close-btn:hover,
+  .workspace-thread-panel-win-btn:hover,
+  .workspace-thread-panel-map-btn:hover,
+  .workspace-thread-panel-title-action-btn:hover {
+    background: rgba(15, 98, 254, 0.08);
+    color: #0f62fe;
+  }
+
+  .workspace-thread-panel-close-btn:focus-visible,
+  .workspace-thread-panel-win-btn:focus-visible,
+  .workspace-thread-panel-map-btn:focus-visible,
+  .workspace-thread-panel-title-action-btn:focus-visible {
+    outline: 2px solid #0f62fe;
+    outline-offset: 1px;
+  }
+
+  .workspace-thread-panel-win-btn[aria-pressed="true"] {
+    background: rgba(15, 98, 254, 0.12);
+    color: #0f62fe;
+    border-color: rgba(15, 98, 254, 0.18);
+  }
+
+  .workspace-thread-panel-close-btn svg,
+  .workspace-thread-panel-map-btn svg,
+  .workspace-thread-panel-title-action-btn svg {
+    display: block;
+  }
+
+  /* Block post–HTML5-DnD synthetic clicks on layout/mode controls while reordering from the index. */
+  .workspace-thread-panel-root--index-drag-active .workspace-thread-panel-win-btn,
+  .workspace-thread-panel-root--index-drag-active .workspace-thread-panel-browse-controls .workspace-thread-panel-win-btn,
+  .workspace-thread-panel-root--index-drag-active .workspace-thread-panel-close-btn,
+  .workspace-thread-panel-root--index-drag-active .workspace-thread-panel-map-btn,
+  .workspace-thread-panel-root--index-drag-active .workspace-thread-panel-title-actions,
+  body:has(.workspace-thread-panel-root--index-drag-active)
+    .workspace-header-strip
+    .sequence-mode-toggle {
+    pointer-events: none;
+  }
+
+  .workspace-thread-panel-root--maximized .workspace-thread-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .workspace-work-shell:has(.workspace-thread-panel-root--maximized) {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+    overflow-x: visible;
+    overflow-y: visible;
+    align-self: flex-start;
+  }
+
+  /* Single-column thread panel (non-split): default usable width when editors are open. */
+  .workspace-work-shell
+    > .workspace-work-inner.workspace-thread-panel-root.workspace-thread-panel-root--maximized {
+    min-width: var(--workspace-thread-single-min-width);
+  }
+
+  .workspace-thread-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #ebedf2;
+    background: #fafbfc;
+    flex-shrink: 0;
+  }
+
+  .workspace-thread-panel-title {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #2d3f57;
+    min-width: 0;
+  }
+
+  .workspace-thread-panel-title--breadcrumb {
+    overflow: hidden;
+  }
+
+  .workspace-thread-panel-title-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-ellipsis {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #6b7c93;
+    letter-spacing: 0.06em;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-sep {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: #a8b4c4;
+    user-select: none;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-sep--ellipsis {
+    margin-inline-start: -0.08rem;
+  }
+
+  button.workspace-thread-panel-title-breadcrumb-ancestor {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: #4a5d72;
+    cursor: pointer;
+    text-decoration: none;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button.workspace-thread-panel-title-breadcrumb-ancestor:hover {
+    color: #0f62fe;
+    text-decoration: underline;
+  }
+
+  button.workspace-thread-panel-title-breadcrumb-ancestor:focus-visible {
+    outline: 2px solid #0f62fe;
+    outline-offset: 1px;
+    border-radius: 4px;
+  }
+
+  .workspace-thread-panel-title-breadcrumb-current {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-thread-panel-title-input {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 2rem;
+    max-width: 100%;
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: #2d3f57;
+    border: 1px solid rgba(15, 98, 254, 0.38);
+    border-radius: 6px;
+    padding: 0.12rem 0.45rem;
+    background: #fff;
+    box-sizing: border-box;
+  }
+
+  .workspace-thread-panel-title-input:focus {
+    outline: 2px solid #0f62fe;
+    outline-offset: 1px;
+  }
+
+  .workspace-thread-panel-badge {
+    flex-shrink: 0;
+  }
+
+
+  .workspace-thread-panel-empty--in-shell {
+    margin: 0;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .workspace-thread-add-tf {
+    width: 100%;
+    font-size: 0.82rem;
+  }
+
+  .workspace-thread-tf-index-card {
+    padding: 0.35rem 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    min-height: 2.25rem;
+  }
+
+  .workspace-thread-tf-title-static {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .workspace-thread-tf-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #2d3f57;
+  }
+
+  .workspace-thread-tf-index-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-self: center;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .workspace-thread-tf-index-row .workspace-thread-tf-title-static {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .workspace-thread-tf-seq-eye {
+    flex-shrink: 0;
+  }
+
+  /*
+   * Slice 8 — sequence modal scrollport, bundle modal shell, workspace modal frame grid,
+   * three-pane height scaling, thread-embed overflow (step menus escape modal scrollport).
+   */
+  .sequence-editor--modal {
+    max-height: min(78vh, 640px);
+    overflow-y: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .bundle-modal-shell {
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .workspace-modal-frames-wrap {
+    position: relative;
+    flex: 1;
+    display: grid;
+    grid-template: minmax(0, 1fr) / 1fr;
+    min-height: min(72vh, 640px);
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .workspace-modal-frame-slot {
+    grid-area: 1 / 1 / -1 / -1;
+    overflow: hidden;
+  }
+
+  .bundle-modal-frame {
+    display: block;
+    width: 100%;
+    min-height: 4rem;
+  }
+
+  body:has(.workspace-shell--three-pane) .workspace-modal-frames-wrap {
+    min-height: min(calc(72vh * 1.6), calc(640px * 1.6));
+  }
+
+  body:has(.workspace-shell--three-pane) .sequence-editor--modal {
+    max-height: min(calc(78vh * 1.6), calc(640px * 1.6), 92vh);
+  }
+
+  /* Thread-embed: let step menus escape modal scrollport; keep scroll on thread panel body */
+  body:has(.workspace-shell--three-pane)
+    .bundle-modal-shell--thread-embed
+    main.sequence-editor--modal {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .bundle-modal-shell--thread-embed main.sequence-editor--modal {
+    max-height: none;
     overflow: visible;
   }
 
