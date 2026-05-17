@@ -73,6 +73,37 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     assert body["errors"].join.include?("allows only one term")
   end
 
+  test "update omits unstated taxonomy rows so they clear assignments" do
+    TaxonomyAssignment.create!(
+      project_id: @project.id,
+      sequence_id: @sequence.id,
+      taxonomy_id: @taxonomy_one.id,
+      taxonomy_term_id: @p1.id,
+      label_snapshot: @p1.label,
+      single_value_taxonomy_copy: true
+    )
+    TaxonomyAssignment.create!(
+      project_id: @project.id,
+      sequence_id: @sequence.id,
+      taxonomy_id: @taxonomy_many.id,
+      taxonomy_term_id: @m1.id,
+      label_snapshot: @m1.label,
+      single_value_taxonomy_copy: false
+    )
+
+    put project_sequence_taxonomy_assignments_path(@project, @sequence),
+        params: {
+          assignments: [{ taxonomy_id: @taxonomy_many.id, taxonomy_term_ids: [@m2.id] }]
+        },
+        as: :json
+
+    assert_response :success
+    rows = TaxonomyAssignment.where(sequence_id: @sequence.id)
+    assert_equal 1, rows.count
+    assert_equal @taxonomy_many.id, rows.first.taxonomy_id
+    assert_equal @m2.id, rows.first.taxonomy_term_id
+  end
+
   test "generative sequence scope rejects bundles" do
     bundle =
       @project.sequences.create!(

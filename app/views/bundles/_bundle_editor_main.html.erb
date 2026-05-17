@@ -160,7 +160,8 @@
                                    title_value: child.title,
                                    intent_field_name: "nested_sequences[#{child.id}][intent]",
                                    intent_value: child.intent,
-                                   thread_panel_editor_embed: thread_panel_editor_embed %>
+                                   thread_panel_editor_embed: thread_panel_editor_embed,
+                                   taxonomy_subject: child %>
                         <section class="steps-section bundle-pipeline-nested-thread-steps thread-editor-collapsible-body">
                           <%= render "sequences/nested_generative_steps",
                                      child_sequence: child,

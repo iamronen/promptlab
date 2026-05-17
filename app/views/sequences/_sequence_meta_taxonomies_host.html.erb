@@ -1,0 +1,10 @@
+<%# locals: project, sequence %>
+<div
+  class="sequence-meta-taxonomies-host"
+  data-controller="sequence-meta-taxonomies"
+  data-sequence-meta-taxonomies-taxonomies-url-value="<%= project_taxonomies_path(project) %>"
+  data-sequence-meta-taxonomies-assignments-url-value="<%= project_sequence_taxonomy_assignments_path(project, sequence) %>"
+  data-sequence-meta-taxonomies-sequence-id-value="<%= sequence.id %>"
+>
+  <div class="sequence-meta-taxonomy" data-sequence-meta-taxonomies-target="root"></div>
+</div>

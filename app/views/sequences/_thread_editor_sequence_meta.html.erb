@@ -45,6 +45,10 @@
                            "focus->sequence-editor#selectAllIfDefault input->sequence-editor#markAutosaveDirtyFromInput blur->sequence-editor#restoreDefaultIfEmpty blur->sequence-editor#autosaveOnMetaBlur"
                        } %>
     </div>
+    <% taxonomy_subject = local_assigns.fetch(:taxonomy_subject, f.object) %>
+    <% if taxonomy_subject.present? && @project.taxonomies.any? %>
+      <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
+    <% end %>
   </section>
 <% elsif variant == :bundle_child_tags %>
   <section class="meta-fields prompt-thread-sequence-meta">
@@ -82,5 +86,9 @@
                         class: "sequence-intent-input bundle-pipeline-child-intent-input",
                         aria: { label: local_assigns.fetch(:intent_label, "Generative sequence intent") } %>
     </div>
+    <% taxonomy_subject = local_assigns[:taxonomy_subject] %>
+    <% if taxonomy_subject.present? && @project.taxonomies.any? %>
+      <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
+    <% end %>
   </section>
 <% end %>

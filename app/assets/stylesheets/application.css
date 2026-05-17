@@ -225,6 +225,7 @@ body {
 }
 
 .sequence-form {
+  --sequence-form-inline-pad: 1.1rem;
   background: #fff;
   border: 1px solid #e4e8ee;
   border-radius: 12px;
@@ -1059,7 +1060,13 @@ main.sequence-editor--bundle .sequence-intent-input {
 }
 
 /* Thread embed: flat chrome + type scale — unlayered (beats global .sequence-form / inputs + layered Tailwind). */
+/* Canonical prompt-thread step body size (matches Tailwind text-sm on thread step .rich-editor) */
+.bundle-modal-shell--thread-embed {
+  --prompt-thread-step-text-size: 0.875rem;
+}
+
 .bundle-modal-shell--thread-embed .sequence-form {
+  --sequence-form-inline-pad: 0px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -1093,6 +1100,18 @@ main.sequence-editor--bundle .sequence-intent-input {
   gap: 0.15rem;
 }
 
+/* Align taxonomy block with title + intent: same left inset as Tailwind uses on .field--sequence-intent
+   (grid-column fallback collapses the chevron column when only row-spanning heading occupies column 1). */
+.bundle-modal-shell--thread-embed
+  .meta-fields.prompt-thread-sequence-meta:has(.sequence-heading-row--with-thread-body-toggle)
+  > .sequence-meta-taxonomies-host {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: calc(2rem * 0.637 + 0.25rem + 0.35rem);
+}
+
 .bundle-modal-shell--thread-embed main.sequence-editor .sequence-title-input,
 .bundle-modal-shell--thread-embed main.sequence-editor .bundle-pipeline-bundle-title-input,
 .bundle-modal-shell--thread-embed main.sequence-editor .bundle-pipeline-child-title-input {
@@ -1124,6 +1143,280 @@ main.sequence-editor--bundle .sequence-intent-input {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* Sequence taxonomy meta — typography host + pills + Flowbite-style segmented button groups */
+.sequence-meta-taxonomies-host {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: calc(var(--prompt-thread-step-text-size, 1rem) * 0.8);
+  line-height: 1.45;
+}
+
+/* Divider above taxonomy block — bleeds horizontally to sequence-form padded edges (--sequence-form-inline-pad). */
+.sequence-form .meta-fields.prompt-thread-sequence-meta > .sequence-meta-taxonomies-host {
+  margin-top: 0.6rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #e4e8ee;
+  margin-left: calc(-1 * var(--sequence-form-inline-pad));
+  margin-right: calc(-1 * var(--sequence-form-inline-pad));
+  padding-left: var(--sequence-form-inline-pad);
+  padding-right: var(--sequence-form-inline-pad);
+}
+
+.sequence-meta-taxonomies-host *,
+.sequence-meta-taxonomies-host button,
+.sequence-meta-taxonomies-host select,
+.sequence-meta-taxonomies-host textarea {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.sequence-meta-taxonomy {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sequence-meta-taxonomy-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  min-width: 0;
+}
+
+.sequence-meta-taxonomy-row__label {
+  flex: 0 0 auto;
+  min-width: 4.75rem;
+  max-width: 40%;
+  font-weight: 600;
+  color: rgb(107 119 139);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sequence-meta-taxonomy-row__values {
+  flex: 1 1 auto;
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.sequence-meta-taxonomy-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.15rem 0.55rem;
+  margin: 0;
+  border: 1px solid rgb(209 213 219);
+  border-radius: 9999px;
+  background: rgb(243 244 246);
+  max-width: 100%;
+  min-height: 0;
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-chip {
+  border-color: rgb(229 231 235);
+  background: rgb(243 244 246);
+}
+
+.sequence-meta-taxonomy-chip__label {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sequence-meta-taxonomy-chip__remove {
+  margin: 0;
+  padding: 0;
+  margin-left: 0.06rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: rgb(90 106 134);
+}
+
+.sequence-meta-taxonomy-chip__remove:hover {
+  color: rgb(54 71 107);
+}
+
+.sequence-meta-taxonomy-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  padding: 0;
+  border: 1px dashed rgb(203 213 225);
+  border-radius: 9999px;
+  background: rgb(249 250 251);
+  color: rgb(43 72 134);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-add-btn {
+  border-style: dashed;
+  border-color: rgb(209 213 219);
+  background: rgb(249 250 251);
+}
+
+.sequence-meta-taxonomy-add-btn:hover {
+  background: rgb(237 242 247);
+}
+
+.sequence-meta-taxonomy-single-select {
+  min-width: 7rem;
+  max-width: 100%;
+  padding: 0.18rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(209 213 219);
+  background: rgb(249 250 251);
+  cursor: pointer;
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-single-select {
+  border-color: rgb(229 231 235);
+  background-color: rgb(243 244 246);
+}
+
+.sequence-meta-taxonomy-buttons.sequence-meta-taxonomy-buttons--segmented {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  vertical-align: middle;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(229 231 235);
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  overflow: hidden;
+}
+
+.sequence-meta-taxonomy-choice-btn {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn {
+  flex: 0 1 auto;
+  padding: 0.22rem 0.65rem;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid rgb(229 231 235);
+  background: rgb(255 255 255);
+  color: rgb(55 65 81);
+}
+
+.sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn:last-child {
+  border-right: none;
+}
+
+.sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn:hover {
+  background: rgb(249 250 251);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn {
+  background: rgb(248 250 252);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn:hover {
+  background: rgb(241 245 249);
+}
+
+.sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn--selected {
+  background: rgb(255 255 255);
+  color: rgb(55 65 81);
+  border-right-color: rgb(229 231 235);
+  box-shadow: inset 0 0 0 2px rgb(71 85 105);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn--selected {
+  background: rgb(248 250 252);
+}
+
+.sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn--selected:hover {
+  background: rgb(249 250 251);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-buttons--segmented .sequence-meta-taxonomy-choice-btn--selected:hover {
+  background: rgb(241 245 249);
+}
+
+.sequence-meta-taxonomy-picker {
+  flex: 0 0 auto;
+}
+
+.sequence-meta-taxonomy-picker__select {
+  max-width: 100%;
+  padding: 0.18rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(209 213 219);
+  background: rgb(249 250 251);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-picker__select {
+  border-color: rgb(229 231 235);
+  background: rgb(243 244 246);
+}
+
+.sequence-meta-taxonomy-value-readonly {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(229 231 235);
+  background: rgb(243 244 246);
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-taxonomy-value-readonly {
+  border-color: rgb(229 231 235);
+}
+
+.sequence-meta-taxonomy-load-error,
+.sequence-meta-taxonomy-persist-errors {
+  margin: 0.25rem 0 0 0;
+  padding: 0;
+  color: rgb(173 73 71);
+}
+
+.sequence-editor--readonly .sequence-meta-taxonomy-add-btn {
+  display: none !important;
+}
+
+.sequence-editor--readonly .sequence-meta-taxonomy-chip__remove {
+  display: none !important;
+}
+
+.sequence-editor--readonly .sequence-meta-taxonomy-single-select,
+.sequence-editor--readonly .sequence-meta-taxonomy-choice-btn {
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.sequence-editor.sequence-editor--readonly
+  .sequence-meta-taxonomy-choice-btn.sequence-meta-taxonomy-choice-btn--selected {
+  opacity: 1;
 }
 
 .sequence-editor--readonly .bundle-step-select {
