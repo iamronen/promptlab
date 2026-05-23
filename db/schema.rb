@@ -10,15 +10,45 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_15_140002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_19_184420) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
 
   create_table "projects", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id"], name: "index_projects_on_user_id"
   end
 
   create_table "sequence_dependencies", force: :cascade do |t|
@@ -43,6 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_140002) do
 
   create_table "sequences", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.bigint "created_by_id", null: false
     t.text "intent", null: false
     t.boolean "is_genesis", default: false, null: false
     t.boolean "is_orphans", default: false, null: false
@@ -53,6 +84,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_140002) do
     t.jsonb "steps_data", default: [], null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_sequences_on_created_by_id"
     t.index ["project_id", "kind", "position"], name: "index_sequences_on_project_id_kind_and_position", unique: true
     t.index ["project_id"], name: "index_sequences_on_project_id"
     t.index ["project_id"], name: "index_sequences_unique_genesis_thread_per_project", unique: true, where: "(((kind)::text = 'thread'::text) AND (is_genesis IS TRUE))"
@@ -112,10 +144,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_140002) do
     t.index ["parent_thread_id", "parent_generative_sequence_id", "child_order"], name: "index_thread_nodes_on_parent_anchor_child_order", unique: true
   end
 
+  create_table "users", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "display_name"
+    t.string "email", default: "", null: false
+    t.string "encrypted_password", default: "", null: false
+    t.datetime "remember_created_at"
+    t.datetime "reset_password_sent_at"
+    t.string "reset_password_token"
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
+  end
+
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "projects", "users"
   add_foreign_key "sequence_dependencies", "sequences", column: "anchor_sequence_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "child_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "parent_id"
   add_foreign_key "sequences", "projects"
+  add_foreign_key "sequences", "users", column: "created_by_id"
   add_foreign_key "taxonomies", "projects"
   add_foreign_key "taxonomy_assignments", "projects"
   add_foreign_key "taxonomy_assignments", "sequences"

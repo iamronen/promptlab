@@ -1,9 +1,9 @@
 class ProjectsController < ApplicationController
   before_action :enable_flowbite_app_shell, only: %i[index]
-  before_action :set_project, only: %i[update open settings destroy]
+  before_action :set_project, only: %i[update open settings destroy export_pdf]
 
   def index
-    @projects = Project.order(:created_at).includes(:sequences)
+    @projects = current_user.projects.order(:created_at).includes(:sequences)
   end
 
   def new
@@ -16,7 +16,7 @@ class ProjectsController < ApplicationController
   end
 
   def create
-    @project = Project.new(project_params)
+    @project = current_user.projects.build(project_params)
     seq = nil
     ActiveRecord::Base.transaction do
       @project.save!
@@ -60,6 +60,15 @@ class ProjectsController < ApplicationController
     end
   end
 
+  def export_pdf
+    pdf = ProjectPdfGenerator.render(@project)
+    filename = "#{@project.name.parameterize.presence || 'project'}-threads.pdf"
+    send_data pdf,
+              filename: filename,
+              type: "application/pdf",
+              disposition: "attachment"
+  end
+
   def destroy
     if @project.destroy
       redirect_to projects_path, notice: "Project deleted."
@@ -100,7 +109,7 @@ class ProjectsController < ApplicationController
   end
 
   def set_project
-    @project = Project.find(params[:id])
+    @project = current_user.projects.find(params[:id])
   end
 
   def project_params

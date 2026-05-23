@@ -15,6 +15,7 @@ class Sequence < ApplicationRecord
   UNTITLED_THREAD_BRANCH_TITLE = "Untitled thread"
 
   belongs_to :project, inverse_of: :sequences
+  belongs_to :created_by, class_name: "User", inverse_of: :created_sequences
 
   has_many :child_dependencies, class_name: "SequenceDependency", foreign_key: :parent_id, dependent: :destroy,
                                 inverse_of: :parent
@@ -70,7 +71,7 @@ class Sequence < ApplicationRecord
     end
   end
 
-  validates :title, :intent, :position, presence: true
+  validates :title, :intent, :position, :created_by, presence: true
   validates :position, uniqueness: { scope: [:project_id, :kind] }
   validate :steps_data_must_be_array
   validate :bundle_steps_data_valid, if: -> { bundle? }
@@ -81,6 +82,7 @@ class Sequence < ApplicationRecord
   validate :root_thread_title_immutable, on: :update
   validate :child_thread_must_be_anchored, if: -> { thread? && !new_record? && !is_genesis? && !is_orphans? }
 
+  before_validation :assign_created_by, on: :create
   before_validation :clear_term_flag_for_non_generative_kinds
   before_validation :normalize_steps_data
   before_validation :sync_bundle_title_from_first_pipeline, if: :bundle?
@@ -115,6 +117,16 @@ class Sequence < ApplicationRecord
         StepRow.new(position: i, content: h.fetch("content", "").to_s)
       end
     end
+  end
+
+  # Plain-text export for clipboard copy: title, intent, numbered steps.
+  def copy_as_text
+    lines = [ProjectPdfHtml.to_plain(title.to_s), "", ProjectPdfHtml.to_plain(intent.to_s), ""]
+    ordered_steps.each_with_index do |step, i|
+      plain = ProjectPdfHtml.to_plain(step.content.to_s).strip
+      lines << "#{i + 1}. #{plain}" if plain.present?
+    end
+    "#{lines.join("\n").strip}\n"
   end
 
   def anchors_child_threads?
@@ -347,6 +359,10 @@ class Sequence < ApplicationRecord
   end
 
   private
+
+  def assign_created_by
+    self.created_by ||= Current.user || project&.user
+  end
 
   def sync_bundle_title_from_first_pipeline
     ids = pipeline_generative_sequence_ids

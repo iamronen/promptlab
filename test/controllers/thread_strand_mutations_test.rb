@@ -4,7 +4,8 @@ require "test_helper"
 
 class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "Weave project")
+    sign_in users(:alice)
+    @project = Project.create!(name: "Weave project", user: users(:alice))
     @genesis = @project.genesis_thread
     @g = @project.sequences.create!(
       kind: :sequence,
@@ -126,27 +127,45 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   test "thread_fork_strand creates child thread and thread node" do
     dest = "/projects/#{@project.id}/open"
     assert_difference -> { @project.sequences.threads.count }, +1 do
-      post thread_fork_strand_project_sequence_path(@project, @genesis),
-           params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+      assert_difference -> { @project.sequences.generative_sequences.count }, +1 do
+        post thread_fork_strand_project_sequence_path(@project, @genesis),
+             params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "My branch" }
+      end
     end
     assert_response :redirect
     child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
     assert child
-    assert_equal Sequence::UNTITLED_THREAD_BRANCH_TITLE, child.title
+    assert_equal "My branch", child.title
     assert_equal @genesis.id, ThreadNode.find_by(child_thread: child).parent_thread_id
+    seq_ids = child.steps_data.filter_map { |s| s["sequence_id"] }
+    assert_equal 1, seq_ids.size
+    new_seq = @project.sequences.generative_sequences.find(seq_ids.first)
+    assert_equal Sequence::DEFAULT_TITLE, new_seq.title
     loc = response.headers["Location"]
     assert_match(/weave_thread=#{child.id}/, loc)
     assert_match(/thread_partner=#{@genesis.id}/, loc)
+    assert_match(/focus_transformation_id=#{new_seq.id}/, loc)
+    assert_match(/editor_mode=edit/, loc)
+  end
+
+  test "thread_fork_strand rejects blank thread title" do
+    dest = "/projects/#{@project.id}/open"
+    assert_no_difference -> { @project.sequences.threads.count } do
+      post thread_fork_strand_project_sequence_path(@project, @genesis),
+           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "   " }
+    end
+    assert_redirected_to dest
+    assert_equal "Thread name is required.", flash[:alert]
   end
 
   test "thread_fork_strand twice from same generative sequence works" do
     dest = "/projects/#{@project.id}/open"
     post thread_fork_strand_project_sequence_path(@project, @genesis),
-         params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+         params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Branch one" }
     assert_response :redirect
 
     post thread_fork_strand_project_sequence_path(@project, @genesis),
-         params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+         params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Branch two" }
     assert_response :redirect
 
     nodes = ThreadNode.where(parent_thread_id: @genesis.id, parent_generative_sequence_id: @g.id).order(:child_order)
@@ -675,7 +694,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     dest = "/projects/#{@project.id}/open"
     assert_difference -> { @project.sequences.threads.count }, +1 do
       post thread_fork_strand_project_sequence_path(@project, @genesis),
-           params: { parent_generative_sequence_id: @g.id, redirect_to: dest }
+           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Fork for rename test" }
     end
     child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
 

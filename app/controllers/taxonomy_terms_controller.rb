@@ -2,6 +2,7 @@
 
 class TaxonomyTermsController < ApplicationController
   include TaxonomyJsonPayload
+  include ProjectNested
 
   before_action :set_project
   before_action :set_taxonomy
@@ -61,10 +62,6 @@ class TaxonomyTermsController < ApplicationController
   end
 
   private
-
-  def set_project
-    @project = Project.find(params[:project_id])
-  end
 
   def set_taxonomy
     @taxonomy = @project.taxonomies.find(params[:taxonomy_id])

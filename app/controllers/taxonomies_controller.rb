@@ -2,6 +2,7 @@
 
 class TaxonomiesController < ApplicationController
   include TaxonomyJsonPayload
+  include ProjectNested
 
   before_action :set_project
   before_action :set_taxonomy, only: %i[update destroy]
@@ -33,11 +34,35 @@ class TaxonomiesController < ApplicationController
     head :no_content
   end
 
-  private
+  def reorder
+    ids = params.require(:ordered_taxonomy_ids)
+    ids = Array(ids).map(&:to_i).uniq
 
-  def set_project
-    @project = Project.find(params[:project_id])
+    if ids.blank?
+      render json: { errors: ["ordered_taxonomy_ids cannot be empty"] }, status: :unprocessable_entity
+      return
+    end
+
+    found_ids = @project.taxonomies.where(id: ids).pluck(:id)
+    if found_ids.size != ids.size
+      render json: { errors: ["ordered_taxonomy_ids must reference taxonomies for this project"] }, status: :unprocessable_entity
+      return
+    end
+
+    Taxonomy.transaction do
+      ids.each_with_index do |id, idx|
+        @project.taxonomies.where(id: id).update_all(position: idx + 100_000)
+      end
+      ids.each_with_index do |id, idx|
+        @project.taxonomies.where(id: id).update_all(position: idx + 1)
+      end
+    end
+
+    taxonomies = @project.taxonomies.includes(:taxonomy_terms).order(:position, :id)
+    render json: taxonomies.map { |taxonomy| taxonomy_payload(taxonomy) }
   end
+
+  private
 
   def set_taxonomy
     @taxonomy = @project.taxonomies.find(params[:id])

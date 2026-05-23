@@ -5,7 +5,14 @@ class ApplicationController < ActionController::Base
   # Changes to the importmap will invalidate the etag for imported assets
   stale_when_importmap_changes
 
+  before_action :authenticate_user!
+  before_action :set_current_attributes
+
   private
+
+  def set_current_attributes
+    Current.user = current_user
+  end
 
   # Background save from thread workspace (no full-page redirect).
   def workspace_autosave_request?

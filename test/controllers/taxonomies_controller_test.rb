@@ -4,7 +4,8 @@ require "test_helper"
 
 class TaxonomiesControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "P")
+    sign_in users(:alice)
+    @project = Project.create!(name: "P", user: users(:alice))
   end
 
   test "index returns taxonomies as json" do
@@ -124,5 +125,34 @@ class TaxonomiesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :no_content
+  end
+
+  test "index returns taxonomies ordered by position" do
+    t3 = @project.taxonomies.create!(name: "Third", cardinality: :many, position: 3)
+    t1 = @project.taxonomies.create!(name: "First", cardinality: :many, position: 1)
+    t2 = @project.taxonomies.create!(name: "Second", cardinality: :many, position: 2)
+
+    get project_taxonomies_path(@project), as: :json
+
+    assert_response :success
+    ids = JSON.parse(response.body).map { |row| row["id"] }
+    assert_equal [t1.id, t2.id, t3.id], ids
+  end
+
+  test "reorder taxonomies" do
+    t1 = @project.taxonomies.create!(name: "A", cardinality: :many, position: 1)
+    t2 = @project.taxonomies.create!(name: "B", cardinality: :many, position: 2)
+    t3 = @project.taxonomies.create!(name: "C", cardinality: :many, position: 3)
+
+    put reorder_project_taxonomies_path(@project),
+        params: { ordered_taxonomy_ids: [t3.id, t1.id, t2.id] },
+        as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    positions = body.to_h { |row| [row["id"], row["position"]] }
+    assert_equal 1, positions[t3.id]
+    assert_equal 2, positions[t1.id]
+    assert_equal 3, positions[t2.id]
   end
 end

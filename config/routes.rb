@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  devise_for :users, controllers: { registrations: "users/registrations" }
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -13,6 +14,7 @@ Rails.application.routes.draw do
     member do
       get :open
       get :settings
+      get :export_pdf
     end
     resources :sequences, only: %i[edit update create destroy] do
       resource :taxonomy_assignments, only: %i[show update], controller: "sequence_taxonomy_assignments"
@@ -34,6 +36,9 @@ Rails.application.routes.draw do
       end
     end
     resources :taxonomies, only: %i[index create update destroy] do
+      collection do
+        put :reorder
+      end
       resources :taxonomy_terms, path: "terms", only: %i[create update destroy] do
         collection do
           put :reorder

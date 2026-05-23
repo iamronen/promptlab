@@ -65,6 +65,19 @@ body {
   overflow: hidden;
 }
 
+/* Taxonomy “⋯” flyout: escape card clipping + stack above sibling accordion cards (cf. .sequence-nav-item). */
+.project-taxonomy-card:has(.sequence-nav-menu:not([hidden])) {
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+/* Modal footer & title rows come before/after in DOM with normal stacking; lift section while menu is open so the flyout isn’t covered. */
+.project-settings-taxonomies-section:has(.sequence-nav-menu:not([hidden])) {
+  position: relative;
+  z-index: 25;
+}
+
 .project-taxonomy-card-chevron {
   display: inline-block;
   transition: transform 0.12s ease;
@@ -76,6 +89,29 @@ body {
 
 .project-taxonomy-single-select-ui--hidden {
   display: none;
+}
+
+.prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host {
+  margin: 0;
+}
+
+.prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host .step-menu-submenu-title {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: inherit;
+  cursor: default;
+  border-radius: 0;
+}
+
+.prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu {
+  z-index: calc(var(--z-context-menu-submenu, 400) + 10);
+}
+
+.prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host:hover .project-taxonomy-move-submenu,
+.prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host:focus-within .project-taxonomy-move-submenu {
+  display: flex;
 }
 
 .workspace-thread-panel-empty {
@@ -411,7 +447,7 @@ body {
 }
 
 .steps-list {
-  --steps-list-row-gap: 0.45rem;
+  --steps-list-row-gap: 0.22em;
   display: grid;
   gap: var(--steps-list-row-gap);
 }
@@ -1217,6 +1253,24 @@ main.sequence-editor--bundle .sequence-intent-input {
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
+}
+
+.sequence-meta-creator__name {
+  font-weight: 500;
+  color: rgb(55 65 81);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sequence-meta-creator__on,
+.sequence-meta-creator__date {
+  color: rgb(107 119 139);
+  white-space: nowrap;
+}
+
+.bundle-modal-shell--thread-embed .sequence-meta-creator__name {
+  color: rgb(55 65 81);
 }
 
 .sequence-meta-taxonomy-chip {

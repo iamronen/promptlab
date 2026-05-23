@@ -4,7 +4,8 @@ require "test_helper"
 
 class TaxonomyTermsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "P")
+    sign_in users(:alice)
+    @project = Project.create!(name: "P", user: users(:alice))
     @taxonomy = @project.taxonomies.create!(name: "Status", cardinality: :many, position: 1)
     @t1 = @taxonomy.taxonomy_terms.create!(label: "A", position: 1)
     @t2 = @taxonomy.taxonomy_terms.create!(label: "B", position: 2)

@@ -4,7 +4,7 @@ require "test_helper"
 
 class SequenceBundleDependenciesTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "P")
+    @project = Project.create!(name: "P", user: users(:alice))
     @gen = @project.sequences.create!(
       kind: :sequence,
       title: "Gen",

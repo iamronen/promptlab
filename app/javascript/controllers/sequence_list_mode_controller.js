@@ -9,12 +9,23 @@ export default class extends Controller {
 
   connect() {
     this.syncFromStorage = () => this.syncToggleFromPreference()
+    this.broadcastModeToEditors = () => this.broadcastReadonlyPreferenceToEditors()
     document.addEventListener("turbo:load", this.syncFromStorage)
+    document.addEventListener("turbo:frame-load", this.broadcastModeToEditors)
     this.syncToggleFromPreference()
   }
 
   disconnect() {
     document.removeEventListener("turbo:load", this.syncFromStorage)
+    document.removeEventListener("turbo:frame-load", this.broadcastModeToEditors)
+  }
+
+  broadcastReadonlyPreferenceToEditors() {
+    const pref = getSequenceEditorReadonlyPreference()
+    if (pref === null) return
+    document.dispatchEvent(
+      new CustomEvent("sequence-editor:global-mode", { detail: { readonly: pref } })
+    )
   }
 
   syncToggleFromPreference() {

@@ -67,6 +67,16 @@
                                 turbo_confirm: delete_confirm
                               }
                             } %>
+              <% if list_kind == :sequences || list_kind == :terms %>
+                <button
+                  type="button"
+                  class="sequence-nav-menu-button"
+                  data-action="click->sequence-nav#copyAsText"
+                  data-copy-text="<%= seq.copy_as_text.to_json %>"
+                >
+                  Copy as text
+                </button>
+              <% end %>
               <%= button_to "Duplicate",
                             seq_duplicate_path,
                             method: :post,

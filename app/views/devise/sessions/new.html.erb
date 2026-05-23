@@ -1,0 +1,36 @@
+<%= render "devise/shared/auth_frame" do %>
+  <h2 class="mb-6 text-xl font-semibold text-gray-900 dark:text-white">Log in</h2>
+
+  <%= form_for(resource, as: resource_name, url: session_path(resource_name)) do |f| %>
+    <div class="mb-4">
+      <%= f.label :email, class: "mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= f.email_field :email, autofocus: true, autocomplete: "email",
+                        class:
+                          "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-prompt-accent focus:outline-none focus:ring-1 focus:ring-prompt-accent dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400" %>
+    </div>
+
+    <div class="mb-4">
+      <%= f.label :password, class: "mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= f.password_field :password, autocomplete: "current-password",
+                           class:
+                             "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-prompt-accent focus:outline-none focus:ring-1 focus:ring-prompt-accent dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400" %>
+    </div>
+
+    <% if devise_mapping.rememberable? %>
+      <div class="mb-6 flex items-center gap-2">
+        <%= f.check_box :remember_me, class: "size-4 rounded border-gray-300 text-prompt-accent focus:ring-prompt-accent" %>
+        <%= f.label :remember_me, class: "text-sm text-gray-700 dark:text-gray-300" %>
+      </div>
+    <% end %>
+
+    <div class="actions">
+      <%= f.submit "Log in",
+                   class:
+                     "prompt-btn-primary w-full cursor-pointer rounded-lg border-0 px-4 py-2.5 text-sm font-semibold" %>
+    </div>
+  <% end %>
+
+  <div class="mt-6 text-sm text-gray-600 dark:text-gray-400">
+    <%= render "devise/shared/links" %>
+  </div>
+<% end %>

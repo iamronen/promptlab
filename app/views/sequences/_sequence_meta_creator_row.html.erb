@@ -1,0 +1,14 @@
+<%# locals: sequence %>
+<% creator = sequence.created_by %>
+<% if creator.present? %>
+  <div class="sequence-meta-taxonomy-row sequence-meta-taxonomy-row--creator">
+    <div class="sequence-meta-taxonomy-row__label">Created by:</div>
+    <div class="sequence-meta-taxonomy-row__values sequence-meta-creator-values">
+      <span class="sequence-meta-creator__name"><%= creator.display_label %></span>
+      <span class="sequence-meta-creator__on"> on </span>
+      <time class="sequence-meta-creator__date" datetime="<%= sequence.created_at.iso8601 %>">
+        <%= l(sequence.created_at.to_date, format: :long) %>
+      </time>
+    </div>
+  </div>
+<% end %>

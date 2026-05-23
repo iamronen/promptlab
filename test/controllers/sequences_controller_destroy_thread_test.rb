@@ -4,7 +4,8 @@ require "test_helper"
 
 class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "Delete thread project")
+    sign_in users(:alice)
+    @project = Project.create!(name: "Delete thread project", user: users(:alice))
     @genesis = @project.genesis_thread
     @seq = @project.sequences.create!(
       kind: :sequence,
@@ -17,7 +18,7 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
     @genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
   end
 
-  test "destroy fork thread with empty strand removes thread and rewires weave query" do
+  test "destroy fork thread removes thread and rewires weave query" do
     child = fork_thread_under_anchor(@seq.id)
 
     open_threads = "#{@genesis.id},#{child.id}"
@@ -100,7 +101,8 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
         post thread_fork_strand_project_sequence_path(@project, @genesis),
              params: {
                parent_generative_sequence_id: generative_anchor_id,
-               redirect_to: edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id)
+               redirect_to: edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id),
+               thread_title: "Test branch"
              }
       end
       assert_response :redirect
@@ -108,7 +110,8 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
         Sequence.threads.where.not(is_genesis: true).where.not(is_orphans: true).order(:id).last
     end
     child&.reload
-    assert_empty child.strand_step_pairs, "fork thread strand should stay empty for this redirect test"
+    assert_equal 1, child.strand_step_pairs.size
+    assert_equal :sequence, child.strand_step_pairs.first.first
     child
   end
 end

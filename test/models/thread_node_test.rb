@@ -4,7 +4,7 @@ require "test_helper"
 
 class ThreadNodeTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "Forks")
+    @project = Project.create!(name: "Forks", user: users(:alice))
     @genesis = @project.genesis_thread
     @g1 = @project.sequences.create!(
       kind: :sequence,
@@ -83,7 +83,7 @@ class ThreadNodeTest < ActiveSupport::TestCase
   end
 
   test "rejects cross-project threads" do
-    other = Project.create!(name: "Other")
+    other = Project.create!(name: "Other", user: users(:alice))
     foreign_child = other.sequences.create!(
       kind: :thread,
       title: "Foreign branch",

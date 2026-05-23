@@ -1,0 +1,56 @@
+<dialog
+  class="bundle-edit-dialog bundle-edit-dialog--project-settings"
+  data-thread-fork-modal-target="dialog"
+  data-action="click->thread-fork-modal#backdropClick"
+>
+  <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--project-settings-modal">
+    <button
+      type="button"
+      class="bundle-edit-dialog-close"
+      data-action="click->thread-fork-modal#close"
+      aria-label="Close"
+    >
+      ×
+    </button>
+    <div class="project-settings-modal-body">
+      <h2 id="thread-fork-modal-heading" class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading">
+        New thread
+      </h2>
+      <p class="m-0 mt-2 text-sm/6 text-prompt-muted">Choose a name for the new thread.</p>
+
+      <%= form_with url: "#",
+                    method: :post,
+                    html: {
+                      class: "mt-5 flex flex-col gap-4",
+                      data: {
+                        turbo_frame: "_top",
+                        thread_fork_modal_target: "form"
+                      }
+                    } do %>
+        <div data-thread-fork-modal-target="scopeParamsContainer"></div>
+        <input type="hidden" name="parent_generative_sequence_id" value="" data-thread-fork-modal-target="parentSequenceIdInput">
+        <input type="hidden" name="redirect_to" value="" data-thread-fork-modal-target="redirectToInput">
+
+        <%= label_tag :thread_title, "Thread name", class: "text-sm font-medium text-prompt-heading" %>
+        <%= text_field_tag :thread_title,
+                           nil,
+                           required: true,
+                           autocomplete: "off",
+                           aria: { labelledby: "thread-fork-modal-heading" },
+                           class: "w-full rounded-lg border border-prompt-field-border px-2 py-2 text-[0.9rem]",
+                           data: { thread_fork_modal_target: "titleInput" } %>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <%= submit_tag "Create",
+                         class: "prompt-btn-primary shrink-0 px-4 py-2 text-[0.85rem] font-semibold" %>
+          <button
+            type="button"
+            class="prompt-btn-secondary shrink-0 px-4 py-2 text-[0.85rem]"
+            data-action="click->thread-fork-modal#close"
+          >
+            Cancel
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</dialog>

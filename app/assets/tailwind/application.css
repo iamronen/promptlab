@@ -619,6 +619,8 @@
    * Compounds pair with prompt-thread-index-* classes in sequence workspace partials.
    */
   .workspace-thread-panel-index-pane.prompt-thread-index-pane {
+    /* Match thread-editor step body (.rich-editor text-sm / --prompt-thread-step-text-size). */
+    --prompt-thread-step-text-size: 0.875rem;
     @apply flex min-h-0 min-w-0 flex-col border-e border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/40;
   }
 
@@ -654,8 +656,16 @@
     @apply min-w-0 flex-1 border-0 bg-transparent py-0.5 pl-0.5 pr-1;
   }
 
-  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-tf-name {
-    @apply text-sm font-medium text-gray-800 dark:text-gray-100;
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-tf-name,
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-bundle-index-heading,
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-bundle-pipeline-name {
+    font-size: var(--prompt-thread-step-text-size, 0.875rem);
+  }
+
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-tf-name,
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-bundle-index-heading,
+  .workspace-thread-panel-strand.prompt-thread-index-strand .workspace-thread-bundle-pipeline-name {
+    @apply font-medium text-gray-800 dark:text-gray-100;
   }
 
   .workspace-thread-panel-strand.prompt-thread-index-strand
@@ -678,7 +688,7 @@
   }
 
   .workspace-thread-bundle-index-heading.prompt-thread-index-bundle-heading {
-    @apply truncate border-b border-gray-100 pb-1 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:text-white;
+    @apply truncate border-b border-gray-100 pb-1 dark:border-gray-600;
   }
 
   .workspace-thread-bundle-pipeline-list.prompt-thread-index-pipeline-list {
@@ -686,7 +696,7 @@
   }
 
   .workspace-thread-bundle-pipeline-item.prompt-thread-index-pipeline-item {
-    @apply flex min-h-0 min-w-0 items-center gap-1 rounded px-0.5 py-0.5 text-sm text-gray-700 dark:text-gray-200;
+    @apply flex min-h-0 min-w-0 items-center gap-1 rounded px-0.5 py-0.5 text-gray-700 dark:text-gray-200;
   }
 
   .workspace-thread-bundle-pipeline-drag.prompt-thread-index-pipeline-drag {
@@ -1263,10 +1273,6 @@
     @apply h-auto w-auto min-h-0 min-w-0 shrink-0 border-0 bg-transparent p-0.5 text-gray-900 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-600;
     font-size: calc(2em * 0.637);
     line-height: 1;
-  }
-
-  .bundle-modal-shell--thread-embed .steps-list.prompt-thread-steps-list {
-    @apply space-y-2;
   }
 
   .bundle-modal-shell--thread-embed .prompt-thread-steps-footer {
@@ -2070,6 +2076,7 @@
   }
 
   .workspace-thread-panel-index-pane {
+    --prompt-thread-step-text-size: 0.875rem;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
@@ -2555,9 +2562,9 @@
     gap: 0.35rem;
   }
 
-  .workspace-thread-bundle-index-heading {
-    font-size: 0.84rem;
-    font-weight: 600;
+  .workspace-thread-panel-index-pane .workspace-thread-bundle-index-heading {
+    font-size: var(--prompt-thread-step-text-size, 0.875rem);
+    font-weight: 500;
     color: #2d3f57;
     line-height: 1.35;
     overflow: hidden;
@@ -2640,10 +2647,10 @@
     cursor: pointer;
   }
 
-  .workspace-thread-bundle-pipeline-name {
+  .workspace-thread-panel-index-pane .workspace-thread-bundle-pipeline-name {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.84rem;
+    font-size: var(--prompt-thread-step-text-size, 0.875rem);
     font-weight: 500;
     color: #2d3f57;
     overflow: hidden;
@@ -3226,9 +3233,9 @@
     padding-top: 0;
   }
 
-  /* Thread editor: less vertical gap between generative steps and bundle pipeline slots */
+  /* Thread editor: vertical gap between generative steps */
   .bundle-modal-shell--thread-embed .steps-list[data-editor-kind="sequence_steps_list"] {
-    --steps-list-row-gap: 0.22rem;
+    --steps-list-row-gap: 0.22em;
   }
 
   .bundle-modal-shell--thread-embed .step-row[data-editor-kind="sequence_step"] {
@@ -4047,12 +4054,12 @@
     box-sizing: border-box;
   }
 
-  .workspace-thread-tf-name {
+  .workspace-thread-panel-index-pane .workspace-thread-tf-name {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.84rem;
+    font-size: var(--prompt-thread-step-text-size, 0.875rem);
     font-weight: 500;
     color: #2d3f57;
   }
@@ -4134,6 +4141,10 @@
   }
 
   .project-taxonomy-term-row--dragging {
+    @apply opacity-55;
+  }
+
+  .project-taxonomy-card--dragging {
     @apply opacity-55;
   }
 }

@@ -51,6 +51,10 @@ export default class extends Controller {
     this.dropIndicatorCard = null
     this.activeCard = null
     this.sequenceStepDragActiveMarkedRow = null
+    this.suppressThreadEmbedHandleClick = false
+    this.stepDragMoved = false
+    this.boundStepMouseMove = this.onStepMouseMove.bind(this)
+    this.boundStepMouseUp = this.onStepMouseUp.bind(this)
     this.boundOutsideClick = this.handleOutsideClick.bind(this)
     document.addEventListener("click", this.boundOutsideClick)
 
@@ -153,6 +157,7 @@ export default class extends Controller {
       this.clearDropIndicator()
       this.dragArmedCard = null
       this.draggedCard = null
+      this.teardownStepPointerDrag()
     } else {
       this.installDragAndDrop()
       this.setAllEditorsReadOnly()
@@ -171,6 +176,7 @@ export default class extends Controller {
   disconnect() {
     this.clearSequenceStepDragActiveMarker()
     this.teardownAutosaveListeners()
+    this.teardownStepPointerDrag()
     document.removeEventListener("click", this.boundOutsideClick)
     if (this.nestedValue && this.boundReadonlySync) {
       document.removeEventListener("sequence-editor:readonly-sync", this.boundReadonlySync)
@@ -473,6 +479,7 @@ export default class extends Controller {
 
   toggleThreadEmbedStepHandleMenu(event) {
     if (this.readonlyValue) return
+    if (this.suppressThreadEmbedHandleClick) return
     event.preventDefault()
     event.stopPropagation()
     const button = event.currentTarget
@@ -809,7 +816,8 @@ export default class extends Controller {
 
   stepsListElement() {
     if (this.pipelineModeValue && this.hasPipelineStepsListTarget) return this.pipelineStepsListTarget
-    return this.stepsListTarget
+    if (this.hasStepsListTarget) return this.stepsListTarget
+    return this.element.querySelector('[data-sequence-editor-target="stepsList"]')
   }
 
   topLevelStepRowsForDrag() {
@@ -986,93 +994,118 @@ export default class extends Controller {
   installDragAndDrop() {
     this.topLevelStepRowsForDrag().forEach((card) => {
       card.setAttribute("draggable", "false")
-      card.removeEventListener("dragstart", this.onDragStart)
-      card.removeEventListener("dragover", this.onDragOver)
-      card.removeEventListener("drop", this.onDrop)
-      card.removeEventListener("dragend", this.onDragEnd)
-
-      card.addEventListener("dragstart", this.onDragStart)
-      card.addEventListener("dragover", this.onDragOver)
-      card.addEventListener("drop", this.onDrop)
-      card.addEventListener("dragend", this.onDragEnd)
     })
   }
 
-  onDragStart = (event) => {
-    if (!this.dragArmedCard || this.dragArmedCard !== event.currentTarget) {
-      event.preventDefault()
-      return
+  stepRowAtClientY(clientY) {
+    const cards = this.visibleCards()
+    for (const row of cards) {
+      const rect = row.getBoundingClientRect()
+      if (clientY >= rect.top && clientY <= rect.bottom) return row
     }
 
-    this.draggedCard = event.currentTarget
-    this.dragCardSiblingsOrder = this.visibleCards().slice()
-    event.dataTransfer.setData("text/plain", "step")
-    event.dataTransfer.effectAllowed = "move"
-    event.currentTarget.classList.add("dragging")
+    let nearest = null
+    let nearestDist = Infinity
+    for (const row of cards) {
+      const rect = row.getBoundingClientRect()
+      const centerY = rect.top + rect.height / 2
+      const dist = Math.abs(clientY - centerY)
+      if (dist < nearestDist) {
+        nearestDist = dist
+        nearest = row
+      }
+    }
+    return nearest
   }
 
-  onDragOver = (event) => {
-    if (!this.draggedCard) return
+  teardownStepPointerDrag() {
+    document.removeEventListener("mousemove", this.boundStepMouseMove)
+    document.removeEventListener("mouseup", this.boundStepMouseUp, true)
+    if (this.draggedCard) {
+      this.draggedCard.classList.remove("dragging")
+    }
+    this.stepDragMoved = false
+    this.dragArmedCard = null
+    this.draggedCard = null
+    this.dragCardSiblingsOrder = null
+    this.clearDropIndicator()
+  }
+
+  onStepMouseMove(event) {
+    if (!this.dragArmedCard || this.readonlyValue) return
+
+    const dy = Math.abs(event.clientY - this.stepDragStartY)
+    if (!this.stepDragMoved) {
+      if (dy < 4) return
+      this.stepDragMoved = true
+      this.draggedCard = this.dragArmedCard
+      this.dragCardSiblingsOrder = this.visibleCards().slice()
+      this.draggedCard.classList.add("dragging")
+      this.suppressThreadEmbedHandleClick = true
+    }
+
     event.preventDefault()
 
-    const target = event.currentTarget
+    const target = this.stepRowAtClientY(event.clientY)
     if (!target || target === this.draggedCard) return
 
-    const targetRect = target.getBoundingClientRect()
-    const before = event.clientY < targetRect.top + targetRect.height / 2
+    const rect = target.getBoundingClientRect()
+    const before = event.clientY < rect.top + rect.height / 2
+    const list = this.stepsListElement()
+    if (!list) return
+
+    const reference = before ? target : target.nextElementSibling
+    if (reference === this.draggedCard) return
+    list.insertBefore(this.draggedCard, reference)
     this.applyDropIndicator(target, before)
   }
 
-  onDrop = (event) => {
-    if (!this.draggedCard) return
+  onStepMouseUp() {
+    document.removeEventListener("mousemove", this.boundStepMouseMove)
+    document.removeEventListener("mouseup", this.boundStepMouseUp, true)
 
-    event.preventDefault()
-    const target = event.currentTarget
-    if (!target || this.draggedCard === target) return
+    if (this.draggedCard) {
+      this.draggedCard.classList.remove("dragging")
+      this.clearDropIndicator()
+      const before = this.dragCardSiblingsOrder
+      const after = this.visibleCards()
+      const orderChanged =
+        !before ||
+        before.length !== after.length ||
+        after.some((c, i) => c !== before[i])
+      if (orderChanged) {
+        this.reindexSteps()
+        this.queueStructureAutosave()
+      }
+      window.setTimeout(() => {
+        this.suppressThreadEmbedHandleClick = false
+      }, 0)
+    }
 
-    const targetRect = target.getBoundingClientRect()
-    const before = event.clientY < targetRect.top + targetRect.height / 2
-    const list = this.stepsListElement()
-    list.insertBefore(this.draggedCard, before ? target : target.nextSibling)
-    this.clearDropIndicator()
-    this.reindexSteps()
-  }
-
-  onDragEnd = (event) => {
-    event.currentTarget.classList.remove("dragging")
-    event.currentTarget.setAttribute("draggable", "false")
-    this.clearDropIndicator()
-    const before = this.dragCardSiblingsOrder
-    this.draggedCard = null
+    this.stepDragMoved = false
     this.dragArmedCard = null
-    const after = this.visibleCards()
-    const orderChanged =
-      !before ||
-      before.length !== after.length ||
-      after.some((c, i) => c !== before[i])
+    this.draggedCard = null
     this.dragCardSiblingsOrder = null
-    if (orderChanged) this.queueStructureAutosave()
   }
 
   armDrag(event) {
     if (this.readonlyValue) return
+    if (event.button !== undefined && event.button !== 0) return
+
     const card = this.cardFromEvent(event)
     if (!card) return
 
+    this.teardownStepPointerDrag()
     this.dragArmedCard = card
-    card.setAttribute("draggable", "true")
+    this.stepDragStartY = event.clientY
+    this.stepDragMoved = false
+
+    document.addEventListener("mousemove", this.boundStepMouseMove)
+    document.addEventListener("mouseup", this.boundStepMouseUp, true)
   }
 
-  disarmDrag(event) {
-    const card = this.cardFromEvent(event)
-    if (!card) return
-
-    if (this.draggedCard === card) return
-
-    card.setAttribute("draggable", "false")
-    if (this.dragArmedCard === card) {
-      this.dragArmedCard = null
-    }
+  disarmDrag(_event) {
+    // Pointer drag completes on document mouseup (see armDrag).
   }
 
   applyDropIndicator(card, before) {
@@ -1457,11 +1490,5 @@ export default class extends Controller {
     const s = String(text)
     if (s.length <= maxLen) return s
     return `${s.slice(0, Math.max(0, maxLen - 1))}…`
-  }
-
-  htmlToText(html) {
-    const fragment = document.createElement("div")
-    fragment.innerHTML = html
-    return fragment.innerText.replace(/\n{3,}/g, "\n\n")
   }
 }

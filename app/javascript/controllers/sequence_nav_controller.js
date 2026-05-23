@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { parseCopyTextDataset } from "sequence_copy_text"
 
 export default class extends Controller {
   static targets = ["menu"]
@@ -32,5 +33,16 @@ export default class extends Controller {
     this.menuTargets.forEach((menu) => {
       menu.hidden = true
     })
+  }
+
+  copyAsText(event) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const text = parseCopyTextDataset(event.currentTarget.dataset.copyText)
+    if (!text) return
+
+    void navigator.clipboard.writeText(text)
+    this.closeAllMenus()
   }
 }

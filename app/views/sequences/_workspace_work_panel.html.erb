@@ -7,7 +7,7 @@
 <div
   class="workspace-work-shell h-full min-h-0 flex min-w-0 flex-1 flex-col"
   aria-label="Thread workspace"
-  data-controller="thread-workspace"
+  data-controller="thread-workspace thread-fork-modal"
   data-thread-workspace-project-id-value="<%= @project.id %>"
   data-thread-workspace-allowed-ids-value="<%= allowed_thread_ids.to_json %>"
   data-thread-workspace-focus-id-value="<%= @selected_weave_thread_id.to_i %>"
@@ -87,4 +87,5 @@
                  workspace_thread_scope_hash: scope_h %>
     <% end %>
   </div>
+  <%= render "sequences/thread_fork_modal" %>
 </div>

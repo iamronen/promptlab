@@ -4,7 +4,7 @@ require "test_helper"
 
 class SequenceDependencyTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "Proj")
+    @project = Project.create!(name: "Proj", user: users(:alice))
     @gen = @project.sequences.create!(
       kind: :sequence,
       title: "Gen",
@@ -56,7 +56,7 @@ class SequenceDependencyTest < ActiveSupport::TestCase
   end
 
   test "thread_step_bundle requires thread parent and bundle child" do
-    project = Project.create!(name: "Weave")
+    project = Project.create!(name: "Weave", user: users(:alice))
     genesis = project.genesis_thread
     tf = project.sequences.create!(
       kind: :bundle,
@@ -83,7 +83,7 @@ class SequenceDependencyTest < ActiveSupport::TestCase
   end
 
   test "destroying generative sequence removes thread_branch deps that reference anchor_sequence_id" do
-    project = Project.create!(name: "AnchorDel")
+    project = Project.create!(name: "AnchorDel", user: users(:alice))
     genesis = project.genesis_thread
     g_anchor = project.sequences.create!(
       kind: :sequence,

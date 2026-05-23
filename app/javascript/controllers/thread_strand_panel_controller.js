@@ -1,5 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 import {
+  buildSequenceCopyTextFromEditorRoot,
+  parseCopyTextDataset
+} from "sequence_copy_text"
+import {
   threadPanelRootFrom,
   strandStepToFrameId,
   dispatchRevealThreadFrame,
@@ -45,6 +49,7 @@ export default class extends Controller {
     }
 
     this.scrollStrandRowIntoViewIfNeeded()
+    this.revealAndFocusNewSequenceIfNeeded()
 
     syncThreadBranchStrandBridgeAlignment(this.element)
     this.boundThreadBranchAlign = () => syncThreadBranchStrandBridgeAlignment(this.element)
@@ -82,6 +87,40 @@ export default class extends Controller {
       const row = this.indexListTarget.querySelector(sel)
       row?.scrollIntoView({ block: "nearest", behavior: "smooth" })
     })
+  }
+
+  revealAndFocusNewSequenceIfNeeded() {
+    const u = new URL(window.location.href)
+    const seqId = u.searchParams.get("focus_transformation_id")
+    if (!seqId || u.searchParams.get("editor_mode") !== "edit" || !this.hasIndexListTarget) return
+
+    const row = this.indexListTarget.querySelector(`.workspace-thread-strand-row[data-strand-step="s:${seqId}"]`)
+    if (!row) return
+
+    const frameId = `thread_editor_sequence_${seqId}`
+    const scrollWithinFrameId = `thread_editor_sequence_inner_${seqId}`
+    const root = threadPanelRootFrom(this.element)
+    dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
+
+    const focusTitle = () => {
+      const frame = document.getElementById(frameId)
+      const editorRoot = frame?.querySelector("[data-controller~='sequence-editor']")
+      const input = frame?.querySelector('[data-sequence-editor-target="titleInput"]')
+      if (!input || input.readOnly) return
+
+      input.focus({ preventScroll: true })
+      const defaultTitle = editorRoot?.getAttribute("data-sequence-editor-default-title-value") || ""
+      if (defaultTitle && input.value === defaultTitle) {
+        input.select()
+      }
+    }
+
+    const frame = document.getElementById(frameId)
+    if (!frame) return
+
+    frame.addEventListener("turbo:frame-load", focusTitle, { once: true })
+    window.setTimeout(focusTitle, 400)
+    window.setTimeout(focusTitle, 1100)
   }
 
   onDocumentClick(event) {
@@ -175,6 +214,31 @@ export default class extends Controller {
     const scrollWithinFrameId =
       stepKey && stepKey.startsWith("s:") ? `thread_editor_sequence_inner_${stepKey.slice(2)}` : null
     dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
+  }
+
+  copySequenceAsText(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeAllOrderMenus()
+
+    const row = this.findStrandRowFromButton(event)
+    const stepKey = row?.dataset.strandStep
+    if (!stepKey?.startsWith("s:")) return
+
+    const seqId = stepKey.slice(2)
+    let text = null
+
+    const editorInner = document.getElementById(`thread_editor_sequence_inner_${seqId}`)
+    if (editorInner) {
+      text = buildSequenceCopyTextFromEditorRoot(editorInner)
+    }
+
+    if (!text) {
+      text = parseCopyTextDataset(event.currentTarget.dataset.copyText)
+    }
+
+    if (!text) return
+    void navigator.clipboard.writeText(text)
   }
 
   moveUp(event) {

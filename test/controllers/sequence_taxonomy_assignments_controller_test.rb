@@ -4,7 +4,8 @@ require "test_helper"
 
 class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "P")
+    sign_in users(:alice)
+    @project = Project.create!(name: "P", user: users(:alice))
     @taxonomy_one = @project.taxonomies.create!(name: "Priority", cardinality: :one, position: 1)
     @taxonomy_many = @project.taxonomies.create!(name: "Tags", cardinality: :many, position: 2)
     @p1 = @taxonomy_one.taxonomy_terms.create!(label: "High", position: 1)

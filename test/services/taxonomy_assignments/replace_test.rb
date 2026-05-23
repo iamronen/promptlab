@@ -4,7 +4,7 @@ require "test_helper"
 
 class TaxonomyAssignmentsReplaceTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "P")
+    @project = Project.create!(name: "P", user: users(:alice))
     @taxonomy = @project.taxonomies.create!(name: "T", cardinality: :one, position: 1)
     @term = @taxonomy.taxonomy_terms.create!(label: "Only", position: 1)
     @sequence =

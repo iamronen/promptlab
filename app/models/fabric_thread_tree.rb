@@ -10,6 +10,33 @@ class FabricThreadTree
     def root_branches(project)
       new(project).root_branches
     end
+
+    # Depth-first pre-order: parent thread first, then each child subtree in strand-anchor order
+    # (child_branches are already ordered by anchor sequence on the parent strand).
+    def depth_first_branches(branch)
+      return [] unless branch
+
+      [branch] + branch.child_branches.flat_map { |b| depth_first_branches(b) }
+    end
+
+    # Genesis fabric (depth-first from Genesis), then Orphans fabric, for PDF index + details.
+    def pdf_export_branches(project)
+      tree = new(project)
+      out = []
+      genesis = project.genesis_thread
+      if genesis
+        gen_branch = tree.build_thread_branch(genesis, [])
+        out.concat(depth_first_branches(gen_branch)) if gen_branch
+      end
+
+      orphans = project.orphans_thread
+      if orphans
+        orphans_branch = tree.build_thread_branch(orphans, [])
+        out.concat(depth_first_branches(orphans_branch)) if orphans_branch
+      end
+
+      out
+    end
   end
 
   def initialize(project)

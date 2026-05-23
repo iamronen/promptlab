@@ -6,5 +6,8 @@
   data-sequence-meta-taxonomies-assignments-url-value="<%= project_sequence_taxonomy_assignments_path(project, sequence) %>"
   data-sequence-meta-taxonomies-sequence-id-value="<%= sequence.id %>"
 >
-  <div class="sequence-meta-taxonomy" data-sequence-meta-taxonomies-target="root"></div>
+  <div class="sequence-meta-taxonomy">
+    <%= render "sequences/sequence_meta_creator_row", sequence: sequence %>
+    <div data-sequence-meta-taxonomies-target="root"></div>
+  </div>
 </div>

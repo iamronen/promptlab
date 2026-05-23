@@ -2,6 +2,7 @@ class SequencesController < ApplicationController
   include SequenceEditing
   include WorkspaceSidebarData
   include ThreadStrandMutations
+  include ProjectNested
 
   before_action :set_project
   before_action :set_sidebar_sequences, only: %i[edit update duplicate add_to_terms remove_from_terms]
@@ -173,19 +174,15 @@ class SequencesController < ApplicationController
     safe_workspace_editor_redirect?(params[:redirect_to])
   end
 
-  def set_project
-    @project = Project.find(params[:project_id])
-  end
-
   def set_sequence
     @sequence =
       if %w[edit update destroy].include?(action_name)
-        record = @project.sequences.find(params[:id])
+        record = @project.sequences.includes(:created_by).find(params[:id])
         raise ActiveRecord::RecordNotFound unless record.sequence? || record.thread?
 
         record
       else
-        @project.sequences.generative_sequences.find(params[:id])
+        @project.sequences.generative_sequences.includes(:created_by).find(params[:id])
       end
   end
 

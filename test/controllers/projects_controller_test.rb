@@ -4,7 +4,20 @@ require "test_helper"
 
 class ProjectsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "Alpha Project")
+    sign_in users(:alice)
+    @project = Project.create!(name: "Alpha Project", user: users(:alice))
+  end
+
+  test "redirects to sign-in when not authenticated" do
+    sign_out users(:alice)
+    get projects_path
+    assert_redirected_to new_user_session_path
+  end
+
+  test "returns not found when accessing another user's project" do
+    other = Project.create!(name: "Bob project", user: users(:bob))
+    get settings_project_path(other), headers: { "Turbo-Frame" => "project_settings_modal" }
+    assert_response :not_found
   end
 
   test "settings returns modal partial inside turbo frame when Turbo-Frame header matches" do
@@ -40,6 +53,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :see_other
     project = Project.order(:created_at).last
+    assert_equal users(:alice), project.user
     genesis = project.genesis_thread
     seq = project.sequences.generative_sequences.order(:position).first
     assert_equal edit_project_sequence_path(project, seq), URI.parse(response.location).path

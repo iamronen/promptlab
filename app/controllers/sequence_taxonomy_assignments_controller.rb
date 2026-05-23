@@ -2,6 +2,7 @@
 
 class SequenceTaxonomyAssignmentsController < ApplicationController
   include TaxonomyJsonPayload
+  include ProjectNested
 
   before_action :set_project
   before_action :set_sequence
@@ -29,10 +30,6 @@ class SequenceTaxonomyAssignmentsController < ApplicationController
   end
 
   private
-
-  def set_project
-    @project = Project.find(params[:project_id])
-  end
 
   def set_sequence
     @sequence = @project.sequences.generative_sequences.find(params[:sequence_id])

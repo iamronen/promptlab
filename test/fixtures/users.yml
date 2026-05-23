@@ -1,0 +1,9 @@
+# Password for both: password123 (bcrypt cost 4)
+alice:
+  email: alice@example.com
+  display_name: Alice
+  encrypted_password: $2a$04$EdcDMhQ7T.v0TnZQnjsy7OQwMeyemiYnX.eNkh04/YpZVrsqGVgdW
+
+bob:
+  email: bob@example.com
+  encrypted_password: $2a$04$EdcDMhQ7T.v0TnZQnjsy7OQwMeyemiYnX.eNkh04/YpZVrsqGVgdW

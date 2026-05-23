@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Project < ApplicationRecord
+  belongs_to :user
+
   # All Sequence rows (generative `sequence`, `bundle`, and weave `thread` strands).
   has_many :sequences, -> { order(:position) }, dependent: :destroy, inverse_of: :project
   has_many :taxonomies, -> { order(:position, :id) }, dependent: :destroy, inverse_of: :project

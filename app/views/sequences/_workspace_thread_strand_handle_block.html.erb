@@ -197,15 +197,18 @@
                      editor_return_path: editor_return_path,
                      scope_params: workspace_thread_scope_params %>
         <% end %>
-        <%= button_to "Create new Thread",
-                      thread_fork_strand_project_sequence_path(@project, strand_thread),
-                      method: :post,
-                      params: {
-                        parent_generative_sequence_id: ref_id,
-                        redirect_to: editor_return_path
-                      }.merge(workspace_thread_scope_params).compact,
-                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
-                      class: "workspace-thread-tf-order-menu-item" %>
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item"
+          data-action="click->thread-fork-modal#open"
+          data-fork-url="<%= thread_fork_strand_project_sequence_path(@project, strand_thread) %>"
+          data-parent-sequence-id="<%= ref_id %>"
+          data-redirect-to="<%= editor_return_path %>"
+          data-scope-params="<%= workspace_thread_scope_params.to_json %>"
+        >
+          Create new Thread
+        </button>
       <% end %>
       <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
       <% if is_bundle %>
@@ -231,6 +234,16 @@
                       },
                       class: "workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--danger" %>
       <% else %>
+        <% copy_sequence = @project.sequences.generative_sequences.find_by(id: ref_id) %>
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item"
+          data-action="thread-strand-panel#copySequenceAsText"
+          data-copy-text="<%= copy_sequence&.copy_as_text.to_json %>"
+        >
+          Copy as text
+        </button>
         <%= button_to "Duplicate",
                       thread_duplicate_strand_child_sequence_project_sequence_path(@project, strand_thread),
                       method: :post,

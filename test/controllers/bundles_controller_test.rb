@@ -4,7 +4,8 @@ require "test_helper"
 
 class BundlesControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "P")
+    sign_in users(:alice)
+    @project = Project.create!(name: "P", user: users(:alice))
     @gen = @project.sequences.create!(
       kind: :sequence,
       title: "Gen",

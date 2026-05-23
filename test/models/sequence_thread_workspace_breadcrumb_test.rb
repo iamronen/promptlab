@@ -4,7 +4,7 @@ require "test_helper"
 
 class SequenceThreadWorkspaceBreadcrumbTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "Bcumb project")
+    @project = Project.create!(name: "Bcumb project", user: users(:alice))
     @genesis = @project.genesis_thread
     @seq = @project.sequences.create!(
       kind: :sequence,

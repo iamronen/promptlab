@@ -4,7 +4,7 @@ require "test_helper"
 
 class SequenceThreadDependenciesTest < ActiveSupport::TestCase
   setup do
-    @project = Project.create!(name: "WeaveProject")
+    @project = Project.create!(name: "WeaveProject", user: users(:alice))
     @genesis = @project.genesis_thread
     @t1 = @project.sequences.create!(
       kind: :bundle,

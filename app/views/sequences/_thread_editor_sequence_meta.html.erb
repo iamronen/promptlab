@@ -46,7 +46,7 @@
                        } %>
     </div>
     <% taxonomy_subject = local_assigns.fetch(:taxonomy_subject, f.object) %>
-    <% if taxonomy_subject.present? && @project.taxonomies.any? %>
+    <% if taxonomy_subject.present? %>
       <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
     <% end %>
   </section>
@@ -87,7 +87,7 @@
                         aria: { label: local_assigns.fetch(:intent_label, "Generative sequence intent") } %>
     </div>
     <% taxonomy_subject = local_assigns[:taxonomy_subject] %>
-    <% if taxonomy_subject.present? && @project.taxonomies.any? %>
+    <% if taxonomy_subject.present? %>
       <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
     <% end %>
   </section>

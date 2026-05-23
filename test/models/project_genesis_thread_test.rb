@@ -4,7 +4,7 @@ require "test_helper"
 
 class ProjectGenesisThreadTest < ActiveSupport::TestCase
   test "creates genesis root thread on project create without orphans" do
-    project = Project.create!(name: "With weave")
+    project = Project.create!(name: "With weave", user: users(:alice))
     assert_equal 1, project.sequences.genesis_threads.count
     assert_equal 0, project.sequences.orphans_threads.count
     genesis = project.genesis_thread
@@ -12,12 +12,13 @@ class ProjectGenesisThreadTest < ActiveSupport::TestCase
     assert genesis.is_genesis
     assert_equal [], genesis.steps_data
     assert_equal Sequence::THREAD_DEFAULT_TITLE, genesis.title
+    assert_equal project.user, genesis.created_by
 
     assert_nil project.orphans_thread
   end
 
   test "genesis_thread finder returns genesis sequence" do
-    project = Project.create!(name: "G")
+    project = Project.create!(name: "G", user: users(:alice))
     g = project.genesis_thread
     assert_kind_of Sequence, g
     assert_predicate g, :thread?
@@ -25,7 +26,7 @@ class ProjectGenesisThreadTest < ActiveSupport::TestCase
   end
 
   test "bootstrap_initial_sequence_on_genesis! adds sequence to genesis strand" do
-    project = Project.create!(name: "Bootstrap")
+    project = Project.create!(name: "Bootstrap", user: users(:alice))
     assert_equal [], project.genesis_thread.steps_data
 
     seq = project.bootstrap_initial_sequence_on_genesis!

@@ -173,6 +173,12 @@ module ThreadStrandMutations
   end
 
   def thread_fork_strand
+    thread_title = params[:thread_title].to_s.strip
+    if thread_title.blank?
+      redirect_to thread_redirect_url, alert: "Thread name is required."
+      return
+    end
+
     anchor_seq_id = params[:parent_generative_sequence_id].to_i
     flat = @sequence.flattened_generative_sequence_ids_on_strand
     unless flat.include?(anchor_seq_id)
@@ -183,12 +189,13 @@ module ThreadStrandMutations
     parent_bundle_id = @sequence.bundle_containing_generative_sequence(anchor_seq_id)
 
     child_thread = nil
+    new_seq = nil
     ActiveRecord::Base.transaction do
       threads_scope = @project.sequences.threads
       position = threads_scope.maximum(:position).to_i + 1
       child_thread = @project.sequences.create!(
         kind: :thread,
-        title: Sequence::UNTITLED_THREAD_BRANCH_TITLE,
+        title: thread_title,
         intent: Sequence::THREAD_DEFAULT_INTENT,
         position: position,
         steps_data: [],
@@ -207,14 +214,35 @@ module ThreadStrandMutations
         child_thread_id: child_thread.id,
         child_order: sibling_max + 1
       )
+
+      seq_position = @project.sequences.generative_sequences.maximum(:position).to_i + 1
+      new_seq = @project.sequences.create!(
+        kind: :sequence,
+        title: Sequence::DEFAULT_TITLE,
+        intent: Sequence::DEFAULT_INTENT,
+        position: seq_position,
+        steps_data: [{ "content" => "" }],
+        is_term: false
+      )
+      raise ActiveRecord::Rollback unless new_seq.persisted?
+
+      child_thread.steps_data = [{ "sequence_id" => new_seq.id }]
+      raise ActiveRecord::Rollback unless child_thread.save
     end
 
-    if child_thread&.persisted?
-      redirect_to thread_redirect_url(weave_thread: child_thread.id, thread_partner: @sequence.id),
+    if child_thread&.persisted? && new_seq&.persisted?
+      redirect_to thread_redirect_url(
+        weave_thread: child_thread.id,
+        thread_partner: @sequence.id,
+        focus_transformation_id: new_seq.id,
+        editor_mode: "edit"
+      ),
                   notice: "New strand created."
     else
       redirect_to thread_redirect_url,
-                  alert: child_thread&.errors&.full_messages&.to_sentence.presence || "Could not create strand."
+                  alert: child_thread&.errors&.full_messages&.to_sentence.presence ||
+                    new_seq&.errors&.full_messages&.to_sentence.presence ||
+                    "Could not create strand."
     end
   end
 

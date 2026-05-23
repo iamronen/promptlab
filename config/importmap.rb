@@ -2,6 +2,7 @@
 
 pin "application"
 pin "sequence_editor_mode_storage", to: "sequence_editor_mode_storage.js"
+pin "sequence_copy_text", to: "sequence_copy_text.js"
 pin "thread_panel_index_drag", to: "thread_panel_index_drag.js"
 pin "thread_branch_indicator_alignment", to: "thread_branch_indicator_alignment.js"
 pin "workspace_autosave", to: "workspace_autosave.js"

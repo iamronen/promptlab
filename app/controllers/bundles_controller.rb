@@ -3,6 +3,7 @@
 class BundlesController < ApplicationController
   include SequenceEditing
   include WorkspaceSidebarData
+  include ProjectNested
 
   before_action :set_project
   before_action :set_bundle, only: %i[edit update destroy duplicate create_pipeline_sequence]
@@ -208,10 +209,6 @@ class BundlesController < ApplicationController
     id.match?(/\Athread_editor_bundle_\d+\z/) ? id : "bundle_modal_frame"
   end
 
-  def set_project
-    @project = Project.find(params[:project_id])
-  end
-
   def set_bundle
     @sequence = @project.sequences.bundles.find(params[:id])
   end
@@ -239,7 +236,8 @@ class BundlesController < ApplicationController
 
   def refresh_pipeline_children_lookup
     ids = @sequence.pipeline_generative_sequence_ids
-    @pipeline_children_by_id = @project.sequences.generative_sequences.where(id: ids).index_by(&:id)
+    @pipeline_children_by_id =
+      @project.sequences.generative_sequences.includes(:created_by).where(id: ids).index_by(&:id)
   end
 
   def ensure_steps_placeholder

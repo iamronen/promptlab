@@ -64,6 +64,13 @@
       <%= pluralize(sequences_count, "sequence") %>
     </p>
 
+    <p class="m-0 mt-2">
+      <%= link_to "Download PDF",
+                  export_pdf_project_path(@project),
+                  class: "text-sm font-medium text-prompt-heading underline decoration-prompt-subtle underline-offset-2 hover:decoration-prompt-heading",
+                  data: { turbo: false } %>
+    </p>
+
     <section
       class="project-settings-taxonomies-section mt-6 border-t border-gray-200 pt-5 dark:border-gray-700"
       data-controller="project-taxonomies"
@@ -106,6 +113,34 @@
         </div>
       </div>
       <div class="project-taxonomies-list mt-3" data-project-taxonomies-target="list" aria-live="polite"></div>
+
+      <dialog
+        class="project-delete-confirm-dialog rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+        aria-labelledby="taxonomy-value-delete-heading-<%= @project.id %>"
+        data-project-taxonomies-target="deleteTermDialog"
+        data-action="click->project-taxonomies#onDeleteTermDialogBackdrop"
+      >
+        <h3 id="taxonomy-value-delete-heading-<%= @project.id %>" class="m-0 mb-2 text-base font-semibold text-prompt-heading">
+          Delete this value?
+        </h3>
+        <p class="m-0 mb-4 text-sm text-prompt-heading" data-project-taxonomies-target="deleteTermDialogMessage"></p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="prompt-btn-secondary border-red-200 bg-red-600 px-3 py-2 text-[0.85rem] text-white hover:bg-red-700 dark:border-red-900 dark:bg-red-700 dark:hover:bg-red-600"
+            data-action="click->project-taxonomies#confirmDeleteTermDialog"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+            data-action="click->project-taxonomies#cancelDeleteTermDialog"
+          >
+            Cancel
+          </button>
+        </div>
+      </dialog>
     </section>
 
     <div class="project-settings-modal-footer mt-8 border-t border-gray-200 pt-5 dark:border-gray-700">

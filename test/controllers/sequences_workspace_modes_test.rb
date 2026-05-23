@@ -4,7 +4,8 @@ require "test_helper"
 
 class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
   setup do
-    @project = Project.create!(name: "Mode project")
+    sign_in users(:alice)
+    @project = Project.create!(name: "Mode project", user: users(:alice))
     @seq = @project.sequences.create!(
       kind: :sequence,
       title: "Alpha",
