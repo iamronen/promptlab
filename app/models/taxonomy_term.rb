@@ -3,6 +3,7 @@
 class TaxonomyTerm < ApplicationRecord
   belongs_to :taxonomy, inverse_of: :taxonomy_terms
   has_many :taxonomy_assignments, dependent: :delete_all
+  has_many :taxonomy_assignment_histories, dependent: :nullify
 
   validates :label, presence: true
   validates :position, numericality: { only_integer: true, greater_than: 0 }

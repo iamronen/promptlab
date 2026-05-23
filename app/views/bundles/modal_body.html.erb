@@ -1,6 +1,6 @@
-<% thread_panel_editor_embed = @bundle_modal_frame_id.to_s.match?(/\Athread_editor_bundle_\d+\z/) %>
-<%= turbo_frame_tag(@bundle_modal_frame_id || "bundle_modal_frame") do %>
-  <div class="bundle-modal-shell<%= " bundle-modal-shell--thread-embed" if thread_panel_editor_embed %>">
-    <%= render "bundles/bundle_editor_main", modal: true, thread_panel_editor_embed: thread_panel_editor_embed %>
+<% frame_id = @bundle_modal_frame_id.presence || "thread_editor_bundle_#{@sequence.id}" %>
+<%= turbo_frame_tag frame_id do %>
+  <div class="bundle-modal-shell bundle-modal-shell--thread-embed">
+    <%= render "bundles/bundle_editor_main", modal: true, thread_panel_editor_embed: true %>
   </div>
 <% end %>

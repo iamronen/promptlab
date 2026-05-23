@@ -4,7 +4,8 @@
   "description": "npm deps for Flowbite + Tailwind v4 (tailwindcss-rails). Run: npm install",
   "scripts": {
     "postinstall": "mkdir -p app/assets/vendor/flowbite public/flowbite && cp node_modules/flowbite/dist/flowbite.turbo.min.js app/assets/vendor/flowbite/flowbite.turbo.min.js && cp node_modules/flowbite/dist/flowbite.turbo.min.js public/flowbite/flowbite.turbo.min.js",
-    "test:thread-workspace-reconcile": "node test/javascript/thread_workspace_reconcile_contract_test.mjs"
+    "test:thread-workspace-reconcile": "node test/javascript/thread_workspace_reconcile_contract_test.mjs",
+    "test:thread-workspace-storage-layout": "node test/javascript/thread_workspace_storage_layout_test.mjs"
   },
   "dependencies": {
     "flowbite": "^4.0.2"

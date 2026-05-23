@@ -41,6 +41,7 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     assert_equal 1, body["assignments"].size
     assert_equal @taxonomy_one.id, body["assignments"].first["taxonomy_id"]
     assert_equal @p1.id, body["assignments"].first["taxonomy_term_id"]
+    assert body["assignments"].first["assigned_at"].present?
   end
 
   test "update replaces assignments" do
@@ -119,5 +120,67 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     get project_sequence_taxonomy_assignments_path(@project, bundle), as: :json
 
     assert_response :not_found
+  end
+
+  test "show includes histories for process taxonomies" do
+    @taxonomy_one.update!(process_tracking: true)
+
+    TaxonomyAssignment.create!(
+      project_id: @project.id,
+      sequence_id: @sequence.id,
+      taxonomy_id: @taxonomy_one.id,
+      taxonomy_term_id: @p1.id,
+      label_snapshot: @p1.label,
+      single_value_taxonomy_copy: true,
+      assigned_at: 2.hours.ago
+    )
+
+    TaxonomyAssignmentHistory.create!(
+      project_id: @project.id,
+      sequence_id: @sequence.id,
+      taxonomy_id: @taxonomy_one.id,
+      taxonomy_term_id: @p2.id,
+      label_snapshot: @p2.label,
+      assigned_at: 4.hours.ago,
+      ended_at: 2.hours.ago
+    )
+
+    get project_sequence_taxonomy_assignments_path(@project, @sequence), as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    row = body["assignments"].find { |a| a["taxonomy_id"] == @taxonomy_one.id }
+    assert row["assigned_at"].present?
+    assert_equal 1, row["histories"].size
+    assert_equal @p2.label, row["histories"].first["label_snapshot"]
+    assert row["histories"].first["assigned_at"].present?
+    assert row["histories"].first["ended_at"].present?
+  end
+
+  test "update on process taxonomy archives previous value" do
+    @taxonomy_one.update!(process_tracking: true)
+
+    put project_sequence_taxonomy_assignments_path(@project, @sequence),
+        params: {
+          assignments: [{ taxonomy_id: @taxonomy_one.id, taxonomy_term_ids: [@p1.id] }]
+        },
+        as: :json
+
+    assert_response :success
+
+    put project_sequence_taxonomy_assignments_path(@project, @sequence),
+        params: {
+          assignments: [{ taxonomy_id: @taxonomy_one.id, taxonomy_term_ids: [@p2.id] }]
+        },
+        as: :json
+
+    assert_response :success
+    assert_equal 1, TaxonomyAssignmentHistory.where(sequence_id: @sequence.id, taxonomy_id: @taxonomy_one.id).count
+
+    body = JSON.parse(response.body)
+    row = body["assignments"].find { |a| a["taxonomy_id"] == @taxonomy_one.id }
+    assert_equal @p2.id, row["taxonomy_term_id"]
+    assert_equal 1, row["histories"].size
+    assert_equal @p1.label, row["histories"].first["label_snapshot"]
   end
 end

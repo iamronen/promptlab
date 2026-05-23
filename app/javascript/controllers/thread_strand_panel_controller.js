@@ -92,7 +92,7 @@ export default class extends Controller {
   revealAndFocusNewSequenceIfNeeded() {
     const u = new URL(window.location.href)
     const seqId = u.searchParams.get("focus_transformation_id")
-    if (!seqId || u.searchParams.get("editor_mode") !== "edit" || !this.hasIndexListTarget) return
+    if (!seqId || !this.hasIndexListTarget) return
 
     const row = this.indexListTarget.querySelector(`.workspace-thread-strand-row[data-strand-step="s:${seqId}"]`)
     if (!row) return
@@ -101,6 +101,16 @@ export default class extends Controller {
     const scrollWithinFrameId = `thread_editor_sequence_inner_${seqId}`
     const root = threadPanelRootFrom(this.element)
     dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
+
+    let focused = false
+    const stripFocusParam = () => {
+      if (!focused) return
+      const cur = new URL(window.location.href)
+      if (!cur.searchParams.has("focus_transformation_id")) return
+      cur.searchParams.delete("focus_transformation_id")
+      const qs = cur.searchParams.toString()
+      window.history.replaceState(window.history.state, "", `${cur.pathname}${qs ? `?${qs}` : ""}${cur.hash}`)
+    }
 
     const focusTitle = () => {
       const frame = document.getElementById(frameId)
@@ -113,6 +123,8 @@ export default class extends Controller {
       if (defaultTitle && input.value === defaultTitle) {
         input.select()
       }
+      focused = true
+      stripFocusParam()
     }
 
     const frame = document.getElementById(frameId)

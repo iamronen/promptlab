@@ -70,6 +70,8 @@ export default class extends Controller {
     const openIds = preserveOpenIds ?? this.collectOpenTaxonomyIds()
     try {
       const res = await fetch(this.indexUrlValue, {
+        credentials: "same-origin",
+        cache: "no-store",
         headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" }
       })
       if (!res.ok) return
@@ -78,6 +80,14 @@ export default class extends Controller {
     } catch (_) {
       /* ignore */
     }
+  }
+
+  mergeTaxonomyFromServer(updated) {
+    if (!updated?.id) return false
+    const idx = this.taxonomies.findIndex((x) => x.id === updated.id)
+    if (idx < 0) return false
+    this.taxonomies[idx] = updated
+    return true
   }
 
   onTaxonomyDetailsToggle(event) {
@@ -109,7 +119,22 @@ export default class extends Controller {
     </div>
   </fieldset>
   ${this.singleSelectUiFieldsetHtml(t)}
+  ${this.processTrackingFieldsetHtml(t)}
 </div>`
+  }
+
+  processTrackingFieldsetHtml(t) {
+    const hiddenClass = t.cardinality === "one" ? "" : " project-taxonomy-process-tracking--hidden"
+    const checked = t.process_tracking === true ? " checked" : ""
+    return `
+  <fieldset class="project-taxonomy-process-tracking m-0 space-y-2 border-0 p-0${hiddenClass}">
+    <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Process</legend>
+    <label class="flex cursor-pointer items-center gap-2 text-sm text-prompt-heading">
+      <input type="checkbox" class="shrink-0"${checked}
+        data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onProcessTrackingChange click->project-taxonomies#stopSummaryToggle" />
+      <span>Track process over time</span>
+    </label>
+  </fieldset>`
   }
 
   singleSelectUiFieldsetHtml(t) {
@@ -280,10 +305,22 @@ export default class extends Controller {
     const tax = this.taxonomies.find((x) => x.id === id)
     if (!tax || (val !== "one" && val !== "many")) return
     if (val === "many") {
-      this.patchTaxonomy(id, { cardinality: "many", single_select_ui: null })
+      this.patchTaxonomy(id, { cardinality: "many", single_select_ui: null, process_tracking: false })
     } else {
       this.patchTaxonomy(id, { cardinality: "one", single_select_ui: tax.single_select_ui || "dropdown" })
     }
+  }
+
+  async onProcessTrackingChange(event) {
+    event.stopPropagation()
+    const input = event.currentTarget
+    const id = parseInt(input.getAttribute("data-taxonomy-id") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === id)
+    if (!tax || tax.cardinality !== "one") return
+
+    const desired = !!input.checked
+    const ok = await this.patchTaxonomy(id, { process_tracking: desired })
+    if (!ok) input.checked = !desired
   }
 
   onSingleSelectUiChange(event) {
@@ -366,9 +403,12 @@ export default class extends Controller {
   }
 
   async patchTaxonomy(id, attrs) {
+    const openIds = this.collectOpenTaxonomyIds()
     const url = `${this.indexUrlValue}/${id}`
     const res = await fetch(url, {
       method: "PATCH",
+      credentials: "same-origin",
+      cache: "no-store",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
@@ -377,7 +417,21 @@ export default class extends Controller {
       },
       body: JSON.stringify({ taxonomy: attrs })
     })
-    if (res.ok) await this.loadTaxonomies()
+
+    if (!res.ok) return false
+
+    try {
+      const updated = await res.json()
+      if (this.mergeTaxonomyFromServer(updated)) {
+        this.renderMainList(openIds)
+        return true
+      }
+    } catch (_) {
+      /* fall through to full reload */
+    }
+
+    await this.loadTaxonomies(openIds)
+    return true
   }
 
   deleteTaxonomy(event) {

@@ -557,8 +557,10 @@ export default class extends Controller {
       const id = parseInt(/** @type {HTMLElement} */ (col).dataset.threadPanelId || "0", 10)
       if (!id || !this.allowedSet.has(id)) continue
       const root = col.querySelector(".workspace-thread-panel-root")
-      const expanded = root?.classList.contains("workspace-thread-panel-root--maximized") ?? true
-      panels.push({ id, expanded })
+      const rawMode = root?.dataset?.workspaceThreadPanelLayoutModeValue
+      const layoutMode =
+        rawMode === "index" || rawMode === "split" || rawMode === "editor" ? rawMode : "split"
+      panels.push({ id, layoutMode })
     }
 
     const focusParsed = this.parseWeaveThreadFromUrl()

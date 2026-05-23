@@ -35,7 +35,7 @@ class BundlesController < ApplicationController
       is_term: false
     )
 
-    redirect_to edit_project_bundle_path(@project, sequence, editor_mode: "edit", **workspace_editor_redirect_options),
+    redirect_to edit_project_bundle_path(@project, sequence, **workspace_editor_redirect_options),
                 notice: "Bundle created."
   rescue ActiveRecord::RecordInvalid
     redirect_to open_project_path(@project), alert: "Could not create bundle."
@@ -198,7 +198,6 @@ class BundlesController < ApplicationController
 
   def bundle_modal_request?
     id = turbo_frame_header
-    return true if id == "bundle_modal_frame"
     return true if id.match?(/\Athread_editor_bundle_\d+\z/)
 
     params[:modal].present?
@@ -206,7 +205,9 @@ class BundlesController < ApplicationController
 
   def modal_bundle_frame_id_from_request
     id = turbo_frame_header
-    id.match?(/\Athread_editor_bundle_\d+\z/) ? id : "bundle_modal_frame"
+    return id if id.match?(/\Athread_editor_bundle_\d+\z/)
+
+    "thread_editor_bundle_#{params[:id]}"
   end
 
   def set_bundle

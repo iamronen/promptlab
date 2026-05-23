@@ -1,5 +1,5 @@
 <% editor_return_path = request.fullpath %>
-<% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "open_threads", "sidebar", "editor_mode", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
+<% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "open_threads", "sidebar", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
 <% embed_query = q_keep.except(:focus_bundle_id, :focus_transformation_id) %>
 <% panel_threads = @thread_workspace_open_thread_records.presence || [@genesis_thread].compact %>
 <% panel_threads = Array.wrap(@project.sequences.threads.order(:position).first).compact if panel_threads.blank? %>

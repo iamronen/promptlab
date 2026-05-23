@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_19_184420) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -96,6 +96,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_19_184420) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
+    t.boolean "process_tracking", default: false, null: false
     t.bigint "project_id", null: false
     t.string "single_select_ui"
     t.datetime "updated_at", null: false
@@ -103,7 +104,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_19_184420) do
     t.index ["project_id"], name: "index_taxonomies_on_project_id"
   end
 
+  create_table "taxonomy_assignment_histories", force: :cascade do |t|
+    t.datetime "assigned_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at", null: false
+    t.string "label_snapshot", null: false
+    t.bigint "project_id", null: false
+    t.bigint "sequence_id", null: false
+    t.bigint "taxonomy_id", null: false
+    t.bigint "taxonomy_term_id"
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "taxonomy_id"], name: "index_taxonomy_assignment_histories_on_project_taxonomy"
+    t.index ["project_id"], name: "index_taxonomy_assignment_histories_on_project_id"
+    t.index ["sequence_id", "taxonomy_id", "assigned_at"], name: "index_taxonomy_assignment_histories_on_seq_tax_assigned"
+    t.index ["sequence_id"], name: "index_taxonomy_assignment_histories_on_sequence_id"
+    t.index ["taxonomy_id"], name: "index_taxonomy_assignment_histories_on_taxonomy_id"
+    t.index ["taxonomy_term_id"], name: "index_taxonomy_assignment_histories_on_taxonomy_term_id"
+  end
+
   create_table "taxonomy_assignments", force: :cascade do |t|
+    t.datetime "assigned_at", null: false
     t.datetime "created_at", null: false
     t.string "label_snapshot", null: false
     t.bigint "project_id", null: false
@@ -166,6 +186,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_19_184420) do
   add_foreign_key "sequences", "projects"
   add_foreign_key "sequences", "users", column: "created_by_id"
   add_foreign_key "taxonomies", "projects"
+  add_foreign_key "taxonomy_assignment_histories", "projects"
+  add_foreign_key "taxonomy_assignment_histories", "sequences"
+  add_foreign_key "taxonomy_assignment_histories", "taxonomies"
+  add_foreign_key "taxonomy_assignment_histories", "taxonomy_terms", on_delete: :nullify
   add_foreign_key "taxonomy_assignments", "projects"
   add_foreign_key "taxonomy_assignments", "sequences"
   add_foreign_key "taxonomy_assignments", "taxonomies"

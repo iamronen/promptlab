@@ -232,10 +232,10 @@ module ThreadStrandMutations
 
     if child_thread&.persisted? && new_seq&.persisted?
       redirect_to thread_redirect_url(
+        open_threads: fork_open_threads_param(@sequence.id, child_thread.id),
         weave_thread: child_thread.id,
-        thread_partner: @sequence.id,
         focus_transformation_id: new_seq.id,
-        editor_mode: "edit"
+        thread_partner: nil
       ),
                   notice: "New strand created."
     else
@@ -1115,5 +1115,25 @@ module ThreadStrandMutations
 
     bundle_ids = pairs.filter_map { |k, id| id if k == :bundle }
     bundle_ids.size == bundle_ids.uniq.size
+  end
+
+  def fork_open_threads_param(parent_thread_id, child_thread_id)
+    ids = parse_open_threads_param(params[:open_threads].to_s)
+    if ids.empty?
+      partner_id = params[:thread_partner].to_i
+      weave_id = params[:weave_thread].to_i
+      ids = [partner_id, weave_id].select(&:positive?).uniq
+    end
+
+    ids << parent_thread_id unless ids.include?(parent_thread_id)
+    ids.reject! { |id| id == child_thread_id }
+
+    if (idx = ids.index(parent_thread_id))
+      ids.insert(idx + 1, child_thread_id)
+    else
+      ids << child_thread_id
+    end
+
+    ids.join(",")
   end
 end

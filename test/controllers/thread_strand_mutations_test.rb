@@ -143,9 +143,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_equal Sequence::DEFAULT_TITLE, new_seq.title
     loc = response.headers["Location"]
     assert_match(/weave_thread=#{child.id}/, loc)
-    assert_match(/thread_partner=#{@genesis.id}/, loc)
+    assert_match(/open_threads=.*#{@genesis.id}.*#{child.id}|open_threads=.*#{child.id}.*#{@genesis.id}/, loc)
     assert_match(/focus_transformation_id=#{new_seq.id}/, loc)
-    assert_match(/editor_mode=edit/, loc)
+    assert_no_match(/editor_mode=/, loc)
+    assert_no_match(/thread_partner=/, loc)
   end
 
   test "thread_fork_strand rejects blank thread title" do

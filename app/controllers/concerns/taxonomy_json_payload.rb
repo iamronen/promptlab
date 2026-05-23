@@ -13,6 +13,7 @@ module TaxonomyJsonPayload
       name: taxonomy.name,
       cardinality: taxonomy.cardinality,
       single_select_ui: taxonomy.single_select_ui,
+      process_tracking: taxonomy.process_tracking?,
       position: taxonomy.position,
       terms: terms.map { |term| term_payload(term, counts: counts) }
     }
@@ -48,17 +49,51 @@ module TaxonomyJsonPayload
   def assignments_payload(sequence)
     assignments =
       sequence.taxonomy_assignments.includes(:taxonomy, :taxonomy_term).order(:taxonomy_id, :id)
+    process_taxonomy_ids =
+      assignments.filter_map { |a| a.taxonomy_id if a.taxonomy.process_tracking? }.uniq
+    histories_by_taxonomy = histories_by_taxonomy_for(sequence, process_taxonomy_ids)
+
     {
-      assignments: assignments.map { |assignment| assignment_payload(assignment) }
+      assignments: assignments.map { |assignment|
+        assignment_payload(assignment, histories: histories_by_taxonomy[assignment.taxonomy_id])
+      }
     }
   end
 
-  def assignment_payload(assignment)
-    {
+  def histories_by_taxonomy_for(sequence, taxonomy_ids)
+    return {} if taxonomy_ids.empty?
+
+    rows =
+      TaxonomyAssignmentHistory
+        .where(sequence_id: sequence.id, taxonomy_id: taxonomy_ids)
+        .order(assigned_at: :desc)
+        .to_a
+    rows.group_by(&:taxonomy_id)
+  end
+
+  def assignment_payload(assignment, histories: nil)
+    payload = {
       id: assignment.id,
       taxonomy_id: assignment.taxonomy_id,
       taxonomy_term_id: assignment.taxonomy_term_id,
-      label_snapshot: assignment.label_snapshot
+      label_snapshot: assignment.label_snapshot,
+      assigned_at: assignment.assigned_at.iso8601
+    }
+
+    if assignment.taxonomy.process_tracking?
+      payload[:histories] = Array(histories).map { |history| history_payload(history) }
+    end
+
+    payload
+  end
+
+  def history_payload(history)
+    {
+      id: history.id,
+      taxonomy_term_id: history.taxonomy_term_id,
+      label_snapshot: history.label_snapshot,
+      assigned_at: history.assigned_at.iso8601,
+      ended_at: history.ended_at.iso8601
     }
   end
 end

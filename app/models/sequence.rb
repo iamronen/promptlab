@@ -39,6 +39,7 @@ class Sequence < ApplicationRecord
                                  inverse_of: :child_thread
 
   has_many :taxonomy_assignments, dependent: :destroy
+  has_many :taxonomy_assignment_histories, dependent: :destroy
 
   enum :kind, { sequence: "sequence", bundle: "bundle", thread: "thread" }, validate: true
 

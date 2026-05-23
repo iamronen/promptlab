@@ -69,6 +69,6 @@ class TaxonomiesController < ApplicationController
   end
 
   def taxonomy_params
-    params.require(:taxonomy).permit(:name, :cardinality, :single_select_ui, :position)
+    params.require(:taxonomy).permit(:name, :cardinality, :single_select_ui, :position, :process_tracking)
   end
 end

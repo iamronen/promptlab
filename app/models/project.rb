@@ -6,6 +6,7 @@ class Project < ApplicationRecord
   # All Sequence rows (generative `sequence`, `bundle`, and weave `thread` strands).
   has_many :sequences, -> { order(:position) }, dependent: :destroy, inverse_of: :project
   has_many :taxonomies, -> { order(:position, :id) }, dependent: :destroy, inverse_of: :project
+  has_many :taxonomy_assignment_histories, dependent: :destroy
 
   validates :name, presence: true
 

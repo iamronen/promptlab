@@ -49,7 +49,7 @@ class SequencesController < ApplicationController
       is_term: wants_term
     )
 
-    opts = { editor_mode: "edit", sidebar: (wants_term ? "terms" : "sequences") }
+    opts = { sidebar: (wants_term ? "terms" : "sequences") }
     wt = params[:weave_thread].to_s
     opts[:weave_thread] = wt if wt.present? && wt.to_i.positive? && @project.sequences.threads.where(id: wt.to_i).exists?
     ot = params[:open_threads].to_s.strip
@@ -153,7 +153,6 @@ class SequencesController < ApplicationController
   def sequence_modal_request?
     turbo_frame_id = turbo_frame_header
 
-    return true if turbo_frame_id == "sequence_modal_frame"
     return true if turbo_frame_id.match?(/\Athread_editor_sequence_\d+\z/)
 
     return false unless ActiveModel::Type::Boolean.new.cast(params[:modal])
@@ -167,7 +166,9 @@ class SequencesController < ApplicationController
 
   def modal_sequence_frame_id_from_request
     id = turbo_frame_header
-    id.match?(/\Athread_editor_sequence_\d+\z/) ? id : "sequence_modal_frame"
+    return id if id.match?(/\Athread_editor_sequence_\d+\z/)
+
+    "thread_editor_sequence_#{params[:id]}"
   end
 
   def sequence_modal_submission_via_redirect?

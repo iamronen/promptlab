@@ -18,6 +18,13 @@
 /* Flowbite component theme + utilities (https://flowbite.com/docs/getting-started/quickstart/) */
 @import "flowbite/src/themes/default";
 
+@layer base {
+  /* Preflight zeros margin on *; restore UA centering for showModal() dialogs. */
+  dialog:modal {
+    margin: auto;
+  }
+}
+
 @theme {
   /* Mirrors legacy chrome in stylesheets/application.css (:root body + flash palettes). */
   --z-context-menu: 400;
@@ -375,10 +382,6 @@
     @apply relative box-border max-h-[min(90vh,760px)] max-w-[min(52rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10;
   }
 
-  .bundle-edit-dialog-panel--workspace-modal {
-    @apply flex min-h-0 w-full flex-col;
-  }
-
   .bundle-edit-dialog-panel--project-settings-modal {
     @apply relative flex max-h-[min(90vh,560px)] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden;
   }
@@ -453,6 +456,26 @@
     @apply box-border flex w-full shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/80;
   }
 
+  .workspace-thread-panel-toolbar.prompt-thread-panel-toolbar {
+    @apply box-border flex w-full shrink-0 flex-wrap items-center justify-end gap-2 border-b border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800/80;
+  }
+
+  .workspace-thread-panel-toolbar--split.prompt-thread-panel-toolbar,
+  .workspace-thread-panel-toolbar--editor.prompt-thread-panel-toolbar {
+    @apply gap-2.5;
+  }
+
+  .workspace-thread-panel-toolbar--split .workspace-thread-panel-browse-controls,
+  .workspace-thread-panel-toolbar--editor .workspace-thread-panel-browse-controls {
+    @apply relative;
+  }
+
+  .workspace-thread-panel-toolbar--split .workspace-thread-panel-browse-controls::after,
+  .workspace-thread-panel-toolbar--editor .workspace-thread-panel-browse-controls::after {
+    content: "";
+    @apply absolute -right-[0.35rem] top-1/2 h-5 w-px -translate-y-1/2 bg-gray-200 dark:bg-gray-600;
+  }
+
   .workspace-thread-panel-split.prompt-thread-panel-split {
     @apply flex min-h-0 min-w-0 flex-1 flex-row;
   }
@@ -510,6 +533,20 @@
     @apply min-w-0 flex-1 truncate font-bold text-gray-900 dark:text-white;
   }
 
+  /* Index-only: strand title without ancestor breadcrumb trail */
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    .workspace-thread-panel-title-breadcrumb-ellipsis,
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    .workspace-thread-panel-title-breadcrumb-sep,
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    button.workspace-thread-panel-title-breadcrumb-ancestor {
+    @apply hidden;
+  }
+
+  .workspace-thread-panel-browse-controls[hidden] {
+    display: none !important;
+  }
+
   /* Standalone heading (e.g. “No strand selected”) — direct child of header text, not inside title row */
   .workspace-thread-panel-header.prompt-thread-panel-header
     .workspace-thread-panel-header-text.prompt-thread-panel-header-text
@@ -538,6 +575,11 @@
   .workspace-thread-panel-window-controls.prompt-thread-panel-window-controls
     > .workspace-thread-panel-win-btn.prompt-thread-panel-win-btn:first-child {
     @apply ml-0 rounded-s-lg border-l;
+  }
+
+  .workspace-thread-panel-window-controls.prompt-thread-panel-window-controls
+    > .workspace-thread-panel-win-btn.prompt-thread-panel-win-btn:not(:first-child):not(:last-child) {
+    @apply -ml-px rounded-none;
   }
 
   .workspace-thread-panel-window-controls.prompt-thread-panel-window-controls
@@ -1359,6 +1401,26 @@
    * Slice 1 — workspace shell + pane grid (moved from stylesheets/application.css).
    * Class names are toggled by Stimulus (.workspace--three-pane, .workspace--assistant-collapsed, etc.).
    */
+  /*
+   * Project workspace pages sit below the account nav (and optional flash). Pin the shell to the
+   * remaining viewport height so the thread strip’s horizontal scrollbar stays at the bottom edge
+   * instead of below off-screen vertical overflow.
+   */
+  body:has(.workspace-shell--three-pane) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body:has(.workspace-shell--three-pane) > :not(.workspace-shell--three-pane) {
+    flex-shrink: 0;
+  }
+
+  .workspace-shell--three-pane .prompt-workspace-header {
+    flex-shrink: 0;
+  }
+
   .workspace {
     display: flex;
     align-items: stretch;
@@ -1370,9 +1432,10 @@
   .workspace-shell--three-pane {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    flex: 1 1 0;
+    min-height: 0;
     box-sizing: border-box;
-    min-height: 100dvh;
+    overflow: hidden;
   }
 
   .workspace-shell--three-pane > .workspace.workspace--three-pane,
@@ -1380,8 +1443,7 @@
   .workspace-shell--three-pane > .workspace.workspace--one-pane {
     flex: 1 1 0;
     min-height: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
   }
 
   .workspace--one-pane {
@@ -1503,15 +1565,10 @@
     align-self: stretch;
     min-height: 0;
     min-width: 0;
+    overflow: hidden;
     padding-top: 1em;
     background: #d8dce3;
     border-right: 1px solid #e4e8ee;
-  }
-
-  /* Full editors: allow work area to extend past the grid track; scroll horizontally on this column. */
-  .workspace-middle-column:has(.workspace-thread-panel-root--maximized) {
-    overflow-x: auto;
-    overflow-y: hidden;
   }
 
   .workspace-pane-resize-handle {
@@ -1559,20 +1616,15 @@
     padding: 1rem 1.1rem;
     background: #d8dce3;
     border-bottom: 1px solid #c5cad3;
-    overflow: visible;
+    overflow: hidden;
   }
 
   /* Fills remaining column height — resize-handle <button>s are extra DOM siblings (:only-child never matched). */
   .workspace-middle-column > .workspace-work-shell {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     min-width: 0;
     border-bottom: none;
-  }
-
-  .workspace-middle-column:has(.workspace-thread-panel-root--maximized) > .workspace-work-shell {
-    overflow-x: visible;
-    overflow-y: visible;
   }
 
   .workspace-right-panel {
@@ -1705,7 +1757,7 @@
     }
 
     .workspace-shell--three-pane {
-      min-height: 100vh;
+      min-height: 0;
     }
 
     .workspace--three-pane,
@@ -1849,7 +1901,13 @@
 
   /* Horizontal multi-thread workspace strip (sequences): same gutter as legacy split strand row */
   .workspace-thread-workspace-strip {
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
     gap: 0.75rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.75rem;
   }
 
   /*
@@ -2047,7 +2105,8 @@
   }
 
   .workspace-thread-panel-root--maximized .workspace-thread-panel-shell {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
+    min-height: 0;
     align-self: stretch;
     max-width: 100%;
     width: fit-content;
@@ -2149,10 +2208,25 @@
     z-index: 2;
   }
 
-  .workspace-thread-panel-root--maximized
+  .workspace-thread-panel-root--maximized:not(.workspace-thread-panel-root--editor-only)
     .workspace-thread-panel-split:has(.workspace-thread-panel-editor-pane:not([hidden]))
     .workspace-thread-panel-index-resize-handle {
     display: block;
+  }
+
+  .workspace-thread-panel-root--editor-only .workspace-thread-panel-index-pane[hidden] {
+    display: none !important;
+  }
+
+  .workspace-thread-panel-root--editor-only .workspace-thread-panel-split {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .workspace-thread-panel-root--editor-only .workspace-thread-panel-editor-pane {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
   }
 
   .workspace-thread-panel-editor-pane {
@@ -3903,14 +3977,14 @@
   }
 
   .workspace-work-shell:has(.workspace-thread-panel-root--maximized) {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     box-sizing: border-box;
-    overflow-x: visible;
-    overflow-y: visible;
-    align-self: flex-start;
+    overflow: hidden;
+    align-self: stretch;
   }
 
   /* Single-column thread panel (non-split): default usable width when editors are open. */
@@ -4005,6 +4079,19 @@
     white-space: nowrap;
   }
 
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    .workspace-thread-panel-title-breadcrumb-ellipsis,
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    .workspace-thread-panel-title-breadcrumb-sep,
+  .workspace-thread-panel-root[data-workspace-thread-panel-layout-mode-value="index"]
+    button.workspace-thread-panel-title-breadcrumb-ancestor {
+    display: none !important;
+  }
+
+  .workspace-thread-panel-browse-controls[hidden] {
+    display: none !important;
+  }
+
   .workspace-thread-panel-title-input {
     margin: 0;
     flex: 1 1 auto;
@@ -4085,49 +4172,8 @@
   }
 
   /*
-   * Slice 8 — sequence modal scrollport, bundle modal shell, workspace modal frame grid,
-   * three-pane height scaling, thread-embed overflow (step menus escape modal scrollport).
+   * Thread-embed sequence editor overflow (step menus escape inline scrollport).
    */
-  .sequence-editor--modal {
-    max-height: min(78vh, 640px);
-    overflow-y: auto;
-    padding-bottom: 0.5rem;
-  }
-
-  .bundle-modal-shell {
-    padding: 0.75rem 1rem 1rem;
-  }
-
-  .workspace-modal-frames-wrap {
-    position: relative;
-    flex: 1;
-    display: grid;
-    grid-template: minmax(0, 1fr) / 1fr;
-    min-height: min(72vh, 640px);
-    width: 100%;
-    overflow: hidden;
-  }
-
-  .workspace-modal-frame-slot {
-    grid-area: 1 / 1 / -1 / -1;
-    overflow: hidden;
-  }
-
-  .bundle-modal-frame {
-    display: block;
-    width: 100%;
-    min-height: 4rem;
-  }
-
-  body:has(.workspace-shell--three-pane) .workspace-modal-frames-wrap {
-    min-height: min(calc(72vh * 1.6), calc(640px * 1.6));
-  }
-
-  body:has(.workspace-shell--three-pane) .sequence-editor--modal {
-    max-height: min(calc(78vh * 1.6), calc(640px * 1.6), 92vh);
-  }
-
-  /* Thread-embed: let step menus escape modal scrollport; keep scroll on thread panel body */
   body:has(.workspace-shell--three-pane)
     .bundle-modal-shell--thread-embed
     main.sequence-editor--modal {

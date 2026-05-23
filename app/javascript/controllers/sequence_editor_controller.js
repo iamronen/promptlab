@@ -82,13 +82,7 @@ export default class extends Controller {
     }
 
     const url = new URL(window.location.href)
-    if (url.searchParams.get("editor_mode") === "edit") {
-      this.readonlyValue = false
-      url.searchParams.delete("editor_mode")
-      const qs = url.searchParams.toString()
-      const path = `${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`
-      window.history.replaceState(window.history.state, "", path)
-    } else if (!this.nestedValue) {
+    if (!this.nestedValue) {
       const pref = getSequenceEditorReadonlyPreference()
       if (pref !== null) {
         this.readonlyValue = pref
@@ -659,6 +653,33 @@ export default class extends Controller {
     if (this.readonlyValue) return
     if (!event.ctrlKey) return
 
+    const editor = event.currentTarget
+    if (editor.contentEditable === "true") {
+      const key = event.key.toLowerCase()
+      if (key === "b" || key === "i") {
+        event.preventDefault()
+        document.execCommand(key === "b" ? "bold" : "italic", false)
+        this.syncContentInputFromEditor(editor)
+        this.markAutosaveDirty()
+        return
+      }
+
+      if (event.shiftKey && (key === "p" || key === "n")) {
+        event.preventDefault()
+        const card = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
+        if (!card) return
+        this.focusStepByOffset(card, key === "p" ? -1 : 1)
+        return
+      }
+
+      if (event.shiftKey && key === "d") {
+        event.preventDefault()
+        const card = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
+        this.removeStepCard(card)
+        return
+      }
+    }
+
     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       const card = this.cardFromEvent(event)
       if (!card) return
@@ -849,10 +870,23 @@ export default class extends Controller {
     this.queueStructureAutosave()
   }
 
+  focusStepByOffset(card, offset) {
+    const cards = this.visibleCards()
+    const index = cards.indexOf(card)
+    if (index < 0) return
+
+    const targetIndex = index + offset
+    if (targetIndex < 0 || targetIndex >= cards.length) return
+
+    this.activateCard(cards[targetIndex])
+  }
+
   deleteStep(event) {
-    if (this.readonlyValue) return
-    const card = this.cardFromEvent(event)
-    if (!card) return
+    this.removeStepCard(this.cardFromEvent(event))
+  }
+
+  removeStepCard(card) {
+    if (this.readonlyValue || !card) return
 
     this.closeAllMenus()
     card.remove()

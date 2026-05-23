@@ -1,8 +1,43 @@
-/** @typedef {{ id: number, expanded: boolean }} ThreadWorkspacePanel */
+/** @typedef {"index" | "split" | "editor"} ThreadPanelLayoutMode */
+
+/** @typedef {{ id: number, layoutMode: ThreadPanelLayoutMode }} ThreadWorkspacePanel */
 
 /** @typedef {{ version: number, panels: ThreadWorkspacePanel[], focusId?: number }} ThreadWorkspaceState */
 
 export const THREAD_WORKSPACE_STORAGE_VERSION = 1
+
+export const VALID_LAYOUT_MODES = /** @type {const} */ (["index", "split", "editor"])
+
+/**
+ * @param {unknown} value
+ * @returns {value is ThreadPanelLayoutMode}
+ */
+export function isValidLayoutMode(value) {
+  return typeof value === "string" && VALID_LAYOUT_MODES.includes(/** @type {ThreadPanelLayoutMode} */ (value))
+}
+
+/**
+ * @param {string | null | undefined} raw
+ * @returns {ThreadPanelLayoutMode | null}
+ */
+export function parseStandaloneLayoutMode(raw) {
+  if (raw === "true") return "split"
+  if (raw === "false") return "index"
+  if (isValidLayoutMode(raw)) return raw
+  return null
+}
+
+/**
+ * @param {{ layoutMode?: unknown, expanded?: unknown }} row
+ * @returns {ThreadPanelLayoutMode}
+ */
+export function parsePanelLayoutMode(row) {
+  const lm = row?.layoutMode
+  if (isValidLayoutMode(lm)) return lm
+  const ex = row?.expanded
+  if (typeof ex === "boolean") return ex ? "split" : "index"
+  return "split"
+}
 
 export function threadWorkspaceStorageKey(projectId) {
   return `promptlab.threadWorkspace.v${THREAD_WORKSPACE_STORAGE_VERSION}:project:${projectId}`
@@ -23,13 +58,11 @@ export function parseThreadWorkspaceState(data) {
   const seen = new Set()
   for (const row of panelsRaw) {
     if (!row || typeof row !== "object") continue
-    const id = Number(/** @type {Record<string, unknown>} */ (row).id)
+    const r = /** @type {Record<string, unknown>} */ (row)
+    const id = Number(r.id)
     if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue
     seen.add(id)
-    let expanded = true
-    const ex = /** @type {Record<string, unknown>} */ (row).expanded
-    if (typeof ex === "boolean") expanded = ex
-    panels.push({ id, expanded })
+    panels.push({ id, layoutMode: parsePanelLayoutMode(r) })
   }
 
   /** @type {ThreadWorkspaceState} */
@@ -65,21 +98,21 @@ export function saveThreadWorkspaceState(projectId, state) {
 
 /**
  * @param {number[]} openIds authoritative order from URL/DOM
- * @param {{ id: number, expanded?: boolean }[]} [fromSaved]
+ * @param {{ id: number, layoutMode?: ThreadPanelLayoutMode, expanded?: boolean }[]} [fromSaved]
  */
 export function mergePanelsFromStorage(openIds, fromSaved) {
   const savedList = Array.isArray(fromSaved) ? fromSaved : []
-  /** @type {Map<number, boolean>} */
-  const exp = new Map()
+  /** @type {Map<number, ThreadPanelLayoutMode>} */
+  const modes = new Map()
   for (const p of savedList) {
     if (!p || typeof p.id !== "number" || p.id <= 0) continue
-    exp.set(p.id, typeof p.expanded === "boolean" ? p.expanded : true)
+    modes.set(p.id, parsePanelLayoutMode(p))
   }
   /** @type {ThreadWorkspacePanel[]} */
   const panels = []
   for (const id of openIds) {
     if (!Number.isInteger(id) || id <= 0) continue
-    panels.push({ id, expanded: exp.has(id) ? exp.get(id) : true })
+    panels.push({ id, layoutMode: modes.has(id) ? modes.get(id) : "split" })
   }
   return panels
 }

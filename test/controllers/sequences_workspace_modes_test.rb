@@ -63,6 +63,8 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select ".workspace--one-pane"
     assert_select ".workspace-fabric"
     assert_select ".fabric-thread-tree.fabric-thread-tree--explorer"
+    assert_select "details.fabric-tree-node-thread[open]", count: 1
+    assert_select "details.fabric-tree-node-thread:not([open])", count: 0
     assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{genesis.id}']", text: "Open"
     assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{child.id}']", text: "Open"
     assert_select ".fabric-thread-tree[data-controller='weave-panel']", count: 0
@@ -93,7 +95,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select "#workspace-panel-assistant", count: 0
   end
 
-  test "thread panel exposes minimize and maximize controls when strand has steps" do
+  test "thread panel exposes layout and browse controls when strand has steps" do
     genesis = @project.genesis_thread
     bundle = @project.sequences.create!(
       kind: :bundle,
@@ -107,8 +109,14 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
 
     get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
     assert_response :success
-    assert_select ".workspace-thread-panel-browse-controls button.workspace-thread-panel-win-btn", count: 2
-    assert_select ".workspace-thread-panel-window-controls button.workspace-thread-panel-win-btn", count: 2
+    assert_select ".workspace-thread-panel-toolbar"
+    assert_select ".workspace-thread-panel-header .workspace-thread-panel-browse-controls", count: 0
+    assert_select ".workspace-thread-panel-header .workspace-thread-panel-window-controls", count: 0
+    assert_select ".workspace-thread-panel-toolbar .workspace-thread-panel-browse-controls button.workspace-thread-panel-win-btn", count: 2
+    assert_select ".workspace-thread-panel-toolbar .workspace-thread-panel-window-controls button.workspace-thread-panel-win-btn", count: 3
+    assert_select ".workspace-thread-panel-toolbar button[title='Index only']", count: 1
+    assert_select ".workspace-thread-panel-toolbar button[title='Index and editor']", count: 1
+    assert_select ".workspace-thread-panel-toolbar button[title='Editor only']", count: 1
   end
 
   test "workspace strand row renders thread-branch band with chip and link indicators when anchored" do

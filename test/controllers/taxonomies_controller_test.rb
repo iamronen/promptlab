@@ -90,6 +90,7 @@ class TaxonomiesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Lane", body["name"]
     assert_equal "many", body["cardinality"]
     assert_nil body["single_select_ui"]
+    assert_equal false, body["process_tracking"]
   end
 
   test "create rejects many cardinality with single_select_ui" do
@@ -102,6 +103,52 @@ class TaxonomiesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
+  end
+
+  test "update enables process tracking on single cardinality taxonomy" do
+    taxonomy = @project.taxonomies.create!(name: "Status", cardinality: :one, single_select_ui: "dropdown", position: 1)
+
+    patch project_taxonomy_path(@project, taxonomy),
+          params: { taxonomy: { process_tracking: true } },
+          as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal true, body["process_tracking"]
+    assert taxonomy.reload.process_tracking?
+  end
+
+  test "update clears process tracking on many cardinality taxonomy" do
+    taxonomy = @project.taxonomies.create!(name: "Tags", cardinality: :many, position: 1)
+
+    patch project_taxonomy_path(@project, taxonomy),
+          params: { taxonomy: { process_tracking: true } },
+          as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal false, body["process_tracking"]
+    refute taxonomy.reload.process_tracking?
+  end
+
+  test "changing cardinality to many clears process tracking" do
+    taxonomy =
+      @project.taxonomies.create!(
+        name: "Status",
+        cardinality: :one,
+        process_tracking: true,
+        single_select_ui: "dropdown",
+        position: 1
+      )
+
+    patch project_taxonomy_path(@project, taxonomy),
+          params: { taxonomy: { cardinality: "many", single_select_ui: nil, process_tracking: false } },
+          as: :json
+
+    assert_response :success
+    taxonomy.reload
+    assert taxonomy.many?
+    refute taxonomy.process_tracking?
   end
 
   test "update taxonomy" do

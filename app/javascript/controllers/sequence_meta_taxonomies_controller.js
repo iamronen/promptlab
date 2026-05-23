@@ -33,6 +33,8 @@ export default class extends Controller {
   connect() {
     /** @type {Record<number, number[]>} */
     this.termIdsByTaxonomy = {}
+    /** @type {Record<number, { assigned_at?: string, histories?: any[] }>} */
+    this.assignmentMetaByTaxonomy = {}
     /** @type {unknown[]} */
     this.taxonomies = []
     /** @type {boolean} */
@@ -110,6 +112,8 @@ export default class extends Controller {
   applyAssignmentsPayload(assignments) {
     /** @type {Record<number, number[]>} */
     const grouped = {}
+    /** @type {Record<number, { assigned_at?: string, histories?: any[] }>} */
+    const meta = {}
 
     const rows = [...assignments].sort((a, b) => {
       const ta = Number(a.taxonomy_id)
@@ -124,11 +128,69 @@ export default class extends Controller {
       if (!termId || Number.isNaN(termId)) continue
       grouped[tid] = grouped[tid] || []
       if (!grouped[tid].includes(termId)) grouped[tid].push(termId)
+      meta[tid] = {
+        assigned_at: row.assigned_at,
+        histories: Array.isArray(row.histories) ? row.histories : []
+      }
     }
 
     const next = {}
     for (const t of this.taxonomies) next[t.id] = grouped[t.id] ? [...grouped[t.id]] : []
     this.termIdsByTaxonomy = next
+    this.assignmentMetaByTaxonomy = meta
+  }
+
+  /** @param {string | undefined} iso */
+  formatDateTime(iso) {
+    if (!iso) return ""
+    try {
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return iso
+      return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    } catch {
+      return iso
+    }
+  }
+
+  /** @param {HTMLElement} container @param {any} tax */
+  renderProcessTrackingMeta(container, tax) {
+    const meta = this.assignmentMetaByTaxonomy[tax.id]
+    const ids = this.termIdsByTaxonomy[tax.id] || []
+    if (!meta || !ids.length) return
+
+    const wrap = document.createElement("div")
+    wrap.className = "sequence-meta-taxonomy-process"
+
+    if (meta.assigned_at) {
+      const current = document.createElement("div")
+      current.className = "sequence-meta-taxonomy-process__current"
+      current.textContent = meta.assigned_at ? this.formatDateTime(meta.assigned_at) : ""
+      wrap.appendChild(current)
+    }
+
+    const histories = meta.histories || []
+    if (histories.length > 0) {
+      const details = document.createElement("details")
+      details.className = "sequence-meta-taxonomy-process__history"
+      const summary = document.createElement("summary")
+      summary.textContent = `History (${histories.length})`
+      details.appendChild(summary)
+
+      const list = document.createElement("ul")
+      list.className = "sequence-meta-taxonomy-process__history-list"
+      for (const h of histories) {
+        const li = document.createElement("li")
+        const label = h.label_snapshot || ""
+        const from = this.formatDateTime(h.assigned_at)
+        const to = this.formatDateTime(h.ended_at)
+        li.textContent = `${label} · ${from} → ${to}`
+        list.appendChild(li)
+      }
+      details.appendChild(list)
+      wrap.appendChild(details)
+    }
+
+    if (wrap.childElementCount > 0) container.appendChild(wrap)
   }
 
   buildAssignmentsBody() {
@@ -313,6 +375,7 @@ export default class extends Controller {
       span.className = "sequence-meta-taxonomy-value-readonly"
       span.textContent = text || "—"
       el.appendChild(span)
+      if (tax.process_tracking) this.renderProcessTrackingMeta(el, tax)
       return
     }
 
@@ -339,6 +402,7 @@ export default class extends Controller {
       }
 
       el.appendChild(grp)
+      if (tax.process_tracking) this.renderProcessTrackingMeta(el, tax)
       return
     }
 
@@ -370,6 +434,7 @@ export default class extends Controller {
     })
 
     el.appendChild(sel)
+    if (tax.process_tracking) this.renderProcessTrackingMeta(el, tax)
   }
 
   /** @param {any} tax @param {number | null} termId */

@@ -72,33 +72,6 @@
 
       <% end %>
 
-      <% unless thread_panel_editor_embed %>
-      <footer class="editor-footer-actions">
-        <div class="editor-footer-primary-actions">
-          <div class="editor-footer-delete">
-            <% delete_btn_params =
-                 {
-                   redirect_to: (params[:redirect_to] if modal_mode),
-                   weave_thread: @selected_weave_thread_id,
-                   thread_partner: (@thread_panel_partner_thread&.id),
-                   workspace_mode: workspace_mode_param
-                 }.compact %>
-            <%= button_to "Delete sequence",
-                          project_sequence_path(@project, @sequence),
-                          method: :delete,
-                          params: delete_btn_params,
-                          class: "prompt-btn-danger",
-                          form: {
-                            data: {
-                              turbo_confirm: "Delete this sequence? This cannot be undone.",
-                              **(modal_mode ? { turbo_frame: "_top" } : {})
-                            }
-                          } %>
-          </div>
-        </div>
-      </footer>
-      <% end %>
-
       <template data-sequence-editor-target="stepTemplate">
         <%= render "sequences/thread_editor_sequence_step_row",
                    form_field_prefix: "sequence",

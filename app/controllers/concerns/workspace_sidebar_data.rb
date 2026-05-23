@@ -8,7 +8,7 @@ module WorkspaceSidebarData
   VALID_WORKSPACE_SHELLS = %w[v1 v2].freeze
 
   included do
-    helper_method :workspace_editor_redirect_options, :workspace_modal_save_redirect_path,
+    helper_method :workspace_editor_redirect_options,
                   :workspace_mode_param, :workspace_fabric?, :current_workspace_mode,
                   :workspace_shell_param, :workspace_shell_v2?,
                   :workspace_thread_scope_params, :fabric_thread_open_in_sequencing_path,
@@ -105,13 +105,6 @@ module WorkspaceSidebarData
 
   def thread_workspace_open_threads_param
     @thread_workspace_open_thread_records&.map(&:id)&.join(",")
-  end
-
-  # Path + query preserved after saving from modal (omit editor bootstrap param).
-  def workspace_modal_save_redirect_path
-    qs = Rack::Utils.parse_query(request.query_string.presence.to_s)
-    qs.delete("editor_mode")
-    qs.empty? ? request.path : "#{request.path}?#{Rack::Utils.build_query(qs)}"
   end
 
   def sidebar_redirect_options

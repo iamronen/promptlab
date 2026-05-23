@@ -26,7 +26,7 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body data-controller="workspace-modal">
+  <body>
     <% [:notice, :alert].each do |type| %>
       <% msg = flash[type] %>
       <% next if msg.blank? %>
@@ -50,29 +50,6 @@
     <% else %>
       <%= yield %>
     <% end %>
-    <dialog
-      class="bundle-edit-dialog"
-      data-workspace-modal-target="dialog"
-      data-action="click->workspace-modal#backdropClick"
-    >
-      <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--workspace-modal">
-        <button type="button" class="bundle-edit-dialog-close" data-action="workspace-modal#close" aria-label="Close">
-          ×
-        </button>
-        <div class="workspace-modal-frames-wrap">
-          <turbo-frame
-            id="sequence_modal_frame"
-            class="workspace-modal-frame-slot bundle-modal-frame"
-            data-workspace-modal-target="sequenceFrame"
-          ></turbo-frame>
-          <turbo-frame
-            id="bundle_modal_frame"
-            class="workspace-modal-frame-slot bundle-modal-frame"
-            data-workspace-modal-target="bundleFrame"
-          ></turbo-frame>
-        </div>
-      </div>
-    </dialog>
     <%# Flowbite Turbo build: static file under public/flowbite (Propshaft manifest may omit vendor JS). %>
     <%= tag.script src: "/flowbite/flowbite.turbo.min.js", defer: true, data: { turbo_track: "reload" } %>
   </body>

@@ -24,7 +24,7 @@
     class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-root workspace-thread-panel-root--maximized h-full min-h-0"
     data-controller="workspace-work workspace-thread-panel"
     data-workspace-work-mode-value="panel"
-    data-workspace-thread-panel-expanded-value="true"
+    data-workspace-thread-panel-layout-mode-value="split"
     data-workspace-thread-panel-browse-bodies-expanded-value="true"
     data-workspace-thread-panel-managed-value="true"
   >
@@ -42,83 +42,107 @@
           </div>
           <% if panel_thread %>
             <div class="workspace-thread-panel-header-trailing">
-              <div class="workspace-thread-panel-header-actions">
-                <% if has_strand_steps %>
-                  <div class="workspace-thread-panel-browse-controls prompt-thread-panel-browse-controls" role="group" aria-label="Sequence browse density">
-                    <button
-                      type="button"
-                      class="workspace-thread-panel-win-btn workspace-thread-panel-browse-btn prompt-thread-panel-browse-btn"
-                      data-workspace-thread-panel-target="browseBodiesCollapseBtn"
-                      data-action="workspace-thread-panel#browseBodiesCollapseAll"
-                      title="Titles & intents — hide step editors"
-                      aria-label="Titles and intents — hide step editors in all sequences"
-                      aria-pressed="false"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="workspace-thread-panel-win-btn workspace-thread-panel-browse-btn prompt-thread-panel-browse-btn"
-                      data-workspace-thread-panel-target="browseBodiesExpandBtn"
-                      data-action="workspace-thread-panel#browseBodiesExpandAll"
-                      title="Full sequences — show step editors"
-                      aria-label="Full sequences — show step editors everywhere"
-                      aria-pressed="true"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M6 9l6 6 6-6" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="workspace-thread-panel-window-controls prompt-thread-panel-window-controls" role="group" aria-label="Thread panel layout">
-                    <button
-                      type="button"
-                      class="workspace-thread-panel-win-btn prompt-thread-panel-win-btn"
-                      data-workspace-thread-panel-target="collapseBtn"
-                      data-action="workspace-thread-panel#collapse"
-                      title="Index only"
-                      aria-label="Index only — titles on this strand"
-                      aria-pressed="false"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <rect x="9" y="5" width="6" height="14" rx="1"/>
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="workspace-thread-panel-win-btn prompt-thread-panel-win-btn"
-                      data-workspace-thread-panel-target="expandBtn"
-                      data-action="workspace-thread-panel#expand"
-                      title="Full editors"
-                      aria-label="Open full editors for this strand"
-                      aria-pressed="true"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
-                        <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-                        <line x1="10" x2="10" y1="7.25" y2="16.75" stroke-linecap="round"/>
-                      </svg>
-                    </button>
-                  </div>
-                <% end %>
-                <button
-                  type="button"
-                  class="workspace-thread-panel-close-btn prompt-thread-panel-icon-btn"
-                  data-action="click->thread-workspace#closePanel"
-                  data-thread-workspace-thread-id-param="<%= panel_thread.id %>"
-                  title="Close strand panel"
-                  aria-label="Close strand panel"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="18" x2="6" y1="6" y2="18"/>
-                    <line x1="6" x2="18" y1="6" y2="18"/>
-                  </svg>
-                </button>
-              </div>
+              <button
+                type="button"
+                class="workspace-thread-panel-close-btn prompt-thread-panel-icon-btn"
+                data-action="click->thread-workspace#closePanel"
+                data-thread-workspace-thread-id-param="<%= panel_thread.id %>"
+                title="Close strand panel"
+                aria-label="Close strand panel"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="18" x2="6" y1="6" y2="18"/>
+                  <line x1="6" x2="18" y1="6" y2="18"/>
+                </svg>
+              </button>
             </div>
           <% end %>
         </header>
+
+        <% if panel_thread && has_strand_steps %>
+          <div
+            class="workspace-thread-panel-toolbar prompt-thread-panel-toolbar"
+            data-workspace-thread-panel-target="toolbar"
+            role="toolbar"
+            aria-label="Thread panel controls"
+          >
+            <div
+              class="workspace-thread-panel-browse-controls prompt-thread-panel-browse-controls"
+              role="group"
+              aria-label="Sequence browse density"
+              data-workspace-thread-panel-target="browseControls"
+            >
+              <button
+                type="button"
+                class="workspace-thread-panel-win-btn workspace-thread-panel-browse-btn prompt-thread-panel-browse-btn"
+                data-workspace-thread-panel-target="browseBodiesCollapseBtn"
+                data-action="workspace-thread-panel#browseBodiesCollapseAll"
+                title="Titles & intents — hide step editors"
+                aria-label="Titles and intents — hide step editors in all sequences"
+                aria-pressed="false"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="workspace-thread-panel-win-btn workspace-thread-panel-browse-btn prompt-thread-panel-browse-btn"
+                data-workspace-thread-panel-target="browseBodiesExpandBtn"
+                data-action="workspace-thread-panel#browseBodiesExpandAll"
+                title="Full sequences — show step editors"
+                aria-label="Full sequences — show step editors everywhere"
+                aria-pressed="true"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+            <div class="workspace-thread-panel-window-controls prompt-thread-panel-window-controls" role="group" aria-label="Thread panel layout">
+              <button
+                type="button"
+                class="workspace-thread-panel-win-btn prompt-thread-panel-win-btn"
+                data-workspace-thread-panel-target="indexModeBtn"
+                data-action="workspace-thread-panel#setLayoutIndex"
+                title="Index only"
+                aria-label="Index only — titles on this strand"
+                aria-pressed="false"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="9" y="5" width="6" height="14" rx="1"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="workspace-thread-panel-win-btn prompt-thread-panel-win-btn"
+                data-workspace-thread-panel-target="splitModeBtn"
+                data-action="workspace-thread-panel#setLayoutSplit"
+                title="Index and editor"
+                aria-label="Index and editor — strand titles plus full editors"
+                aria-pressed="true"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
+                  <rect x="6" y="6" width="12" height="12" rx="1.5"/>
+                  <line x1="10" x2="10" y1="7.25" y2="16.75" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="workspace-thread-panel-win-btn prompt-thread-panel-win-btn"
+                data-workspace-thread-panel-target="editorModeBtn"
+                data-action="workspace-thread-panel#setLayoutEditor"
+                title="Editor only"
+                aria-label="Editor only — full editors for this strand"
+                aria-pressed="false"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="5" width="12" height="14" rx="1"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        <% end %>
 
         <% if panel_thread %>
           <% if has_strand_steps %>
@@ -132,6 +156,7 @@
             >
               <div
                 class="workspace-thread-panel-index-pane prompt-thread-index-pane"
+                data-workspace-thread-panel-target="indexColumn"
                 data-workspace-thread-index-resize-target="indexPane"
               >
                 <div class="workspace-thread-panel-body prompt-thread-index-body">

@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { loadThreadWorkspaceState } from "thread_workspace_storage"
+import { loadThreadWorkspaceState, parsePanelLayoutMode, parseStandaloneLayoutMode } from "thread_workspace_storage"
 import { THREAD_PANEL_INDEX_DRAG_ACTIVE_CLASS } from "thread_panel_index_drag"
 
 const DEFAULT_KEY = "promptlab.workspaceThreadPanelMaximized"
@@ -9,15 +9,25 @@ function closestThreadWorkspaceRoot(el) {
   return /** @type {HTMLElement | null} */ (el?.closest?.('[data-controller~="thread-workspace"]'))
 }
 
-/** Index column + optional editor column; persisted expand/collapse. */
+/** Index column + optional editor column; persisted layout mode. */
 export default class extends Controller {
-  static targets = ["editorColumn", "collapseBtn", "expandBtn", "browseBodiesCollapseBtn", "browseBodiesExpandBtn"]
+  static targets = [
+    "editorColumn",
+    "indexColumn",
+    "indexModeBtn",
+    "splitModeBtn",
+    "editorModeBtn",
+    "browseBodiesCollapseBtn",
+    "browseBodiesExpandBtn",
+    "browseControls",
+    "toolbar"
+  ]
   static values = {
-    expanded: { type: Boolean, default: true },
+    layoutMode: { type: String, default: "split" },
     /** Strand editor: true = steps visible per sequence; false = title + intent only. */
     browseBodiesExpanded: { type: Boolean, default: true },
     storageKey: { type: String, default: DEFAULT_KEY },
-    /** When true (thread-workspace-managed strip), persist expand/collapse via thread-workspace storage only. */
+    /** When true (thread-workspace-managed strip), persist layout via thread-workspace storage only. */
     managed: { type: Boolean, default: false }
   }
 
@@ -28,12 +38,12 @@ export default class extends Controller {
     this.boundFontSizeApplied = this.onFontSizeApplied.bind(this)
     this.element.addEventListener("workspace-thread-panel:reveal-frame", this.boundRevealFrame)
     document.addEventListener("workspace-font-size:applied", this.boundFontSizeApplied)
-    if (this.managedValue) this.hydrateManagedExpandedFromThreadWorkspace()
+    if (this.managedValue) this.hydrateManagedLayoutFromThreadWorkspace()
     else {
       try {
         const raw = window.localStorage.getItem(this.storageKeyValue)
-        if (raw === "true") this.expandedValue = true
-        else if (raw === "false") this.expandedValue = false
+        const mode = parseStandaloneLayoutMode(raw)
+        if (mode) this.layoutModeValue = mode
       } catch (_) {
         /* ignore */
       }
@@ -51,8 +61,8 @@ export default class extends Controller {
     document.removeEventListener("workspace-font-size:applied", this.boundFontSizeApplied)
   }
 
-  /** Managed strip: expanded comes from thread-workspace localStorage synchronously — avoids SSR true vs deferred sync false toggling the UI repeatedly. */
-  hydrateManagedExpandedFromThreadWorkspace() {
+  /** Managed strip: layout mode comes from thread-workspace localStorage synchronously — avoids SSR vs deferred sync toggling the UI repeatedly. */
+  hydrateManagedLayoutFromThreadWorkspace() {
     const col = this.element.closest("[data-thread-panel-id]")
     const id = parseInt(col?.dataset?.threadPanelId || "0", 10)
     const mgrEl = closestThreadWorkspaceRoot(this.element)
@@ -61,8 +71,9 @@ export default class extends Controller {
     try {
       const saved = loadThreadWorkspaceState(proj)
       const row = saved?.panels?.find((p) => p.id === id)
-      if (!row || typeof row.expanded !== "boolean") return
-      if (this.expandedValue !== row.expanded) this.expandedValue = !!row.expanded
+      if (!row) return
+      const mode = parsePanelLayoutMode(row)
+      if (this.layoutModeValue !== mode) this.layoutModeValue = mode
     } catch (_) {
       /* ignore */
     }
@@ -79,7 +90,7 @@ export default class extends Controller {
   }
 
   expandAndScrollToFrame(frameId, scrollWithinFrameId) {
-    this.expandedValue = true
+    this.layoutModeValue = "split"
     const scroll = () => {
       const frame =
         (typeof frameId === "string" && this.element.querySelector(`#${CSS.escape(frameId)}`)) ||
@@ -101,13 +112,17 @@ export default class extends Controller {
     })
   }
 
-  collapse() {
+  setLayoutIndex() {
     if (this.element.classList.contains(THREAD_PANEL_INDEX_DRAG_ACTIVE_CLASS)) return
-    this.expandedValue = false
+    this.layoutModeValue = "index"
   }
 
-  expand() {
-    this.expandedValue = true
+  setLayoutSplit() {
+    this.layoutModeValue = "split"
+  }
+
+  setLayoutEditor() {
+    this.layoutModeValue = "editor"
   }
 
   browseBodiesCollapseAll() {
@@ -148,10 +163,10 @@ export default class extends Controller {
       )
   }
 
-  expandedValueChanged() {
+  layoutModeValueChanged() {
     if (!this.managedValue) {
       try {
-        window.localStorage.setItem(this.storageKeyValue, String(this.expandedValue))
+        window.localStorage.setItem(this.storageKeyValue, this.layoutModeValue)
       } catch (_) {
         /* ignore */
       }
@@ -165,7 +180,7 @@ export default class extends Controller {
         this.element.dispatchEvent(
           new CustomEvent("thread-workspace:panel-expanded", {
             bubbles: true,
-            detail: { panelId: id, expanded: this.expandedValue }
+            detail: { panelId: id, layoutMode: this.layoutModeValue }
           })
         )
       }
@@ -173,13 +188,29 @@ export default class extends Controller {
   }
 
   syncUi() {
-    this.element.classList.toggle("workspace-thread-panel-root--maximized", this.expandedValue)
-    if (this.hasEditorColumnTarget) this.editorColumnTarget.hidden = !this.expandedValue
+    const mode = this.layoutModeValue
+    const showEditor = mode !== "index"
+    const showIndex = mode !== "editor"
 
-    if (this.hasCollapseBtnTarget)
-      this.collapseBtnTarget.setAttribute("aria-pressed", !this.expandedValue ? "true" : "false")
-    if (this.hasExpandBtnTarget)
-      this.expandBtnTarget.setAttribute("aria-pressed", this.expandedValue ? "true" : "false")
+    this.element.classList.toggle("workspace-thread-panel-root--maximized", showEditor)
+    this.element.classList.toggle("workspace-thread-panel-root--editor-only", mode === "editor")
+
+    if (this.hasEditorColumnTarget) this.editorColumnTarget.hidden = !showEditor
+    if (this.hasIndexColumnTarget) this.indexColumnTarget.hidden = !showIndex
+    if (this.hasBrowseControlsTarget) this.browseControlsTarget.hidden = mode === "index"
+
+    if (this.hasToolbarTarget) {
+      this.toolbarTarget.classList.toggle("workspace-thread-panel-toolbar--index", mode === "index")
+      this.toolbarTarget.classList.toggle("workspace-thread-panel-toolbar--split", mode === "split")
+      this.toolbarTarget.classList.toggle("workspace-thread-panel-toolbar--editor", mode === "editor")
+    }
+
+    if (this.hasIndexModeBtnTarget)
+      this.indexModeBtnTarget.setAttribute("aria-pressed", mode === "index" ? "true" : "false")
+    if (this.hasSplitModeBtnTarget)
+      this.splitModeBtnTarget.setAttribute("aria-pressed", mode === "split" ? "true" : "false")
+    if (this.hasEditorModeBtnTarget)
+      this.editorModeBtnTarget.setAttribute("aria-pressed", mode === "editor" ? "true" : "false")
 
     this.clampAncestorHorizontalScroll()
   }

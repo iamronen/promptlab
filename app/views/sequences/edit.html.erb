@@ -21,10 +21,3 @@
   <% end %>
   </div>
 </div>
-
-<% if params[:editor_mode].to_s == "edit" && !workspace_fabric? %>
-  <span
-    hidden
-    data-sequence-modal-auto-open-url="<%= edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options.merge(redirect_to: workspace_modal_save_redirect_path, modal: true)) %>"
-  ></span>
-<% end %>

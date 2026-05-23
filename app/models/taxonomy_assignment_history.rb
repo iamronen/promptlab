@@ -1,31 +1,25 @@
 # frozen_string_literal: true
 
-class TaxonomyAssignment < ApplicationRecord
+class TaxonomyAssignmentHistory < ApplicationRecord
   belongs_to :project
   belongs_to :sequence
   belongs_to :taxonomy
-  belongs_to :taxonomy_term
+  belongs_to :taxonomy_term, optional: true
 
   validates :label_snapshot, presence: true
   validates :assigned_at, presence: true
+  validates :ended_at, presence: true
   validate :taxonomy_matches_term_taxonomy
   validate :projects_aligned
   validate :sequence_assignable_to_taxonomies
-
-  before_validation :sync_denormalized_fields
+  validate :ended_at_not_before_assigned_at
 
   scope :for_project, ->(project) { where(project_id: project.id) }
+  scope :for_sequence_taxonomy, ->(sequence_id, taxonomy_id) {
+    where(sequence_id: sequence_id, taxonomy_id: taxonomy_id).order(assigned_at: :desc)
+  }
 
   private
-
-  def sync_denormalized_fields
-    return unless taxonomy && taxonomy_term && sequence
-
-    self.project_id = sequence.project_id if sequence.project_id.present?
-    self.label_snapshot = taxonomy_term.label.to_s if taxonomy_term.label.present?
-    self.single_value_taxonomy_copy = taxonomy.one?
-    self.assigned_at ||= Time.current
-  end
 
   def taxonomy_matches_term_taxonomy
     return unless taxonomy && taxonomy_term
@@ -53,5 +47,13 @@ class TaxonomyAssignment < ApplicationRecord
     return if sequence.sequence?
 
     errors.add(:sequence_id, "must be a generative sequence")
+  end
+
+  def ended_at_not_before_assigned_at
+    return unless assigned_at && ended_at
+
+    return if ended_at >= assigned_at
+
+    errors.add(:ended_at, "must be on or after assigned_at")
   end
 end

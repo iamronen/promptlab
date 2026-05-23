@@ -91,6 +91,10 @@ body {
   display: none;
 }
 
+.project-taxonomy-process-tracking--hidden {
+  display: none;
+}
+
 .prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host {
   margin: 0;
 }
@@ -176,51 +180,6 @@ body {
 .sequence-nav-row .sequence-nav-link {
   flex: 1;
   min-width: 0;
-}
-
-.editor-footer-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 40;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0.85rem 0;
-  margin: 1.25rem -1rem 0;
-  padding-left: 1rem;
-  padding-right: 1rem;
-  padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0));
-  background: linear-gradient(to top, #f7f8fa 65%, rgba(247, 248, 250, 0.92));
-  border-top: 1px solid #e4e8ee;
-}
-
-.editor-footer-primary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  align-items: center;
-}
-
-.editor-footer-actions > form {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-}
-
-.editor-footer-delete {
-  display: inline-flex;
-  align-items: center;
-}
-
-.editor-footer-delete form {
-  margin: 0;
-  display: inline-flex;
-}
-
-.sequence-editor--readonly .editor-footer-delete {
-  display: none;
 }
 
 .sequence-editor--readonly .steps-footer {
@@ -1441,6 +1400,40 @@ main.sequence-editor--bundle .sequence-intent-input {
   border-radius: 9999px;
   border: 1px solid rgb(229 231 235);
   background: rgb(243 244 246);
+}
+
+.sequence-meta-taxonomy-process {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: rgb(107 114 128);
+  white-space: nowrap;
+}
+
+.sequence-meta-taxonomy-process__current {
+  flex: 0 0 auto;
+}
+
+.sequence-meta-taxonomy-process__history summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.sequence-meta-taxonomy-process__history summary::-webkit-details-marker {
+  display: none;
+}
+
+.sequence-meta-taxonomy-process__history-list {
+  margin: 0.25rem 0 0 0;
+  padding: 0 0 0 1rem;
+  list-style: disc;
+}
+
+.sequence-meta-taxonomy-process__history-list li {
+  margin: 0.15rem 0;
 }
 
 .bundle-modal-shell--thread-embed .sequence-meta-taxonomy-value-readonly {
