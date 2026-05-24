@@ -1,19 +1,95 @@
-<main class="workspace-fabric prompt-fabric-main" aria-label="Fabric">
-  <div class="workspace-fabric-body prompt-fabric-body">
-    <h2 class="workspace-fabric-heading prompt-fabric-heading">Fabric</h2>
-    <div class="fabric-thread-tree fabric-thread-tree--explorer prompt-fabric-explorer">
-      <% branches = @fabric_thread_tree_branches %>
-      <% if branches.blank? %>
-        <p class="fabric-thread-tree-empty prompt-fabric-empty">No threads in this project yet.</p>
-      <% else %>
-        <ul class="fabric-thread-tree-roots" role="tree">
-          <% branches.each do |branch| %>
-            <li class="fabric-thread-tree-root-item" role="none">
-              <%= render "sequences/fabric_thread_tree_branch", branch: branch, top_level: true %>
-            </li>
+<% editor_return_path = request.fullpath %>
+<% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "open_threads", "sidebar", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
+<% embed_query = q_keep.except(:focus_bundle_id, :focus_transformation_id) %>
+<% allowed_thread_ids = @project.sequences.threads.pluck(:id) %>
+<% panel_thread = fabric_panel_thread %>
+<% fabric_selected_id = fabric_selected_weave_thread_id %>
+<main
+  class="workspace-fabric prompt-fabric-main"
+  aria-label="Fabric"
+  data-controller="thread-workspace thread-fork-modal"
+  data-thread-workspace-project-id-value="<%= @project.id %>"
+  data-thread-workspace-allowed-ids-value="<%= allowed_thread_ids.to_json %>"
+  data-thread-workspace-focus-id-value="<%= fabric_selected_id %>"
+  data-thread-workspace-fabric-mode-value="true"
+>
+  <div
+    class="workspace-fabric-layout prompt-fabric-layout"
+    data-controller="fabric-hierarchy-resize fabric-assistant-resize"
+  >
+    <aside
+      class="workspace-fabric-hierarchy prompt-fabric-hierarchy"
+      aria-label="Thread hierarchy"
+      data-fabric-hierarchy-resize-target="hierarchyPane"
+    >
+      <h2 class="workspace-fabric-heading prompt-fabric-heading">Fabric</h2>
+      <div
+        class="fabric-thread-tree fabric-thread-tree--explorer prompt-fabric-explorer"
+        data-controller="weave-panel"
+        data-weave-panel-selected-id-value="<%= fabric_selected_id %>"
+      >
+        <% branches = @fabric_thread_tree_branches %>
+        <% if branches.blank? %>
+          <p class="fabric-thread-tree-empty prompt-fabric-empty">No threads in this project yet.</p>
+        <% else %>
+          <ul class="fabric-thread-tree-roots" role="tree">
+            <% branches.each do |branch| %>
+              <li class="fabric-thread-tree-root-item" role="none">
+                <%= render "sequences/fabric_thread_tree_branch",
+                           branch: branch,
+                           top_level: true,
+                           selected_id: fabric_selected_id %>
+              <% end %>
+            </ul>
           <% end %>
-        </ul>
-      <% end %>
+        </div>
+      </aside>
+      <button
+        type="button"
+        class="workspace-fabric-hierarchy-resize-handle prompt-fabric-hierarchy-resize-handle"
+        aria-label="Drag to resize thread hierarchy. Double-click to reset width."
+        tabindex="0"
+        data-fabric-hierarchy-resize-target="handle"
+        data-action="
+          pointerdown->fabric-hierarchy-resize#grab
+          dblclick->fabric-hierarchy-resize#resetWidth
+          keydown->fabric-hierarchy-resize#keyResize
+        "
+      ></button>
+      <section class="workspace-fabric-thread-panel prompt-fabric-thread-panel" aria-label="Thread panel">
+        <div
+          id="workspace-fabric-thread-strip"
+          class="workspace-fabric-thread-strip flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          data-thread-workspace-target="strip"
+        >
+          <% if panel_thread %>
+            <% scope_h = workspace_thread_scope_params %>
+            <%= render "sequences/workspace_thread_panel_column",
+                       panel_thread: panel_thread,
+                       embed_query: embed_query,
+                       editor_return_path: editor_return_path,
+                       selected_weave_thread_id: fabric_selected_id,
+                       workspace_thread_scope_hash: scope_h %>
+          <% else %>
+            <div class="workspace-fabric-thread-panel-empty prompt-fabric-thread-panel-empty">
+              <p>Select a thread to view its strand</p>
+            </div>
+          <% end %>
+        </div>
+      </section>
+      <button
+        type="button"
+        class="workspace-fabric-assistant-resize-handle prompt-fabric-assistant-resize-handle"
+        aria-label="Drag to resize assistant panel. Double-click to reset width."
+        tabindex="0"
+        data-fabric-assistant-resize-target="handle"
+        data-action="
+          pointerdown->fabric-assistant-resize#grab
+          dblclick->fabric-assistant-resize#resetWidth
+          keydown->fabric-assistant-resize#keyResize
+        "
+      ></button>
+      <%= render "sequences/fabric_assistant_panel" %>
     </div>
-  </div>
+  <%= render "sequences/thread_fork_modal" %>
 </main>

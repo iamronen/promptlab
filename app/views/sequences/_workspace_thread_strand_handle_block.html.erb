@@ -212,6 +212,16 @@
       <% end %>
       <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
       <% if is_bundle %>
+        <% copy_bundle = @project.sequences.bundles.find_by(id: ref_id) %>
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-tf-order-menu-item"
+          data-action="thread-strand-panel#copyBundleAsText"
+          data-copy-text="<%= copy_bundle&.copy_as_text.to_json %>"
+        >
+          Copy as text
+        </button>
         <%= button_to "Unbundle",
                       thread_dissolve_strand_bundle_project_sequence_path(@project, strand_thread),
                       method: :post,

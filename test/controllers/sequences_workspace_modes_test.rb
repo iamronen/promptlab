@@ -36,7 +36,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select ".workspace-browse-nav-panel", count: 0
   end
 
-  test "fabric mode renders single-pane thread tree without assistant or editors" do
+  test "fabric mode renders split hierarchy and empty thread panel without assistant" do
     genesis = @project.genesis_thread
     genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
 
@@ -62,19 +62,61 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".workspace--one-pane"
     assert_select ".workspace-fabric"
+    assert_select ".workspace-fabric-layout"
+    assert_select ".workspace-fabric-hierarchy"
+    assert_select ".workspace-fabric-hierarchy-resize-handle"
+    assert_select ".workspace-fabric-layout[data-controller~='fabric-hierarchy-resize']"
+    assert_select ".workspace-fabric-layout[data-controller~='fabric-assistant-resize']"
+    assert_select ".workspace-fabric-thread-panel"
+    assert_select "#workspace-fabric-panel-assistant"
+    assert_select ".workspace-fabric-assistant-resize-handle"
+    assert_select ".workspace-fabric-assistant-placeholder", text: "Interactive LLM chat will appear here."
+    assert_select ".workspace-fabric-thread-panel-empty"
     assert_select ".fabric-thread-tree.fabric-thread-tree--explorer"
     assert_select "details.fabric-tree-node-thread[open]", count: 1
     assert_select "details.fabric-tree-node-thread:not([open])", count: 0
+    assert_select "button.fabric-tree-thread-select[data-action*='weave-panel#select']", minimum: 2
     assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{genesis.id}']", text: "Open"
     assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{child.id}']", text: "Open"
-    assert_select ".fabric-thread-tree[data-controller='weave-panel']", count: 0
+    assert_select ".fabric-thread-tree[data-controller='weave-panel']", count: 1
+    assert_select "*[data-controller~='thread-workspace'][data-thread-workspace-fabric-mode-value='true']"
+    assert_select "[data-thread-panel-id]", count: 0
     assert_select "#workspace-panel-assistant", count: 0
-    assert_select ".workspace-work-inner", count: 0
-    assert_select ".workspace-browse-nav-panel", count: 0
     assert_select ".workspace-weave-panel", count: 0
   end
 
-  test "bundle sequencing keeps weave sidebar; bundle fabric is single pane" do
+  test "fabric mode with weave_thread renders thread panel index and editor" do
+    genesis = @project.genesis_thread
+    genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
+
+    child = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch strand",
+      intent: Sequence::THREAD_DEFAULT_INTENT,
+      position: @project.sequences.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_genesis: false,
+      is_orphans: false,
+      is_term: false
+    )
+    ThreadNode.create!(
+      parent_thread_id: genesis.id,
+      parent_bundle_id: nil,
+      parent_generative_sequence_id: @seq.id,
+      child_thread_id: child.id,
+      child_order: 1
+    )
+
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "fabric", weave_thread: genesis.id)
+    assert_response :success
+    assert_select "[data-thread-panel-id='#{genesis.id}']", count: 1
+    assert_select ".workspace-thread-panel-index-pane"
+    assert_select ".workspace-thread-panel-editor-pane"
+    assert_select "button.fabric-tree-thread-select.is-selected[data-thread-id='#{genesis.id}']", count: 1
+    assert_select ".workspace-fabric-thread-panel-empty", count: 0
+  end
+
+  test "bundle sequencing keeps weave sidebar; bundle fabric is split pane" do
     bundle = @project.sequences.create!(
       kind: :bundle,
       title: "Fabric bundle",
@@ -91,6 +133,10 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".workspace--one-pane"
     assert_select ".workspace-fabric"
+    assert_select ".workspace-fabric-layout"
+    assert_select ".workspace-fabric-hierarchy"
+    assert_select ".workspace-fabric-thread-panel"
+    assert_select "#workspace-fabric-panel-assistant"
     assert_select ".workspace-weave-panel", count: 0
     assert_select "#workspace-panel-assistant", count: 0
   end
@@ -185,6 +231,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".workspace-thread-bundle-pipeline-index[data-controller*='bundle-pipeline-index']"
     assert_select "li.workspace-thread-bundle-pipeline-item[data-pipeline-sequence-id='#{@seq.id}']"
+    assert_select "button[data-action='thread-strand-panel#copyBundleAsText']", text: "Copy as text"
   end
 
   test "inline thread bundle frame returns matching turbo frame id" do
@@ -245,6 +292,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".workspace-thread-editor-step-badge.bundle-pipeline-thread-child-strand-badge", text: "3.1"
     assert_select "span.bundle-thread-child-sequence-index", count: 0
+    assert_select "button[data-action='sequence-editor#copyPipelineChildAsText']", text: "Copy as text"
   end
 
   test "inline thread sequence frame returns matching turbo frame id" do

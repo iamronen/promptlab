@@ -12,7 +12,24 @@ module WorkspaceSidebarData
                   :workspace_mode_param, :workspace_fabric?, :current_workspace_mode,
                   :workspace_shell_param, :workspace_shell_v2?,
                   :workspace_thread_scope_params, :fabric_thread_open_in_sequencing_path,
+                  :fabric_panel_thread, :fabric_selected_weave_thread_id,
                   :thread_workspace_open_threads_param if respond_to?(:helper_method)
+  end
+
+  def fabric_panel_thread
+    return nil unless workspace_fabric?
+
+    tid = params[:weave_thread].to_i
+    return nil unless tid.positive?
+
+    @project.sequences.threads.find_by(id: tid)
+  end
+
+  def fabric_selected_weave_thread_id
+    return 0 unless workspace_fabric?
+
+    tid = params[:weave_thread].to_i
+    tid.positive? ? tid : 0
   end
 
   def fabric_thread_open_in_sequencing_path(thread)

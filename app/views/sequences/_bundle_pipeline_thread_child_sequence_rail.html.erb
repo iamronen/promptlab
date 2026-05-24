@@ -70,6 +70,15 @@
                    scope_params: workspace_thread_scope_params %>
       <% end %>
       <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+      <% anchor_sequence = local_assigns[:anchor_sequence] %>
+      <button
+        type="button"
+        role="menuitem"
+        data-action="sequence-editor#copyPipelineChildAsText"
+        data-copy-text="<%= anchor_sequence&.copy_as_text.to_json %>"
+      >
+        Copy as text
+      </button>
       <button type="button" role="menuitem" data-action="sequence-editor#deleteStep">Delete</button>
     </div>
   </div>

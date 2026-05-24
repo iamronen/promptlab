@@ -230,7 +230,6 @@ class BundlesController < ApplicationController
   end
 
   def set_bundle_editor_collections
-    @pipeline_sequences = @project.sequences.generative_sequences.order(:position)
     @other_bundles = @project.sequences.bundles.where.not(id: @sequence.id).order(:position)
     refresh_pipeline_children_lookup
   end

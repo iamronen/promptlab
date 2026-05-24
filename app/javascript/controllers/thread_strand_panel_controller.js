@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import {
+  buildBundleCopyTextFromEditorRoot,
   buildSequenceCopyTextFromEditorRoot,
   parseCopyTextDataset
 } from "sequence_copy_text"
@@ -243,6 +244,32 @@ export default class extends Controller {
     const editorInner = document.getElementById(`thread_editor_sequence_inner_${seqId}`)
     if (editorInner) {
       text = buildSequenceCopyTextFromEditorRoot(editorInner)
+    }
+
+    if (!text) {
+      text = parseCopyTextDataset(event.currentTarget.dataset.copyText)
+    }
+
+    if (!text) return
+    void navigator.clipboard.writeText(text)
+  }
+
+  copyBundleAsText(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeAllOrderMenus()
+
+    const row = this.findStrandRowFromButton(event)
+    const stepKey = row?.dataset.strandStep
+    if (!stepKey?.startsWith("b:")) return
+
+    const bundleId = stepKey.slice(2)
+    let text = null
+
+    const bundleFrame = document.getElementById(`thread_editor_bundle_${bundleId}`)
+    const bundleMain = bundleFrame?.querySelector("main.sequence-editor--bundle")
+    if (bundleMain) {
+      text = buildBundleCopyTextFromEditorRoot(bundleMain)
     }
 
     if (!text) {

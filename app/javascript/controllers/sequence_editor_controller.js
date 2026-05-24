@@ -1,6 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 import { getSequenceEditorReadonlyPreference } from "sequence_editor_mode_storage"
 import { fetchAutosaveForm } from "workspace_autosave"
+import {
+  buildBundlePipelineChildCopyTextFromPipelineRow,
+  parseCopyTextDataset
+} from "sequence_copy_text"
 
 /** Generative step row (vs bundle pipeline slot: data-editor-kind="bundle_pipeline_slot"). */
 const SEQUENCE_STEP_ROW_SELECTOR = '[data-editor-kind="sequence_step"]'
@@ -25,8 +29,6 @@ export default class extends Controller {
     "contentInput",
     "editor",
     "stepTemplate",
-    "sequenceOptionsTemplate",
-    "sequenceSelect",
     "toolbar",
     "menu",
     "menuWrap"
@@ -132,14 +134,6 @@ export default class extends Controller {
       })
     }
 
-    if (this.hasSequenceSelectTarget) {
-      this.sequenceSelectTargets.forEach((sel) => {
-        const inNested = sel.closest(".nested-sequence-editor")
-        if (this.pipelineModeValue && inNested) return
-        sel.disabled = this.readonlyValue
-      })
-    }
-
     if (this.readonlyValue) {
       this.closeAllMenus()
       this.deactivateEditing()
@@ -238,6 +232,10 @@ export default class extends Controller {
 
   addStep() {
     if (this.readonlyValue) return
+    if (this.pipelineModeValue && !this.nestedValue) {
+      void this.pipelineAddStep({ anchorCard: null, placeBefore: false })
+      return
+    }
     const card = this.insertStep({ anchorCard: null, placeBefore: false })
     this.activateCard(card)
     this.queueStructureAutosave()
@@ -247,6 +245,10 @@ export default class extends Controller {
     if (this.readonlyValue) return
     const card = this.cardFromEvent(event)
     this.closeAllMenus()
+    if (this.pipelineModeValue && !this.nestedValue) {
+      void this.pipelineAddStep({ anchorCard: card, placeBefore: true })
+      return
+    }
     const newCard = this.insertStep({ anchorCard: card, placeBefore: true })
     this.activateCard(newCard)
     this.queueStructureAutosave()
@@ -256,6 +258,10 @@ export default class extends Controller {
     if (this.readonlyValue) return
     const card = this.cardFromEvent(event)
     this.closeAllMenus()
+    if (this.pipelineModeValue && !this.nestedValue) {
+      void this.pipelineAddStep({ anchorCard: card, placeBefore: false })
+      return
+    }
     const newCard = this.insertStep({ anchorCard: card, placeBefore: false })
     this.activateCard(newCard)
     this.queueStructureAutosave()
@@ -268,11 +274,8 @@ export default class extends Controller {
     let content = ""
     let sequenceId = ""
     if (this.pipelineModeValue) {
-      const select = this.pipelineRowSequenceSelect(card)
-      const hidden = card.querySelector(
-        '.bundle-step-picker-area input.bundle-pipeline-sequence-id-field[type="hidden"]'
-      )
-      sequenceId = select?.value || hidden?.value || ""
+      const hidden = card.querySelector(".bundle-pipeline-sequence-id-field")
+      sequenceId = hidden?.value || ""
     } else {
       const editor = card.querySelector('[data-sequence-editor-target="editor"]')
       content = editor ? editor.innerHTML.trim() : ""
@@ -286,28 +289,72 @@ export default class extends Controller {
     this.queueStructureAutosave()
   }
 
-  pipelineSequenceSelectChanged(event) {
-    if (this.readonlyValue || !this.pipelineModeValue || this.nestedValue) return
-    const sel = event.currentTarget
-    if (this.suppressPipelineSequenceChangeOnce) {
-      this.suppressPipelineSequenceChangeOnce = false
-      return
-    }
-    if (sel.value === "__new__") {
-      this.createPipelineSequenceFromSelect(sel)
-      return
-    }
-    if (!sel.value) return
+  async pipelineAddStep({ anchorCard = null, placeBefore = false }) {
+    if (this.readonlyValue || this.pipelineAddInFlight) return
+    this.pipelineAddInFlight = true
+    this.closeAllMenus()
 
-    this.syncEditorsBeforeSubmit()
     try {
-      sessionStorage.setItem(PIPELINE_SCROLL_AFTER_CREATE_KEY, String(sel.value))
-    } catch (_e) {
-      /* ignore private mode / quota */
+      const created = await this.createPipelineSequence()
+      if (!created) return
+
+      const card = this.insertStep({
+        anchorCard,
+        placeBefore,
+        sequenceId: String(created.id)
+      })
+      if (!card) return
+
+      try {
+        sessionStorage.setItem(PIPELINE_SCROLL_AFTER_CREATE_KEY, String(created.id))
+      } catch (_e) {
+        /* ignore private mode / quota */
+      }
+
+      this.syncEditorsBeforeSubmit()
+      const formEl = this.autosaveFormEl()
+      if (formEl) await this.autosaveFormAsync(formEl)
+      window.location.reload()
+    } finally {
+      this.pipelineAddInFlight = false
+    }
+  }
+
+  async createPipelineSequence() {
+    if (!this.pipelineCreateSequenceUrlValue) {
+      window.alert("Create sequence is not configured.")
+      return null
     }
 
-    const formEl = sel.closest("form")
-    if (formEl) void this.autosaveFormAsync(formEl)
+    try {
+      const response = await fetch(this.pipelineCreateSequenceUrlValue, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRF-Token": this.csrfToken()
+        }
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        const msg = Array.isArray(data.error) ? data.error.join(" ") : (data.error || "Could not create sequence.")
+        window.alert(msg)
+        return null
+      }
+
+      const id = data.id
+      if (id === undefined || id === null) {
+        window.alert("Invalid response while creating sequence.")
+        return null
+      }
+
+      return { id, title: data.title ?? "" }
+    } catch (_err) {
+      window.alert("Network error while creating sequence.")
+      return null
+    }
   }
 
   maybeScrollToNewPipelineSequence() {
@@ -350,98 +397,6 @@ export default class extends Controller {
         }
       })
     })
-  }
-
-  async createPipelineSequenceFromSelect(selectEl) {
-    if (!this.pipelineCreateSequenceUrlValue) {
-      window.alert("Create sequence is not configured.")
-      this.suppressPipelineSequenceChangeOnce = true
-      selectEl.value = ""
-      return
-    }
-
-    selectEl.disabled = true
-    try {
-      const response = await fetch(this.pipelineCreateSequenceUrlValue, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-          "X-CSRF-Token": this.csrfToken()
-        }
-      })
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        const msg = Array.isArray(data.error) ? data.error.join(" ") : (data.error || "Could not create sequence.")
-        window.alert(msg)
-        this.suppressPipelineSequenceChangeOnce = true
-        selectEl.value = ""
-        return
-      }
-
-      const id = data.id
-      const title = data.title ?? ""
-      if (id === undefined || id === null) {
-        window.alert("Invalid response while creating sequence.")
-        this.suppressPipelineSequenceChangeOnce = true
-        selectEl.value = ""
-        return
-      }
-
-      // Disabled controls are omitted from form submission — re-enable before PATCH.
-      selectEl.disabled = false
-
-      this.appendPipelineSequenceOptionToAllSelectors(String(id), String(title))
-
-      this.suppressPipelineSequenceChangeOnce = true
-      selectEl.value = String(id)
-      this.syncEditorsBeforeSubmit()
-      try {
-        sessionStorage.setItem(PIPELINE_SCROLL_AFTER_CREATE_KEY, String(id))
-      } catch (_e) {
-        /* ignore private mode / quota */
-      }
-
-      const formEl = selectEl.closest("form")
-      if (formEl) void this.autosaveFormAsync(formEl)
-    } catch (_err) {
-      window.alert("Network error while creating sequence.")
-      this.suppressPipelineSequenceChangeOnce = true
-      selectEl.value = ""
-    } finally {
-      selectEl.disabled = false
-    }
-  }
-
-  appendPipelineSequenceOptionToAllSelectors(idStr, title) {
-    const newOptFrom = () => {
-      const opt = document.createElement("option")
-      opt.value = idStr
-      opt.textContent = title
-      return opt
-    }
-
-    const appendToSelect = (select) => {
-      if ([...select.options].some((o) => o.value === idStr)) return
-      const sentinel = [...select.options].find((o) => o.value === "__new__")
-      const opt = newOptFrom()
-      if (sentinel) select.insertBefore(opt, sentinel)
-      else select.appendChild(opt)
-    }
-
-    this.sequenceSelectTargets.forEach((sel) => appendToSelect(sel))
-
-    if (this.hasSequenceOptionsTemplateTarget) {
-      const tpl = this.sequenceOptionsTemplateTarget.content
-      if (![...tpl.querySelectorAll("option")].some((o) => o.value === idStr)) {
-        const sentinelTpl = tpl.querySelector('option[value="__new__"]')
-        const opt = newOptFrom()
-        if (sentinelTpl) tpl.insertBefore(opt, sentinelTpl)
-        else tpl.appendChild(opt)
-      }
-    }
   }
 
   toggleMenu(event) {
@@ -496,6 +451,22 @@ export default class extends Controller {
     this.closeAllMenus()
     menu.hidden = false
     button?.setAttribute("aria-expanded", "true")
+  }
+
+  copyPipelineChildAsText(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeAllMenus()
+
+    const pipelineRow = event.currentTarget.closest('[data-editor-kind="bundle_pipeline_slot"]')
+    let text = buildBundlePipelineChildCopyTextFromPipelineRow(pipelineRow)
+
+    if (!text) {
+      text = parseCopyTextDataset(event.currentTarget.dataset.copyText)
+    }
+
+    if (!text) return
+    void navigator.clipboard.writeText(text)
   }
 
   unbundlePipelineChild(event) {
@@ -913,7 +884,6 @@ export default class extends Controller {
     this.refreshSequenceStepDragActiveMarker()
     this.setAllEditorsReadOnly()
     if (this.pipelineModeValue) {
-      const select = this.pipelineRowSequenceSelect(row)
       const titleInput = row.querySelector(".bundle-pipeline-child-title-input")
 
       const t = activatingEvent?.target
@@ -926,9 +896,7 @@ export default class extends Controller {
         return
       }
 
-      if (select && !this.readonlyValue) {
-        requestAnimationFrame(() => select.focus())
-      } else if (titleInput && !this.readonlyValue) {
+      if (titleInput && !this.readonlyValue) {
         requestAnimationFrame(() => titleInput.focus())
       }
       return
@@ -941,10 +909,6 @@ export default class extends Controller {
     if (editor) {
       requestAnimationFrame(() => editor.focus())
     }
-  }
-
-  pipelineRowSequenceSelect(row) {
-    return row.querySelector(".bundle-step-picker-area [data-sequence-editor-target=\"sequenceSelect\"]")
   }
 
   hideAllToolbars() {
@@ -1170,7 +1134,6 @@ export default class extends Controller {
     cards.forEach((card, index) => {
       const label = card.querySelector('[data-sequence-editor-target="stepLabel"]')
       const positionInput = card.querySelector('[data-sequence-editor-target="positionInput"]')
-      const sequenceSelect = card.querySelector('[data-sequence-editor-target="sequenceSelect"]')
       const destroyInput = card.querySelector('[data-sequence-editor-target="destroyInput"]')
       const contentInput = card.querySelector('[data-sequence-editor-target="contentInput"]')
       const upButton = card.querySelector('[data-step-control="up"]')
@@ -1183,9 +1146,6 @@ export default class extends Controller {
         positionInput.name = `${base}[position]`
         destroyInput.name = `${base}[_destroy]`
         if (contentInput) contentInput.name = `${base}[content]`
-      }
-      if (sequenceSelect) {
-        sequenceSelect.name = `sequence[steps_attributes][${index}][sequence_id]`
       }
 
       if (upButton) upButton.disabled = index === 0
@@ -1220,7 +1180,7 @@ export default class extends Controller {
       }
 
       const hiddenId = article.querySelector(
-        '.bundle-step-picker-area input.bundle-pipeline-sequence-id-field[type="hidden"]'
+        'input.bundle-pipeline-sequence-id-field[type="hidden"]'
       )
       const childId = hiddenId?.value
       const titleInput = article.querySelector(".bundle-pipeline-child-title-input")
@@ -1281,12 +1241,8 @@ export default class extends Controller {
       : cards[cards.length - 1]
 
     if (this.pipelineModeValue) {
-      const select = this.pipelineRowSequenceSelect(card)
-      if (select && this.hasSequenceOptionsTemplateTarget) {
-        select.innerHTML = ""
-        select.appendChild(this.sequenceOptionsTemplateTarget.content.cloneNode(true))
-        if (sequenceId) select.value = String(sequenceId)
-      }
+      const field = card?.querySelector(".bundle-pipeline-sequence-id-field")
+      if (field && sequenceId) field.value = String(sequenceId)
     } else {
       const editor = card.querySelector('[data-sequence-editor-target="editor"]')
       const contentInput = card.querySelector('[data-sequence-editor-target="contentInput"]')

@@ -166,7 +166,60 @@
    * Companions match thread-panel pattern (.workspace-weave-panel.prompt-weave-shell, etc.).
    */
   main.workspace-fabric.prompt-fabric-main {
-    @apply flex min-h-0 flex-1 flex-col bg-white;
+    @apply flex min-h-0 flex-1 flex-col bg-prompt-canvas;
+  }
+
+  .workspace-fabric-layout.prompt-fabric-layout {
+    --fabric-hierarchy-px: 320px;
+    --fabric-assistant-px: 320px;
+    @apply flex min-h-0 min-w-0 flex-1 items-stretch gap-3 p-4;
+  }
+
+  .workspace-fabric-hierarchy.prompt-fabric-hierarchy {
+    @apply box-border flex min-h-0 shrink-0 flex-col overflow-y-auto rounded-xl border border-gray-200 bg-white px-5 py-4 pb-6 shadow-sm dark:border-gray-700 dark:bg-gray-800;
+    width: var(--fabric-hierarchy-px, 320px);
+  }
+
+  .workspace-fabric-hierarchy-resize-handle.prompt-fabric-hierarchy-resize-handle,
+  .workspace-fabric-assistant-resize-handle.prompt-fabric-assistant-resize-handle {
+    @apply box-border w-1.5 shrink-0 cursor-col-resize appearance-none self-stretch rounded-full border-0 bg-gray-300 p-0 touch-none hover:bg-blue-500/15 focus:outline-none focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-600;
+  }
+
+  .workspace-fabric-thread-panel.prompt-fabric-thread-panel {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col self-stretch overflow-hidden;
+  }
+
+  .workspace-fabric-assistant.prompt-fabric-assistant {
+    @apply box-border flex min-h-0 shrink-0 flex-col self-stretch overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+    width: var(--fabric-assistant-px, 320px);
+  }
+
+  .workspace-fabric-assistant-header.prompt-fabric-assistant-header {
+    @apply shrink-0 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/80;
+  }
+
+  h2.workspace-fabric-assistant-heading.prompt-fabric-assistant-heading {
+    @apply m-0 text-base font-bold tracking-tight text-prompt-tab-text dark:text-gray-100;
+  }
+
+  .workspace-fabric-assistant-body.prompt-fabric-assistant-body {
+    @apply flex min-h-0 flex-1 flex-col overflow-y-auto p-4;
+  }
+
+  .workspace-fabric-assistant-placeholder.prompt-fabric-assistant-placeholder {
+    @apply m-0 text-[0.88rem] leading-snug text-prompt-muted dark:text-gray-400;
+  }
+
+  .workspace-fabric-thread-strip .workspace-thread-panel-split-column {
+    @apply min-h-0 w-full min-w-0 flex-1 basis-auto;
+  }
+
+  .workspace-fabric-thread-panel-empty.prompt-fabric-thread-panel-empty {
+    @apply flex h-full min-h-0 flex-1 flex-col items-center justify-center px-6 py-10 text-center;
+  }
+
+  .workspace-fabric-thread-panel-empty.prompt-fabric-thread-panel-empty p {
+    @apply m-0 text-[0.92rem] text-prompt-muted dark:text-gray-400;
   }
 
   .workspace-fabric-body.prompt-fabric-body {
@@ -267,8 +320,16 @@
     @apply box-border block max-w-full cursor-pointer whitespace-nowrap px-3.5 py-2 text-[0.88rem] font-semibold text-prompt-tab-text no-underline hover:bg-blue-500/10 hover:text-prompt-accent dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-blue-400;
   }
 
-  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-label {
-    @apply block min-w-0 cursor-default select-none text-[0.9rem] font-semibold leading-snug text-prompt-tab-text dark:text-gray-100;
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-select {
+    @apply box-border flex min-w-0 w-full cursor-pointer items-center rounded-md border border-transparent bg-transparent px-1.5 py-1 text-left font-sans text-[0.9rem] font-semibold leading-snug text-prompt-tab-text hover:bg-blue-50 dark:text-gray-100 dark:hover:bg-gray-800;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-select.is-selected {
+    @apply border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40;
+  }
+
+  .fabric-tree-thread-select-label.prompt-fabric-thread-select-label {
+    @apply block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-node-thread,
@@ -1752,8 +1813,19 @@
       min-height: 0;
     }
 
-    .workspace-pane-resize-handle {
+    .workspace-pane-resize-handle,
+    .workspace-fabric-hierarchy-resize-handle,
+    .workspace-fabric-assistant-resize-handle {
       display: none;
+    }
+
+    .workspace-fabric-layout.prompt-fabric-layout {
+      flex-direction: column;
+    }
+
+    .workspace-fabric-hierarchy.prompt-fabric-hierarchy,
+    .workspace-fabric-assistant.prompt-fabric-assistant {
+      width: 100%;
     }
 
     .workspace-shell--three-pane {

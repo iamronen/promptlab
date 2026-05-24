@@ -120,14 +120,34 @@ class Sequence < ApplicationRecord
     end
   end
 
-  # Plain-text export for clipboard copy: title, intent, numbered steps.
+  # Plain-text export for clipboard copy.
+  # Generative sequences: title, intent, numbered steps (default placeholders omitted).
+  # Bundles: bundle title, then each non-empty pipeline sequence's copy_as_text.
   def copy_as_text
-    lines = [ProjectPdfHtml.to_plain(title.to_s), "", ProjectPdfHtml.to_plain(intent.to_s), ""]
-    ordered_steps.each_with_index do |step, i|
-      plain = ProjectPdfHtml.to_plain(step.content.to_s).strip
-      lines << "#{i + 1}. #{plain}" if plain.present?
-    end
+    return bundle_copy_as_text if bundle?
+
+    lines = []
+    append_copy_title_lines!(lines)
+    append_copy_intent_lines!(lines)
+    append_copy_step_lines!(lines)
     "#{lines.join("\n").strip}\n"
+  end
+
+  def bundle_copy_as_text
+    parts = [ProjectPdfHtml.to_plain(title.to_s)]
+    pipeline_generative_children_ordered.each do |child|
+      next if child.empty_for_copy?
+
+      parts << ""
+      parts << child.copy_as_text.rstrip
+    end
+    "#{parts.join("\n").strip}\n"
+  end
+
+  def empty_for_copy?
+    return false unless sequence?
+
+    default_copy_title? && default_copy_intent? && !copy_steps_present?
   end
 
   def anchors_child_threads?
@@ -360,6 +380,47 @@ class Sequence < ApplicationRecord
   end
 
   private
+
+  def plain_copy_field(value)
+    ProjectPdfHtml.to_plain(value.to_s).strip
+  end
+
+  def default_copy_title?
+    plain = plain_copy_field(title)
+    plain.blank? || plain == DEFAULT_TITLE
+  end
+
+  def default_copy_intent?
+    plain = plain_copy_field(intent)
+    plain.blank? || plain == DEFAULT_INTENT
+  end
+
+  def copy_steps_present?
+    ordered_steps.any? { |step| plain_copy_field(step.content).present? }
+  end
+
+  def append_copy_title_lines!(lines)
+    plain = plain_copy_field(title)
+    return if plain.blank? || plain == DEFAULT_TITLE
+
+    lines << plain
+    lines << ""
+  end
+
+  def append_copy_intent_lines!(lines)
+    plain = plain_copy_field(intent)
+    return if plain.blank? || plain == DEFAULT_INTENT
+
+    lines << plain
+    lines << ""
+  end
+
+  def append_copy_step_lines!(lines)
+    ordered_steps.each_with_index do |step, i|
+      plain = plain_copy_field(step.content)
+      lines << "#{i + 1}. #{plain}" if plain.present?
+    end
+  end
 
   def assign_created_by
     self.created_by ||= Current.user || project&.user

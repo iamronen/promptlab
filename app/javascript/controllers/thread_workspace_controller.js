@@ -64,7 +64,8 @@ export default class extends Controller {
   static values = {
     projectId: Number,
     allowedIds: Array,
-    focusId: Number
+    focusId: Number,
+    fabricMode: { type: Boolean, default: false }
   }
 
   connect() {
@@ -191,6 +192,11 @@ export default class extends Controller {
 
     this.refreshAllowedSet()
     this.primeAllowed([id])
+
+    if (this.fabricModeValue) {
+      this.visitOpenThreads([id], id)
+      return
+    }
 
     const openSet = new Set(this.domPanelOrder())
     if (openSet.has(id)) {
@@ -449,6 +455,7 @@ export default class extends Controller {
    * @returns {boolean} true when a navigation was scheduled
    */
   maybeReconcileStoredOpenSet() {
+    if (this.fabricModeValue) return false
     if (!this.hasStripTarget) return false
 
     this.refreshAllowedSet()

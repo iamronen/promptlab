@@ -1026,17 +1026,6 @@ body {
   min-width: 0;
 }
 
-.bundle-step-select {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 0.45rem 0.5rem;
-  border: 1px solid #d8e0ea;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: #fff;
-}
-
 /* Pipeline segment title/intent: reuse .sequence-title-input / .sequence-intent-input (see .meta-fields) */
 .bundle-pipeline-child-meta {
   display: grid;
@@ -1464,10 +1453,6 @@ main.sequence-editor--bundle .sequence-intent-input {
 .sequence-editor.sequence-editor--readonly
   .sequence-meta-taxonomy-choice-btn.sequence-meta-taxonomy-choice-btn--selected {
   opacity: 1;
-}
-
-.sequence-editor--readonly .bundle-step-select {
-  opacity: 0.85;
 }
 
 /* Transformation: document view vs pipeline editor */

@@ -1,5 +1,6 @@
-<%# locals: branch (FabricThreadTree::ThreadBranch), top_level: %>
+<%# locals: branch (FabricThreadTree::ThreadBranch), top_level:, selected_id: %>
 <% top_level = local_assigns.fetch(:top_level, false) %>
+<% selected_id = local_assigns.fetch(:selected_id, 0).to_i %>
 <% thread = branch.thread %>
 <% children = branch.child_branches %>
 <% if children.any? %>
@@ -14,13 +15,22 @@
           <%= render "sequences/fabric_tree_chevron" %>
         </span>
         <%= render "sequences/fabric_thread_row_menu", thread: thread %>
-        <span class="fabric-tree-thread-label" role="treeitem"><%= thread.title.to_s.truncate(80) %></span>
+        <button
+          type="button"
+          class="fabric-tree-thread-select prompt-fabric-thread-select<%= " is-selected" if selected_id == thread.id %>"
+          data-thread-id="<%= thread.id %>"
+          data-action="weave-panel#select"
+          role="treeitem"
+          aria-pressed="<%= selected_id == thread.id %>"
+        >
+          <span class="fabric-tree-thread-select-label prompt-fabric-thread-select-label"><%= thread.title.to_s.truncate(80) %></span>
+        </button>
       </span>
     </summary>
     <ul class="fabric-tree-thread-children" role="group">
       <% children.each do |sub| %>
         <li class="fabric-tree-thread-child" role="none">
-          <%= render "sequences/fabric_thread_tree_branch", branch: sub, top_level: false %>
+          <%= render "sequences/fabric_thread_tree_branch", branch: sub, top_level: false, selected_id: selected_id %>
         </li>
       <% end %>
     </ul>
@@ -30,7 +40,16 @@
     <div class="fabric-tree-row fabric-tree-row--leaf">
       <span class="fabric-tree-chevron-cell fabric-tree-chevron-cell--blank" aria-hidden="true"></span>
       <%= render "sequences/fabric_thread_row_menu", thread: thread %>
-      <span class="fabric-tree-thread-label" role="treeitem"><%= thread.title.to_s.truncate(80) %></span>
+      <button
+        type="button"
+        class="fabric-tree-thread-select prompt-fabric-thread-select<%= " is-selected" if selected_id == thread.id %>"
+        data-thread-id="<%= thread.id %>"
+        data-action="weave-panel#select"
+        role="treeitem"
+        aria-pressed="<%= selected_id == thread.id %>"
+      >
+        <span class="fabric-tree-thread-select-label prompt-fabric-thread-select-label"><%= thread.title.to_s.truncate(80) %></span>
+      </button>
     </div>
   </div>
 <% end %>

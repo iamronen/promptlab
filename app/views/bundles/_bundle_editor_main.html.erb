@@ -182,27 +182,6 @@
                     </div>
                   </article>
 
-                <% elsif thread_panel_editor_embed %>
-                  <article class="step-card bundle-pipeline-step-card bundle-pipeline-step-card--thread-editor-empty-slot">
-                    <span class="step-hidden-fields" aria-hidden="true">
-                      <%= hidden_field_tag "sequence[steps_attributes][#{index}][position]", step_row.position, id: false, data: { sequence_editor_target: "positionInput" } %>
-                      <%= hidden_field_tag "sequence[steps_attributes][#{index}][_destroy]", "false", id: false, data: { sequence_editor_target: "destroyInput" } %>
-                    </span>
-                    <div class="step-content-area bundle-step-picker-area" data-action="click->sequence-editor#activateStep">
-                      <%= select_tag "sequence[steps_attributes][#{index}][sequence_id]",
-                                     options_for_select(
-                                       [["— Select sequence —", ""]] + @pipeline_sequences.map { |s| [s.title.to_s.truncate(80), s.id] } + [["+ Create new sequence…", "__new__"]],
-                                       step_row.sequence_id
-                                     ),
-                                     id: nil,
-                                     class: "bundle-step-select bundle-pipeline-sequence-id-field",
-                                     data: {
-                                       sequence_editor_target: "sequenceSelect",
-                                       action: "change->sequence-editor#pipelineSequenceSelectChanged"
-                                     } %>
-                    </div>
-                  </article>
-
                 <% else %>
                 <% if modal_mode %>
                 <div class="thread-strand-sequence-container">
@@ -267,8 +246,6 @@
                           <% end %>
                         <% elsif step_row.sequence_id.present? %>
                           <p class="bundle-segment-missing">This sequence is no longer available.</p>
-                        <% else %>
-                          <p class="bundle-segment-missing bundle-segment-missing--empty-slot">No sequence selected.</p>
                         <% end %>
                       </div>
                     </div>
@@ -301,18 +278,13 @@
                                               aria: { label: "Generative sequence intent" } %>
                           </div>
                         </div>
-                      <% else %>
-                        <%= select_tag "sequence[steps_attributes][#{index}][sequence_id]",
-                                       options_for_select(
-                                         [["— Select sequence —", ""]] + @pipeline_sequences.map { |s| [s.title.to_s.truncate(80), s.id] } + [["+ Create new sequence…", "__new__"]],
-                                         step_row.sequence_id
-                                       ),
-                                       id: nil,
-                                       class: "bundle-step-select bundle-pipeline-sequence-id-field",
-                                       data: {
-                                         sequence_editor_target: "sequenceSelect",
-                                         action: "change->sequence-editor#pipelineSequenceSelectChanged"
-                                       } %>
+                      <% elsif step_row.sequence_id.present? %>
+                        <%= hidden_field_tag "sequence[steps_attributes][#{index}][sequence_id]",
+                                             step_row.sequence_id,
+                                             id: nil,
+                                             class: "bundle-pipeline-sequence-id-field",
+                                             autocomplete: "off" %>
+                        <p class="bundle-segment-missing">This sequence is no longer available.</p>
                       <% end %>
                     </div>
 
@@ -342,14 +314,6 @@
 
       <% end %>
 
-      <template data-sequence-editor-target="sequenceOptionsTemplate">
-        <option value="">— Select sequence —</option>
-        <% @pipeline_sequences.each do |ps| %>
-          <option value="<%= ps.id %>"><%= ps.title.to_s.truncate(80) %></option>
-        <% end %>
-        <option value="__new__">+ Create new sequence…</option>
-      </template>
-
       <template data-sequence-editor-target="stepTemplate">
         <% if thread_panel_editor_embed %>
         <div class="bundle-pipeline-row thread-editor-bundle-slot" draggable="false" data-editor-kind="bundle_pipeline_slot" data-sequence-editor-target="pipelineStepRow">
@@ -358,14 +322,13 @@
               <input type="hidden" name="sequence[steps_attributes][NEW_RECORD][position]" value="0" data-sequence-editor-target="positionInput">
               <input type="hidden" name="sequence[steps_attributes][NEW_RECORD][_destroy]" value="false" data-sequence-editor-target="destroyInput">
             </span>
-            <div class="step-content-area bundle-step-picker-area" data-action="click->sequence-editor#activateStep">
-              <select
-                name="sequence[steps_attributes][NEW_RECORD][sequence_id]"
-                class="bundle-step-select bundle-pipeline-sequence-id-field"
-                data-sequence-editor-target="sequenceSelect"
-                data-action="change->sequence-editor#pipelineSequenceSelectChanged"
-              ></select>
-            </div>
+            <input
+              type="hidden"
+              name="sequence[steps_attributes][NEW_RECORD][sequence_id]"
+              value=""
+              class="bundle-pipeline-sequence-id-field"
+              autocomplete="off"
+            >
           </article>
         </div>
         <% else %>
@@ -427,20 +390,18 @@
                 </div>
                 <div class="bundle-readonly-sequence-content">
                   <h4 class="bundle-segment-heading">Generative sequence</h4>
-                  <p class="bundle-segment-missing bundle-segment-missing--empty-slot">No sequence selected.</p>
                 </div>
               </div>
             </div>
 
             <div class="bundle-pipeline-edit-stack">
-              <div class="step-content-area bundle-step-picker-area" data-action="click->sequence-editor#activateStep">
-                <select
-                  name="sequence[steps_attributes][NEW_RECORD][sequence_id]"
-                  class="bundle-step-select bundle-pipeline-sequence-id-field"
-                  data-sequence-editor-target="sequenceSelect"
-                  data-action="change->sequence-editor#pipelineSequenceSelectChanged"
-                ></select>
-              </div>
+              <input
+                type="hidden"
+                name="sequence[steps_attributes][NEW_RECORD][sequence_id]"
+                value=""
+                class="bundle-pipeline-sequence-id-field"
+                autocomplete="off"
+              >
             </div>
           </article>
         </div>
