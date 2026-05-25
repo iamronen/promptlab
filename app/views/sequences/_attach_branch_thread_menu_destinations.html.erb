@@ -9,6 +9,7 @@
     scope_params: Hash — e.g. workspace_thread_scope_params
 %>
 <% candidates = Array.wrap(local_assigns[:candidates]) %>
+<% return if candidates.empty? %>
 <% variant = (local_assigns[:variant] || :workspace).to_sym %>
 <% target_parent_thread = local_assigns.fetch(:target_parent_thread) %>
 <% anchor_sequence_id = local_assigns.fetch(:anchor_sequence_id) %>
@@ -49,15 +50,6 @@
                       class: "workspace-thread-tf-order-menu-item",
                       title: h(th.title.to_s) %>
       <% end %>
-      <button
-        type="button"
-        role="menuitem"
-        class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--disabled"
-        disabled
-        aria-disabled="true"
-      >
-        Choose thread
-      </button>
     </div>
   </div>
 <% else %>
@@ -78,9 +70,6 @@
                       class: "step-menu--thread-handle-submit",
                       title: h(th.title.to_s) %>
       <% end %>
-      <button type="button" role="menuitem" disabled aria-disabled="true">
-        Choose thread
-      </button>
     </div>
   </div>
 <% end %>

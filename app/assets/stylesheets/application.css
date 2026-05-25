@@ -95,6 +95,17 @@ body {
   display: none;
 }
 
+.project-taxonomy-bundle-pipeline--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+.project-taxonomy-bundle-pipeline--disabled legend,
+.project-taxonomy-bundle-pipeline--disabled label {
+  cursor: not-allowed;
+}
+
 .prompt-sequence-nav-host .sequence-nav-menu .project-taxonomy-move-submenu-host {
   margin: 0;
 }
@@ -186,7 +197,7 @@ body {
   display: none;
 }
 
-.sequence-editor--readonly .step-order-rail,
+.sequence-editor--readonly .step-order-rail:not(.step-order-rail--thread-handle),
 .sequence-editor--readonly .step-actions-area {
   display: none !important;
 }
@@ -1462,7 +1473,7 @@ main.sequence-editor--bundle:not(.sequence-editor--readonly) .bundle-segment-rea
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-edit-stack,
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-footer,
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-actions,
-main.sequence-editor--bundle.sequence-editor--readonly .step-order-rail,
+main.sequence-editor--bundle.sequence-editor--readonly .step-order-rail:not(.step-order-rail--thread-handle),
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-step-number {
   display: none !important;
 }

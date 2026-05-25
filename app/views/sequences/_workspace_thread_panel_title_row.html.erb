@@ -5,7 +5,6 @@
 <% destroy_params = { redirect_to: editor_return_path }.merge(scope_for_destroy).compact %>
 <% has_strand_content = thread.strand_step_pairs.any? %>
 <% crumb_payload = thread.thread_workspace_breadcrumb_payload %>
-<% lineage_nav_label = crumb_payload ? "Thread lineage: #{crumb_payload.lineage_label_text}" : nil %>
 <div
   class="workspace-thread-panel-header-title-row prompt-thread-panel-header-title-row"
   data-controller="workspace-thread-panel-title"
@@ -148,33 +147,11 @@
       id="<%= heading_id %>"
       class="workspace-thread-panel-title workspace-thread-panel-title--breadcrumb prompt-thread-panel-title"
     >
-      <nav class="workspace-thread-panel-title-breadcrumb" aria-label="<%= h lineage_nav_label %>">
-        <% if crumb_payload.ellipsis %>
-          <span class="workspace-thread-panel-title-breadcrumb-ellipsis" aria-hidden="true">…</span>
-          <span class="workspace-thread-panel-title-breadcrumb-sep workspace-thread-panel-title-breadcrumb-sep--ellipsis" aria-hidden="true">/</span>
-        <% end %>
-        <% crumb_payload.visible_segments.each_with_index do |seg, idx| %>
-          <% unless idx.zero? %>
-            <span class="workspace-thread-panel-title-breadcrumb-sep" aria-hidden="true">/</span>
-          <% end %>
-          <% if seg.id == thread.id %>
-            <span
-              class="workspace-thread-panel-title-breadcrumb-current prompt-thread-panel-title"
-              data-workspace-thread-panel-title-target="currentTitle"
-            ><%= seg.title %></span>
-          <% else %>
-            <button
-              type="button"
-              class="workspace-thread-panel-title-breadcrumb-ancestor"
-              data-action="click->thread-workspace#focusOrOpenAncestorFromBreadcrumb"
-              data-thread-workspace-ancestor-id-param="<%= seg.id %>"
-              data-thread-workspace-panel-owner-id-param="<%= panel_owner_thread.id %>"
-            >
-              <%= seg.title %>
-            </button>
-          <% end %>
-        <% end %>
-      </nav>
+      <%= render "sequences/thread_workspace_breadcrumb",
+                 thread: thread,
+                 project: project,
+                 panel_owner_thread: panel_owner_thread,
+                 nav_mode: :stimulus %>
     </h2>
   <% else %>
     <h2

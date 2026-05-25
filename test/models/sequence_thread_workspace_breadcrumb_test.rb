@@ -50,15 +50,31 @@ class SequenceThreadWorkspaceBreadcrumbTest < ActiveSupport::TestCase
     assert_equal pl.full_segments, pl.visible_segments
   end
 
-  test "four segments yields ellipsis and visible last three titles" do
+  test "five segments shows full trail without ellipsis" do
     mid = thread_branch!("Mid")
     between = thread_branch!("Between", parent: mid, anchor: anchor_seq_for(mid))
-    leaf = thread_branch!("Leaf", parent: between, anchor: anchor_seq_for(between))
+    deeper = thread_branch!("Deeper", parent: between, anchor: anchor_seq_for(between))
+    leaf = thread_branch!("Leaf", parent: deeper, anchor: anchor_seq_for(deeper))
 
     pl = leaf.thread_workspace_breadcrumb_payload
-    assert_equal [@genesis.id, mid.id, between.id, leaf.id], pl.full_segments.map(&:id)
+    assert_equal [@genesis.id, mid.id, between.id, deeper.id, leaf.id], pl.full_segments.map(&:id)
+    refute pl.ellipsis
+    assert_equal pl.full_segments, pl.visible_segments
+    assert_includes pl.lineage_label_text, @genesis.title
+    assert_includes pl.lineage_label_text, leaf.title
+  end
+
+  test "six segments yields ellipsis and visible last five titles" do
+    mid = thread_branch!("Mid")
+    between = thread_branch!("Between", parent: mid, anchor: anchor_seq_for(mid))
+    deeper = thread_branch!("Deeper", parent: between, anchor: anchor_seq_for(between))
+    deeper2 = thread_branch!("Deeper2", parent: deeper, anchor: anchor_seq_for(deeper))
+    leaf = thread_branch!("Leaf", parent: deeper2, anchor: anchor_seq_for(deeper2))
+
+    pl = leaf.thread_workspace_breadcrumb_payload
+    assert_equal [@genesis.id, mid.id, between.id, deeper.id, deeper2.id, leaf.id], pl.full_segments.map(&:id)
     assert pl.ellipsis
-    assert_equal [mid.id, between.id, leaf.id], pl.visible_segments.map(&:id)
+    assert_equal [mid.id, between.id, deeper.id, deeper2.id, leaf.id], pl.visible_segments.map(&:id)
     assert_includes pl.lineage_label_text, @genesis.title
     assert_includes pl.lineage_label_text, leaf.title
   end

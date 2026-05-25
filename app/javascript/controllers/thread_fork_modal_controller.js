@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { trimTrailingWhitespaceInPlace } from "text_input_sanitizer"
 
 export default class extends Controller {
   static targets = ["dialog", "form", "titleInput", "parentSequenceIdInput", "redirectToInput", "scopeParamsContainer"]
@@ -44,6 +45,10 @@ export default class extends Controller {
     requestAnimationFrame(() => {
       this.titleInputTarget?.focus()
     })
+  }
+
+  submit(event) {
+    if (this.hasTitleInputTarget) trimTrailingWhitespaceInPlace(this.titleInputTarget)
   }
 
   close(event) {

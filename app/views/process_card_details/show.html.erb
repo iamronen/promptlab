@@ -1,0 +1,39 @@
+<%= turbo_frame_tag "process_card_modal" do %>
+  <div class="process-card-modal-panel bundle-edit-dialog-panel">
+    <header class="process-card-modal-header">
+      <div class="process-card-modal-descriptor">
+        <% if @host_thread %>
+          <%= render "sequences/thread_workspace_breadcrumb",
+                     thread: @host_thread,
+                     project: @project,
+                     artifact: @artifact,
+                     nav_mode: :fabric_link %>
+        <% end %>
+        <h2 id="process-card-modal-heading" class="process-card-modal-title m-0"><%= process_card_title %></h2>
+      </div>
+      <div class="process-card-modal-controls" role="group" aria-label="Card actions">
+        <% if @fabric_open_url %>
+          <%= link_to "Open in Thread",
+                      @fabric_open_url,
+                      class: "prompt-btn-primary shrink-0 px-4 py-2 text-[0.85rem] font-semibold no-underline",
+                      data: { turbo_frame: "_top" } %>
+        <% end %>
+        <button
+          type="button"
+          class="process-card-modal-close bundle-edit-dialog-close"
+          data-action="click->process-card-modal#close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+    </header>
+    <div class="process-card-modal-body">
+      <% if @artifact.bundle? %>
+        <%= render "process_card_details/bundle_card_body" %>
+      <% else %>
+        <%= render "process_card_details/sequence_card_body" %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

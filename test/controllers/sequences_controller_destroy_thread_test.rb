@@ -69,12 +69,73 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
     uri = URI.parse(@response.redirect_url)
     q = Rack::Utils.parse_nested_query(uri.query.to_s)
 
-    assert_equal "fabric", q["workspace_mode"].to_s
+    assert q["workspace_mode"].blank?, "fabric is default when last thread cleared"
     assert q["open_threads"].blank?, "open_threads cleared"
     assert q["weave_thread"].blank?, "weave_thread cleared"
     assert q["thread_partner"].blank?
 
     assert_not @project.sequences.threads.where(id: child.id).exists?
+  end
+
+  test "destroy strand sequence clears focus_transformation_id from redirect" do
+    empty = @project.sequences.create!(
+      kind: :sequence,
+      title: "Empty lane",
+      intent: "i",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => empty.id }])
+
+    rt = "#{edit_project_sequence_path(@project, @seq)}?#{{
+      weave_thread: @genesis.id.to_s,
+      focus_transformation_id: empty.id.to_s
+    }.to_query}"
+
+    assert_difference -> { @project.sequences.generative_sequences.where(id: empty.id).count }, -1 do
+      delete project_sequence_path(@project, empty),
+             params: {
+               redirect_to: rt,
+               weave_thread: @genesis.id,
+               focus_transformation_id: empty.id
+             }
+    end
+
+    uri = URI.parse(@response.redirect_url)
+    q = Rack::Utils.parse_nested_query(uri.query.to_s)
+
+    assert_equal edit_project_sequence_path(@project, @seq), uri.path
+    assert q["focus_transformation_id"].blank?, "focus must not point at deleted sequence"
+    assert_equal @genesis.id.to_s, q["weave_thread"].to_s
+
+    follow_redirect!
+    assert_response :success
+    assert_not @response.body.include?("ActiveRecord::RecordNotFound")
+  end
+
+  test "destroy strand sequence redirects away when editor path is deleted sequence" do
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Solo",
+      intent: "i",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => solo.id }])
+    solo_id = solo.id
+
+    rt = edit_project_sequence_path(@project, solo, weave_thread: @genesis.id)
+
+    assert_difference -> { @project.sequences.generative_sequences.where(id: solo_id).count }, -1 do
+      delete project_sequence_path(@project, solo),
+             params: { redirect_to: rt, weave_thread: @genesis.id }
+    end
+
+    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id)
+    follow_redirect!
+    assert_response :success
   end
 
   test "cannot destroy genesis thread" do

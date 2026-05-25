@@ -1,0 +1,75 @@
+<header class="application-header" aria-label="Application">
+  <div class="application-header-inner">
+    <div class="application-header-spacer" aria-hidden="true"></div>
+
+    <div
+      class="application-title-container"
+      data-application-settings-target="anchor"
+    >
+      <div class="application-title-brand">
+        <span class="application-icon-placeholder" aria-hidden="true"></span>
+        <span class="application-name">Sequential</span>
+      </div>
+      <button
+        type="button"
+        class="application-settings-trigger"
+        aria-label="Application settings"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        data-application-settings-target="trigger"
+        data-action="click->application-settings#toggle"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <polygon points="12 16 6 8 18 8"/>
+        </svg>
+      </button>
+
+      <%= render "layouts/application_settings_panel" %>
+    </div>
+
+    <div class="application-header-toolbar">
+      <div
+        class="prompt-workspace-header-btn-group--ring"
+        role="group"
+        aria-label="Workspace text size"
+      >
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--first prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierSm"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="sm"
+          aria-pressed="false"
+          title="Smaller text in workspace content"
+          aria-label="Smaller workspace text"
+        >
+          A−
+        </button>
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--mid prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierMd"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="md"
+          aria-pressed="true"
+          title="Default text size in workspace content"
+          aria-label="Default workspace text size"
+        >
+          A
+        </button>
+        <button
+          type="button"
+          class="prompt-workspace-header-segment prompt-workspace-header-segment--last prompt-workspace-header-segment--compact"
+          data-workspace-font-size-target="tierLg"
+          data-action="workspace-font-size#setSize"
+          data-workspace-font-size-size-param="lg"
+          aria-pressed="false"
+          title="Larger text in workspace content"
+          aria-label="Larger workspace text"
+        >
+          A+
+        </button>
+      </div>
+    </div>
+  </div>
+</header>

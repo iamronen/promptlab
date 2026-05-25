@@ -143,93 +143,93 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     assert_equal({}, @t1.reload.branch_child_threads_by_anchor_generative_sequence_id)
   end
 
-  test "move_to_thread_menu_destinations is empty for non-thread sequences" do
-    assert_empty @t1.move_to_thread_menu_destinations(open_threads: [])
+  test "move_to_thread_menu_destination_groups is empty for non-thread sequences" do
+    groups = @t1.move_to_thread_menu_destination_groups
+    assert_empty groups.parents
+    assert_empty groups.parallels
+    assert_empty groups.cousins
+    refute @t1.move_to_thread_menu_destinations_any?
   end
 
-  test "move_to_thread_menu_destinations orders open threads first then branch children by strand walk" do
-    g1 = @project.sequences.create!(
+  test "move_to_thread_menu_destination_groups is empty for genesis" do
+    groups = @genesis.move_to_thread_menu_destination_groups
+    assert_empty groups.parents
+    assert_empty groups.parallels
+    assert_empty groups.cousins
+    refute @genesis.move_to_thread_menu_destinations_any?
+  end
+
+  test "move_to_thread_menu_destination_groups lists parents parallels and cousins" do
+    g_root = @project.sequences.create!(
       kind: :sequence,
-      title: "G1",
+      title: "Root anchor",
       intent: "a",
       position: 3,
       steps_data: [{ "content" => "x" }],
       is_term: false
     )
-    g2 = @project.sequences.create!(
+    g_parent = @project.sequences.create!(
       kind: :sequence,
-      title: "G2",
+      title: "Parent anchor",
       intent: "b",
       position: 4,
       steps_data: [{ "content" => "y" }],
       is_term: false
     )
-    @genesis.update!(steps_data: [{ "sequence_id" => g1.id }, { "sequence_id" => g2.id }])
-
-    open_b = @project.sequences.create!(
-      kind: :thread,
-      title: "Open B",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
+    g_parallel1 = @project.sequences.create!(
+      kind: :sequence,
+      title: "Parallel1 anchor",
+      intent: "c",
+      position: 5,
+      steps_data: [{ "content" => "z" }],
+      is_term: false
     )
-    open_a = @project.sequences.create!(
-      kind: :thread,
-      title: "Open A",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
+    g_cousin1 = @project.sequences.create!(
+      kind: :sequence,
+      title: "Cousin1 anchor",
+      intent: "d",
+      position: 6,
+      steps_data: [{ "content" => "w" }],
+      is_term: false
     )
-    branch_a = @project.sequences.create!(
-      kind: :thread,
-      title: "Branch A",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
-    )
-    branch_b = @project.sequences.create!(
-      kind: :thread,
-      title: "Branch B",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
+    g_cousin2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "Cousin2 anchor",
+      intent: "e",
+      position: 7,
+      steps_data: [{ "content" => "v" }],
+      is_term: false
     )
 
-    ThreadNode.create!(
-      parent_thread: @genesis,
-      parent_generative_sequence: g1,
-      child_thread: branch_a,
-      child_order: 1
-    )
-    ThreadNode.create!(
-      parent_thread: @genesis,
-      parent_generative_sequence: g2,
-      child_thread: branch_b,
-      child_order: 1
-    )
+    @genesis.update!(steps_data: [{ "sequence_id" => g_root.id }])
 
-    dest = @genesis.move_to_thread_menu_destinations(open_threads: [open_b, open_a])
-    assert_equal [open_b.id, open_a.id, branch_a.id, branch_b.id], dest.map(&:id)
+    parent_a = thread_branch!("Parent A", parent: @genesis, anchor: g_root)
+    parent_a.update!(steps_data: [
+      { "sequence_id" => g_parent.id },
+      { "sequence_id" => g_parallel1.id }
+    ])
 
-    # Swap strand order: branch children follow g2 before g1
-    @genesis.update!(steps_data: [{ "sequence_id" => g2.id }, { "sequence_id" => g1.id }])
-    dest_reordered = @genesis.reload.move_to_thread_menu_destinations(open_threads: [])
-    assert_equal [branch_b.id, branch_a.id], dest_reordered.map(&:id)
+    current = thread_branch!("Current", parent: parent_a, anchor: g_parent)
+    parallel1 = thread_branch!("Parallel 1", parent: parent_a, anchor: g_parallel1)
+    parallel1.update!(steps_data: [
+      { "sequence_id" => g_cousin1.id },
+      { "sequence_id" => g_cousin2.id }
+    ])
+    cousin1 = thread_branch!("Cousin 1", parent: parallel1, anchor: g_cousin1)
+    cousin2 = thread_branch!("Cousin 2", parent: parallel1, anchor: g_cousin2)
+
+    groups = current.reload.move_to_thread_menu_destination_groups
+    assert_equal [@genesis.id, parent_a.id], groups.parents.map(&:id)
+    assert_equal [parallel1.id], groups.parallels.map(&:id)
+    assert_equal [cousin1.id, cousin2.id], groups.cousins.map(&:id)
+    assert current.move_to_thread_menu_destinations_any?
+
+    groups.parents.each { |t| refute_equal current.id, t.id }
+    groups.parallels.each { |t| refute_equal current.id, t.id }
+    groups.cousins.each { |t| refute_equal current.id, t.id }
   end
 
-  test "move_to_thread_menu_destinations excludes self and dedupes open versus branch" do
+  test "move_to_thread_menu_destinations legacy helper still accepts open_threads" do
     g = @project.sequences.create!(
       kind: :sequence,
       title: "Anchor",
@@ -240,34 +240,16 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     )
     @genesis.update!(steps_data: [{ "sequence_id" => g.id }])
 
-    other = @project.sequences.create!(
-      kind: :thread,
-      title: "Fork",
-      intent: "b",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
-    )
+    other = thread_branch!("Fork", parent: @genesis, anchor: g)
 
-    ThreadNode.create!(
-      parent_thread: @genesis,
-      parent_generative_sequence: g,
-      child_thread: other,
-      child_order: 1
-    )
-
-    assert_equal [other.id], @genesis.reload.move_to_thread_menu_destinations(open_threads: [@genesis]).map(&:id)
-    assert_equal [other.id], @genesis.move_to_thread_menu_destinations(open_threads: [other, other]).map(&:id)
-    assert_equal [other.id], @genesis.move_to_thread_menu_destinations(open_threads: [other]).map(&:id)
+    assert_equal [other.id], @genesis.reload.move_to_thread_menu_destinations(open_threads: [other]).map(&:id)
   end
 
   test "attach_branch_thread_menu_candidates is empty for non-thread" do
-    assert_empty @t1.attach_branch_thread_menu_candidates(open_threads: [], anchor_sequence_id: 1)
+    assert_empty @t1.attach_branch_thread_menu_candidates(anchor_sequence_id: 1)
   end
 
-  test "attach_branch_thread_menu_candidates lists only branched threads and respects anchor no-op" do
+  test "attach_branch_thread_menu_candidates lists direct child threads and respects anchor no-op" do
     g1 = @project.sequences.create!(
       kind: :sequence,
       title: "G1",
@@ -286,26 +268,6 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     )
     @genesis.update!(steps_data: [{ "sequence_id" => g1.id }, { "sequence_id" => g2.id }])
 
-    open_b = @project.sequences.create!(
-      kind: :thread,
-      title: "Open B",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
-    )
-    open_a = @project.sequences.create!(
-      kind: :thread,
-      title: "Open A",
-      intent: "t",
-      position: @project.sequences.threads.maximum(:position).to_i + 1,
-      steps_data: [],
-      is_term: false,
-      is_genesis: false,
-      is_orphans: false
-    )
     branch_a = @project.sequences.create!(
       kind: :thread,
       title: "Branch A",
@@ -341,18 +303,41 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     )
 
     genesis = @genesis.reload
-    cand_g1 = genesis.attach_branch_thread_menu_candidates(
-      open_threads: [open_b, open_a],
-      anchor_sequence_id: g1.id
-    )
-    assert_equal [branch_b.id], cand_g1.map(&:id),
-                 "open threads without ThreadNode excluded; branch_a already on g1"
+    cand_g1 = genesis.attach_branch_thread_menu_candidates(anchor_sequence_id: g1.id)
+    assert_equal [branch_b.id], cand_g1.map(&:id), "branch_a already on g1"
 
-    cand_g2 = genesis.attach_branch_thread_menu_candidates(
-      open_threads: [],
-      anchor_sequence_id: g2.id
-    )
+    cand_g2 = genesis.attach_branch_thread_menu_candidates(anchor_sequence_id: g2.id)
     assert_equal [branch_a.id], cand_g2.map(&:id)
+  end
+
+  test "attach_branch_thread_menu_candidates on genesis lists forked child threads" do
+    g = @project.sequences.create!(
+      kind: :sequence,
+      title: "Anchor",
+      intent: "g",
+      position: 8,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => g.id }])
+    child = thread_branch!("Fork", parent: @genesis, anchor: g)
+
+    cand = @genesis.reload.attach_branch_thread_menu_candidates(anchor_sequence_id: g.id)
+    assert_empty cand, "already anchored at g"
+
+    g2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "G2",
+      intent: "b",
+      position: 9,
+      steps_data: [{ "content" => "y" }],
+      is_term: false
+    )
+    @genesis.update!(steps_data: [{ "sequence_id" => g.id }, { "sequence_id" => g2.id }])
+    other = thread_branch!("Other", parent: @genesis, anchor: g2)
+
+    cand = @genesis.reload.attach_branch_thread_menu_candidates(anchor_sequence_id: g.id)
+    assert_equal [other.id], cand.map(&:id)
   end
 
   test "attach_branch_thread_menu_candidates dedupes and matches bundle anchor no-op" do
@@ -388,7 +373,6 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
 
     genesis = @genesis.reload
     assert_empty genesis.attach_branch_thread_menu_candidates(
-      open_threads: [child],
       anchor_sequence_id: g.id,
       anchor_bundle_id: @t1.id
     )
@@ -411,10 +395,31 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     )
     # other is a direct strand anchor on genesis — not in bundle context; child is bundle-anchored.
     cand = genesis.attach_branch_thread_menu_candidates(
-      open_threads: [],
       anchor_sequence_id: g.id,
       anchor_bundle_id: @t1.id
     )
     assert_equal [other.id], cand.map(&:id)
+  end
+
+  private
+
+  def thread_branch!(title, parent:, anchor:)
+    th = @project.sequences.create!(
+      kind: :thread,
+      title: title,
+      intent: Sequence::THREAD_DEFAULT_INTENT,
+      position: @project.sequences.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_genesis: false,
+      is_orphans: false,
+      is_term: false
+    )
+    ThreadNode.create!(
+      parent_thread: parent,
+      parent_generative_sequence: anchor,
+      child_thread: th,
+      child_order: 1
+    )
+    th
   end
 end

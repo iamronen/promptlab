@@ -176,19 +176,20 @@
         </div>
       <% end %>
       <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
-      <%= render "sequences/move_to_thread_menu_destinations",
-                 destinations: strand_thread&.move_to_thread_menu_destinations(open_threads: @thread_workspace_open_thread_records) || [],
-                 variant: :workspace,
-                 source_thread: strand_thread,
-                 **(is_bundle ? { bundle_id: ref_id } : { generative_sequence_id: ref_id }),
-                 editor_return_path: editor_return_path,
-                 scope_params: workspace_thread_scope_params %>
+      <% if strand_thread.present? && strand_thread.move_to_thread_menu_destinations_any? %>
+        <%= render "sequences/move_to_thread_menu_destinations",
+                   destination_groups: strand_thread.move_to_thread_menu_destination_groups,
+                   variant: :workspace,
+                   source_thread: strand_thread,
+                   **(is_bundle ? { bundle_id: ref_id } : { generative_sequence_id: ref_id }),
+                   editor_return_path: editor_return_path,
+                   scope_params: workspace_thread_scope_params %>
+      <% end %>
       <% unless is_bundle %>
-        <% if strand_thread.present? %>
+        <% if strand_thread.present? && strand_thread.attach_branch_thread_menu_candidates_any?(anchor_sequence_id: ref_id) %>
           <%= render "sequences/attach_branch_thread_menu_destinations",
                      candidates:
                        strand_thread.attach_branch_thread_menu_candidates(
-                         open_threads: @thread_workspace_open_thread_records,
                          anchor_sequence_id: ref_id
                        ),
                      variant: :workspace,

@@ -8,10 +8,12 @@ class Users::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
   end
 
-  test "edit shows account details form" do
+  test "edit shows account settings tool inside application shell" do
     get edit_user_registration_path
     assert_response :success
-    assert_select "h2", text: "Account details"
+    assert_select ".application-shell"
+    assert_select ".tool-container--centered"
+    assert_select ".tool-heading-title", text: "Account Settings"
     assert_select "input[name='user[display_name]']"
     assert_select "input[name='user[avatar]'][type='file']"
   end
@@ -67,7 +69,7 @@ class Users::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     }
 
     assert_response :unprocessable_content
-    assert_select "h2", text: "Account details"
+    assert_select ".tool-heading-title", text: "Account Settings"
     assert_not @user.reload.avatar.attached?
   end
 

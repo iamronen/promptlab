@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { fetchAutosavePost } from "workspace_autosave"
+import { trimTrailingWhitespace, trimTrailingWhitespaceInPlace } from "text_input_sanitizer"
 
 /** Title edit (rename) + strand options menu (rename, move). */
 export default class extends Controller {
@@ -178,8 +179,8 @@ export default class extends Controller {
     event?.preventDefault?.()
     if (!this.editing || !this.inputEl || this._saving) return
 
-    const title = this.inputEl.value.trim()
-    if (!title) {
+    const title = trimTrailingWhitespace(this.inputEl.value)
+    if (!title.trim()) {
       window.alert("Thread title cannot be blank.")
       return
     }

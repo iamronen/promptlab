@@ -173,7 +173,7 @@ module ThreadStrandMutations
   end
 
   def thread_fork_strand
-    thread_title = params[:thread_title].to_s.strip
+    thread_title = TextInputSanitizer.trim_trailing(params[:thread_title])
     if thread_title.blank?
       redirect_to thread_redirect_url, alert: "Thread name is required."
       return

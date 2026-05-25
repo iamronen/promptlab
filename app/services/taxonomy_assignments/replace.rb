@@ -50,9 +50,9 @@ module TaxonomyAssignments
     end
 
     def validate_sequence!
-      return if @sequence&.sequence?
+      return if @sequence&.sequence? || @sequence&.bundle?
 
-      @errors << "Sequence must be a generative sequence"
+      @errors << "Sequence must be a generative sequence or bundle"
     end
 
     def validate_payload_shape!
@@ -90,6 +90,11 @@ module TaxonomyAssignments
         taxonomy = project.taxonomies.find_by(id: taxonomy_id)
         unless taxonomy
           @errors << "Unknown taxonomy #{taxonomy_id}"
+          raise ActiveRecord::Rollback
+        end
+
+        unless taxonomy_applicable?(taxonomy)
+          @errors << "Taxonomy #{taxonomy_id} does not apply to this #{@sequence.bundle? ? 'bundle' : 'sequence'}"
           raise ActiveRecord::Rollback
         end
 
@@ -192,6 +197,14 @@ module TaxonomyAssignments
         assigned_at: assignment.assigned_at,
         ended_at: now
       )
+    end
+
+    def taxonomy_applicable?(taxonomy)
+      if @sequence.bundle?
+        taxonomy.applicable_to_bundle?
+      else
+        taxonomy.applicable_to_sequence?(@sequence)
+      end
     end
   end
 end

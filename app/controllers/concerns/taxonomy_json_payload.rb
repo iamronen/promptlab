@@ -14,6 +14,14 @@ module TaxonomyJsonPayload
       cardinality: taxonomy.cardinality,
       single_select_ui: taxonomy.single_select_ui,
       process_tracking: taxonomy.process_tracking?,
+      applies_to_sequences: taxonomy.applies_to_sequences?,
+      applies_to_bundles: taxonomy.applies_to_bundles?,
+      applies_to_bundle_pipeline_sequences: taxonomy.applies_to_bundle_pipeline_sequences?,
+      bundle_assignment_count: bundle_assignment_count_for(taxonomy),
+      bundle_pipeline_sequence_assignment_count: bundle_pipeline_sequence_assignment_count_for(taxonomy),
+      default_value_enabled: taxonomy.default_value_enabled?,
+      default_taxonomy_term_id: taxonomy.default_taxonomy_term_id,
+      unassigned_applicable_count: unassigned_applicable_count_for(taxonomy),
       position: taxonomy.position,
       terms: terms.map { |term| term_payload(term, counts: counts) }
     }
@@ -28,6 +36,18 @@ module TaxonomyJsonPayload
       .where(taxonomy_term_id: term_ids)
       .group(:taxonomy_term_id)
       .count(Arel.sql("DISTINCT sequence_id"))
+  end
+
+  def bundle_assignment_count_for(taxonomy)
+    Taxonomies::AssignmentCleanup.bundle_assignments_for(taxonomy).size
+  end
+
+  def bundle_pipeline_sequence_assignment_count_for(taxonomy)
+    Taxonomies::AssignmentCleanup.pipeline_sequence_assignments_for(taxonomy).size
+  end
+
+  def unassigned_applicable_count_for(taxonomy)
+    Taxonomies::ApplyDefaultValue.unassigned_applicable_sequences_for(taxonomy).size
   end
 
   def term_payload(term, counts: nil)

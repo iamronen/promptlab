@@ -1,0 +1,28 @@
+<% title = sequence.title.presence || (sequence.bundle? ? Sequence::BUNDLE_DEFAULT_TITLE : Sequence::DEFAULT_TITLE) %>
+<% icon_label = sequence.bundle? ? "Bundle" : "Sequence" %>
+<% document_sheet_path = "M8.5 1H1.5c-.55 0-1 .45-1 1v13c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1V5L8.5 1z M8.5 1v3h3" %>
+
+<button
+  type="button"
+  class="workspace-process-task-card prompt-process-task-card group"
+  aria-label="<%= icon_label %>: <%= title %>"
+  data-action="click->process-card-modal#open"
+  data-process-card-modal-url="<%= project_process_card_path(@project, sequence) %>"
+>
+  <span class="min-w-0 flex-1 truncate text-sm font-medium text-prompt-heading group-hover:text-prompt-accent">
+    <%= title %>
+  </span>
+  <span class="shrink-0 text-prompt-muted" aria-hidden="true">
+    <% if sequence.bundle? %>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="prompt-process-bundle-icon" aria-hidden="true">
+        <path class="prompt-process-bundle-icon__sheet" d="<%= document_sheet_path %>" transform="translate(0.5 0.5)"/>
+        <path class="prompt-process-bundle-icon__sheet" d="<%= document_sheet_path %>" transform="translate(2.5 2.5)"/>
+        <path class="prompt-process-bundle-icon__sheet" d="<%= document_sheet_path %>" transform="translate(4.5 4.5)"/>
+      </svg>
+    <% else %>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="prompt-process-sequence-icon" aria-hidden="true">
+        <path class="prompt-process-bundle-icon__sheet" d="<%= document_sheet_path %>" transform="translate(6.5 5)"/>
+      </svg>
+    <% end %>
+  </span>
+</button>

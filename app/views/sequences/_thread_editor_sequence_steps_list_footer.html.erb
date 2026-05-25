@@ -1,6 +1,7 @@
 <%# locals: steps, form_field_prefix, thread_panel_editor_embed, nested_step_card (bool), steps_list_class, footer_class,
     indicator_sequence: (optional Sequence), suppress_footer_thread_branch_tail: (optional bool),
-    insert_after_panel_thread_id: (optional Integer) %>
+    insert_after_panel_thread_id: (optional Integer), suppress_footer: (optional bool) %>
+<% suppress_footer = local_assigns.fetch(:suppress_footer, false) %>
 <% indicator_sequence = local_assigns[:indicator_sequence] %>
 <% suppress_footer_thread_branch_tail = local_assigns.fetch(:suppress_footer_thread_branch_tail, false) %>
 <% show_thread_branches_indicator =
@@ -22,9 +23,11 @@
     <div data-sequence-editor-steps-end-anchor hidden aria-hidden="true"></div>
   <% end %>
 </div>
+<% unless suppress_footer %>
 <div class="<%= footer_class %>">
   <button type="button" class="prompt-btn-secondary add-step-button text-sm" data-action="sequence-editor#addStep">Add step</button>
 </div>
+<% end %>
 <% if show_footer_thread_branch_tail %>
   <div class="thread-editor-thread-branch-indicator-tail">
     <%= render "sequences/thread_editor_sequence_thread_branches_indicator_row",

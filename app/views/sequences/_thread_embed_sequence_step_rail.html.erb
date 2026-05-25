@@ -52,24 +52,27 @@
       </div>
       <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
       <% if @workspace_thread.present? && !suppress_move_to_thread %>
-        <%= render "sequences/move_to_thread_menu_destinations",
-                   destinations: @workspace_thread.move_to_thread_menu_destinations(open_threads: @thread_workspace_open_thread_records),
-                   variant: :embed,
-                   source_thread: @workspace_thread,
-                   generative_sequence_id: @sequence.id,
-                   editor_return_path: request.fullpath,
-                   scope_params: workspace_thread_scope_params %>
-        <%= render "sequences/attach_branch_thread_menu_destinations",
-                   candidates:
-                     @workspace_thread.attach_branch_thread_menu_candidates(
-                       open_threads: @thread_workspace_open_thread_records,
-                       anchor_sequence_id: @sequence.id
-                     ),
-                   variant: :embed,
-                   target_parent_thread: @workspace_thread,
-                   anchor_sequence_id: @sequence.id,
-                   editor_return_path: request.fullpath,
-                   scope_params: workspace_thread_scope_params %>
+        <% if @workspace_thread.move_to_thread_menu_destinations_any? %>
+          <%= render "sequences/move_to_thread_menu_destinations",
+                     destination_groups: @workspace_thread.move_to_thread_menu_destination_groups,
+                     variant: :embed,
+                     source_thread: @workspace_thread,
+                     generative_sequence_id: @sequence.id,
+                     editor_return_path: request.fullpath,
+                     scope_params: workspace_thread_scope_params %>
+        <% end %>
+        <% if @workspace_thread.attach_branch_thread_menu_candidates_any?(anchor_sequence_id: @sequence.id) %>
+          <%= render "sequences/attach_branch_thread_menu_destinations",
+                     candidates:
+                       @workspace_thread.attach_branch_thread_menu_candidates(
+                         anchor_sequence_id: @sequence.id
+                       ),
+                     variant: :embed,
+                     target_parent_thread: @workspace_thread,
+                     anchor_sequence_id: @sequence.id,
+                     editor_return_path: request.fullpath,
+                     scope_params: workspace_thread_scope_params %>
+        <% end %>
       <% end %>
       <% if @workspace_thread.present? %>
         <button

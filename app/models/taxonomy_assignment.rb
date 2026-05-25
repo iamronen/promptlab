@@ -50,8 +50,8 @@ class TaxonomyAssignment < ApplicationRecord
   def sequence_assignable_to_taxonomies
     return unless sequence
 
-    return if sequence.sequence?
+    return if sequence.sequence? || sequence.bundle?
 
-    errors.add(:sequence_id, "must be a generative sequence")
+    errors.add(:sequence_id, "must be a generative sequence or bundle")
   end
 end

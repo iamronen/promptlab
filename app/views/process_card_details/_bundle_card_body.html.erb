@@ -1,0 +1,25 @@
+<section class="process-card-modal-metadata meta-fields prompt-thread-sequence-meta bundle-editor-bundle-meta">
+  <%= render "sequences/sequence_meta_taxonomies_host",
+             project: @project,
+             sequence: @sequence,
+             subject_context: "bundle" %>
+</section>
+
+<div class="process-card-modal-sequence-blocks">
+  <% @sequence.ordered_steps.each_with_index do |step_row, index| %>
+    <% child = step_row.sequence_id.present? ? @pipeline_children_by_id[step_row.sequence_id] : nil %>
+    <% next unless child %>
+
+    <article class="process-card-modal-sequence-block thread-strand-sequence-container thread-editor-sequence">
+      <%= render "process_card_details/bundle_child_meta", child: child, pipeline_ord: index + 1 %>
+      <%= render "sequences/nested_generative_steps",
+                 child_sequence: child,
+                 form_field_prefix: "nested_sequences[#{child.id}]",
+                 thread_panel_editor_embed: true,
+                 suppress_sequence_wrapper: true,
+                 suppress_footer_thread_branch_tail: true,
+                 readonly: true,
+                 suppress_footer: true %>
+    </article>
+  <% end %>
+</div>

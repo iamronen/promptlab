@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -44,10 +44,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
 
   create_table "projects", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.bigint "default_process_taxonomy_id"
     t.text "description"
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["default_process_taxonomy_id"], name: "index_projects_on_default_process_taxonomy_id"
     t.index ["user_id"], name: "index_projects_on_user_id"
   end
 
@@ -92,8 +94,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
   end
 
   create_table "taxonomies", force: :cascade do |t|
+    t.boolean "applies_to_bundle_pipeline_sequences", default: false, null: false
+    t.boolean "applies_to_bundles", default: false, null: false
+    t.boolean "applies_to_sequences", default: true, null: false
     t.string "cardinality", null: false
     t.datetime "created_at", null: false
+    t.bigint "default_taxonomy_term_id"
+    t.boolean "default_value_enabled", default: false, null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.boolean "process_tracking", default: false, null: false
@@ -101,6 +108,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
     t.string "single_select_ui"
     t.datetime "updated_at", null: false
     t.index "project_id, lower((name)::text)", name: "index_taxonomies_on_project_id_lower_name", unique: true
+    t.index ["default_taxonomy_term_id"], name: "index_taxonomies_on_default_taxonomy_term_id"
     t.index ["project_id"], name: "index_taxonomies_on_project_id"
   end
 
@@ -179,6 +187,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "projects", "taxonomies", column: "default_process_taxonomy_id", on_delete: :nullify
   add_foreign_key "projects", "users"
   add_foreign_key "sequence_dependencies", "sequences", column: "anchor_sequence_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "child_id"
@@ -186,6 +195,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_120000) do
   add_foreign_key "sequences", "projects"
   add_foreign_key "sequences", "users", column: "created_by_id"
   add_foreign_key "taxonomies", "projects"
+  add_foreign_key "taxonomies", "taxonomy_terms", column: "default_taxonomy_term_id", on_delete: :nullify
   add_foreign_key "taxonomy_assignment_histories", "projects"
   add_foreign_key "taxonomy_assignment_histories", "sequences"
   add_foreign_key "taxonomy_assignment_histories", "taxonomies"

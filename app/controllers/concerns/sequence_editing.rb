@@ -51,7 +51,7 @@ module SequenceEditing
     sorted.map do |s|
       h = step_attributes_row_hash(s)
       content = h ? (h["content"] || h[:content]) : nil
-      { "content" => content.to_s }
+      { "content" => StepContent.trim_trailing_whitespace(content.to_s) }
     end
   end
 

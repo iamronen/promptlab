@@ -4,14 +4,16 @@
 module WorkspaceSidebarData
   extend ActiveSupport::Concern
 
-  VALID_WORKSPACE_MODES = %w[sequencing fabric].freeze
+  VALID_WORKSPACE_MODES = %w[fabric process settings].freeze
   VALID_WORKSPACE_SHELLS = %w[v1 v2].freeze
 
   included do
     helper_method :workspace_editor_redirect_options,
-                  :workspace_mode_param, :workspace_fabric?, :current_workspace_mode,
+                  :workspace_mode_param, :workspace_fabric?, :workspace_process?, :workspace_settings?,
+                  :current_workspace_mode,
                   :workspace_shell_param, :workspace_shell_v2?,
-                  :workspace_thread_scope_params, :fabric_thread_open_in_sequencing_path,
+                  :workspace_settings_return_path, :workspace_process_return_path,
+                  :workspace_thread_scope_params, :fabric_thread_path,
                   :fabric_panel_thread, :fabric_selected_weave_thread_id,
                   :thread_workspace_open_threads_param if respond_to?(:helper_method)
   end
@@ -32,9 +34,27 @@ module WorkspaceSidebarData
     tid.positive? ? tid : 0
   end
 
-  def fabric_thread_open_in_sequencing_path(thread)
+  def fabric_thread_path(thread)
     base =
       workspace_editor_redirect_options.except(:workspace_mode, :thread_partner, :open_threads).merge(weave_thread: thread.id)
+    if @sequence.bundle?
+      edit_project_bundle_path(@project, @sequence, **base)
+    else
+      edit_project_sequence_path(@project, @sequence, **base)
+    end
+  end
+
+  def workspace_settings_return_path
+    base = workspace_editor_redirect_options.except(:workspace_mode).merge(workspace_mode: :settings)
+    if @sequence.bundle?
+      edit_project_bundle_path(@project, @sequence, **base)
+    else
+      edit_project_sequence_path(@project, @sequence, **base)
+    end
+  end
+
+  def workspace_process_return_path
+    base = workspace_editor_redirect_options.except(:workspace_mode).merge(workspace_mode: :process)
     if @sequence.bundle?
       edit_project_bundle_path(@project, @sequence, **base)
     else
@@ -70,6 +90,11 @@ module WorkspaceSidebarData
       if workspace_fabric?
         FabricThreadTree.root_branches(@project)
       end
+
+    @process_board =
+      if workspace_process?
+        ProcessBoard.new(@project)
+      end
   end
 
   def workspace_mode_param
@@ -78,11 +103,23 @@ module WorkspaceSidebarData
   end
 
   def workspace_fabric?
-    workspace_mode_param == "fabric"
+    workspace_mode_param.nil? || workspace_mode_param == "fabric"
+  end
+
+  def workspace_process?
+    workspace_mode_param == "process"
+  end
+
+  def workspace_settings?
+    workspace_mode_param == "settings"
+  end
+
+  def legacy_workspace_mode_redirect?
+    params[:workspace_mode].to_s.in?(%w[browsing sequencing])
   end
 
   def current_workspace_mode
-    workspace_mode_param || "sequencing"
+    workspace_mode_param || "fabric"
   end
 
   def workspace_shell_param

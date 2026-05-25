@@ -106,7 +106,31 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     assert_equal @m2.id, rows.first.taxonomy_term_id
   end
 
-  test "generative sequence scope rejects bundles" do
+  test "bundle assignments work when taxonomy applies to bundles" do
+    bundle =
+      @project.sequences.create!(
+        kind: :bundle,
+        title: "B",
+        intent: "i",
+        position: 1,
+        steps_data: [],
+        is_term: false
+      )
+    @taxonomy_one.update!(applies_to_bundles: true)
+
+    put project_sequence_taxonomy_assignments_path(@project, bundle),
+        params: {
+          assignments: [
+            { taxonomy_id: @taxonomy_one.id, taxonomy_term_ids: [@p1.id] }
+          ]
+        },
+        as: :json
+
+    assert_response :success
+    assert_equal 1, TaxonomyAssignment.where(sequence_id: bundle.id).count
+  end
+
+  test "bundle assignments reject taxonomy that does not apply to bundles" do
     bundle =
       @project.sequences.create!(
         kind: :bundle,
@@ -117,7 +141,19 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
         is_term: false
       )
 
-    get project_sequence_taxonomy_assignments_path(@project, bundle), as: :json
+    put project_sequence_taxonomy_assignments_path(@project, bundle),
+        params: {
+          assignments: [
+            { taxonomy_id: @taxonomy_one.id, taxonomy_term_ids: [@p1.id] }
+          ]
+        },
+        as: :json
+
+    assert_response :unprocessable_entity
+  end
+
+  test "thread sequences are not assignable" do
+    get project_sequence_taxonomy_assignments_path(@project, 0), as: :json
 
     assert_response :not_found
   end

@@ -1,0 +1,24 @@
+<div
+  class="application-settings-panel"
+  hidden
+  role="menu"
+  aria-label="Application settings"
+  data-application-settings-target="panel"
+>
+  <%= link_to "Projects",
+              projects_path,
+              class: "application-settings-panel-item",
+              role: "menuitem",
+              data: { action: "click->application-settings#close" } %>
+  <%= link_to "Account Settings",
+              edit_user_registration_path,
+              class: "application-settings-panel-item",
+              role: "menuitem",
+              data: { action: "click->application-settings#close" } %>
+  <%= button_to "Sign out",
+                destroy_user_session_path,
+                method: :delete,
+                class: "application-settings-panel-item application-settings-panel-item--button",
+                role: "menuitem",
+                form: { class: "application-settings-panel-sign-out-form" } %>
+</div>

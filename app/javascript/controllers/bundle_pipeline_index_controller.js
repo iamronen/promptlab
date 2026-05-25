@@ -10,6 +10,7 @@ import {
   THREAD_INDEX_REORDER_SUBMIT_DELAY_MS
 } from "thread_panel_index_drag"
 import { fetchAutosavePost } from "workspace_autosave"
+import { trimTrailingWhitespace } from "text_input_sanitizer"
 
 // Thread index: reorder generative sequences inside a bundle via PATCH; jump to a step in the bundle editor frame.
 export default class extends Controller {
@@ -142,8 +143,8 @@ export default class extends Controller {
     const liveTitle =
       frame?.querySelector("input.bundle-pipeline-bundle-title-input")?.value ?? ""
     const sequenceTitle =
-      typeof liveTitle === "string" && liveTitle.trim() !== ""
-        ? liveTitle.trim()
+      trimTrailingWhitespace(liveTitle).trim() !== ""
+        ? trimTrailingWhitespace(liveTitle)
         : this.bundleTitleValue ?? ""
     fd.append("sequence[title]", sequenceTitle)
     fd.append("sequence[intent]", this.bundleIntentValue ?? "")

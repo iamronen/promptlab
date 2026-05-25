@@ -27,7 +27,8 @@ export default class extends Controller {
   static values = {
     taxonomiesUrl: String,
     assignmentsUrl: String,
-    sequenceId: { type: Number, default: 0 }
+    sequenceId: { type: Number, default: 0 },
+    subjectContext: { type: String, default: "standalone" }
   }
 
   connect() {
@@ -87,12 +88,12 @@ export default class extends Controller {
       ])
       if (!taxRes.ok || !asnRes.ok) throw new Error("Could not load taxonomy data.")
 
-      /** @type {any[]} */
-      const taxonomies = await taxRes.json()
+      /** @type {{ taxonomies?: any[] }} */
+      const taxBody = await taxRes.json()
       /** @type {{ assignments?: any[] }} */
       const assignBody = await asnRes.json()
 
-      this.taxonomies = [...taxonomies].sort((a, b) => {
+      this.taxonomies = [...(taxBody.taxonomies || [])].sort((a, b) => {
         const pa = Number(a.position) || 0
         const pb = Number(b.position) || 0
         return pa !== pb ? pa - pb : Number(a.id) - Number(b.id)
@@ -200,13 +201,29 @@ export default class extends Controller {
     }))
   }
 
+  visibleTaxonomies() {
+    const context = this.subjectContextValue || "standalone"
+    return this.taxonomies.filter((tax) => this.taxonomyVisibleForContext(tax, context))
+  }
+
+  /** @param {any} tax @param {string} context */
+  taxonomyVisibleForContext(tax, context) {
+    if (context === "bundle") return tax.applies_to_bundles === true
+    if (context === "bundle_pipeline") {
+      if (tax.applies_to_sequences === false) return false
+      if (tax.applies_to_bundles === true && tax.applies_to_bundle_pipeline_sequences !== true) return false
+      return true
+    }
+    return tax.applies_to_sequences !== false
+  }
+
   render() {
     if (!this.hasRootTarget) return
     this.closePicker()
     this.rootTarget.innerHTML = ""
     const frag = document.createDocumentFragment()
 
-    for (const tax of this.taxonomies) {
+    for (const tax of this.visibleTaxonomies()) {
       const rowEl = document.createElement("div")
       rowEl.className = "sequence-meta-taxonomy-row"
       rowEl.dataset.taxonomyId = String(tax.id)

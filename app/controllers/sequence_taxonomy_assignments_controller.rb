@@ -32,6 +32,6 @@ class SequenceTaxonomyAssignmentsController < ApplicationController
   private
 
   def set_sequence
-    @sequence = @project.sequences.generative_sequences.find(params[:sequence_id])
+    @sequence = @project.sequences.where(kind: %i[sequence bundle]).find(params[:sequence_id])
   end
 end

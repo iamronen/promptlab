@@ -1,0 +1,21 @@
+<%# locals: title: nil, variant: (:centered | :full), heading_actions: nil, body_class: nil, data_controllers: nil %>
+<div
+  class="tool-container tool-container--<%= local_assigns.fetch(:variant, :centered) %>"
+  <% if local_assigns[:data_controllers].present? %>data-controller="<%= data_controllers %>"<% end %>
+>
+  <header class="tool-heading">
+    <div class="tool-heading-main">
+      <% if local_assigns[:title].present? %>
+        <h1 class="tool-heading-title"><%= title %></h1>
+      <% end %>
+      <% if local_assigns[:heading_actions].present? %>
+        <div class="tool-heading-actions<%= " tool-heading-actions--full" if local_assigns.fetch(:variant, :centered) == :full %>">
+          <%= heading_actions %>
+        </div>
+      <% end %>
+    </div>
+  </header>
+  <div class="tool-body<%= " #{body_class}" if local_assigns[:body_class].present? %>">
+    <%= yield %>
+  </div>
+</div>

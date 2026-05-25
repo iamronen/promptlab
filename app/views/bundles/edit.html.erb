@@ -1,23 +1,32 @@
 <% content_for :title, "#{@sequence.title.presence || "Bundle"} · #{@project.name}" %>
 
-<div class="workspace-shell workspace-shell--three-pane<%= " workspace-shell--fabric" if workspace_fabric? %>"
-     data-controller="workspace-assistant-toggle workspace-font-size">
-  <%= render "sequences/workspace_top_header" %>
-  <div class="workspace <%= workspace_fabric? ? "workspace--one-pane" : "workspace--three-pane" %>"
-       data-controller="workspace-pane-resize"
-       data-workspace-font-size-target="scaleRoot"
-       data-workspace-assistant-toggle-target="workspace">
-  <% if workspace_fabric? %>
-    <%= render "sequences/fabric_workspace_main" %>
+<% project_heading = capture { render "sequences/project_tool_heading" } %>
+
+<%= render layout: "shared/tool_container", locals: { variant: :full, heading_actions: project_heading } do %>
+  <% if workspace_settings? %>
+    <div
+      class="workspace-settings-panel mx-auto box-border w-full max-w-[720px] overflow-y-auto px-5 py-8"
+      data-controller="project-settings-modal"
+    >
+      <div class="tool-part">
+        <div class="tool-part-body">
+          <%= render "projects/project_settings_panel", return_to: workspace_settings_return_path %>
+        </div>
+      </div>
+    </div>
+  <% elsif workspace_process? %>
+    <div class="workspace-shell workspace-shell--three-pane workspace-shell--process">
+      <div class="workspace workspace--one-pane"
+           data-workspace-font-size-target="scaleRoot">
+        <%= render "sequences/process_workspace_main" %>
+      </div>
+    </div>
   <% else %>
-  <%= render "sequences/weave_panel" %>
-
-  <div class="workspace-middle-column">
-    <%= render "sequences/workspace_pane_resize_handles" %>
-    <%= render "sequences/workspace_work_panel" %>
-  </div>
-
-  <%= render "sequences/workspace_assistant_panel" %>
+    <div class="workspace-shell workspace-shell--three-pane workspace-shell--fabric">
+      <div class="workspace workspace--one-pane"
+           data-workspace-font-size-target="scaleRoot">
+        <%= render "sequences/fabric_workspace_main" %>
+      </div>
+    </div>
   <% end %>
-  </div>
-</div>
+<% end %>

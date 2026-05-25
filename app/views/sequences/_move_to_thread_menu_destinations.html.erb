@@ -1,6 +1,6 @@
 <%#
   locals:
-    destinations: Array<Sequence>
+    destination_groups: Sequence::MoveToThreadDestinationGroups
     variant: :workspace | :embed
     source_thread: Sequence (thread) — POST member route
     generative_sequence_id: Integer — omit when bundle_id is set (strand bundle step)
@@ -9,7 +9,7 @@
     editor_return_path: String
     scope_params: Hash — e.g. workspace_thread_scope_params
 %>
-<% destinations = Array.wrap(local_assigns[:destinations]) %>
+<% destination_groups = local_assigns.fetch(:destination_groups) %>
 <% variant = (local_assigns[:variant] || :workspace).to_sym %>
 <% source_thread = local_assigns.fetch(:source_thread) %>
 <% bundle_id = local_assigns[:bundle_id] %>
@@ -27,6 +27,11 @@
   <% move_base[:from_bundle_id] = from_bundle_id if from_bundle_id.to_i.positive? %>
   <% move_path = thread_move_sequence_to_thread_project_sequence_path(@project, source_thread) %>
 <% end %>
+<% move_sections = [
+  destination_groups.parents,
+  destination_groups.parallels,
+  destination_groups.cousins
+].select { |section| section.any? } %>
 <% if variant == :workspace %>
   <div class="workspace-thread-tf-order-menu-group">
     <button
@@ -47,26 +52,22 @@
       hidden
       data-submenu-id="move-to-thread"
     >
-      <% destinations.each do |th| %>
-        <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
-        <%= button_to th.title.to_s.truncate(80),
-                      move_path,
-                      method: :post,
-                      params: mp,
-                      form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
-                      role: "menuitem",
-                      class: "workspace-thread-tf-order-menu-item",
-                      title: h(th.title.to_s) %>
+      <% move_sections.each_with_index do |threads, section_idx| %>
+        <% if section_idx.positive? %>
+          <hr class="workspace-thread-tf-order-menu-sep" role="separator" aria-hidden="true" />
+        <% end %>
+        <% threads.each do |th| %>
+          <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
+          <%= button_to th.title.to_s.truncate(80),
+                        move_path,
+                        method: :post,
+                        params: mp,
+                        form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
+                        role: "menuitem",
+                        class: "workspace-thread-tf-order-menu-item",
+                        title: h(th.title.to_s) %>
+        <% end %>
       <% end %>
-      <button
-        type="button"
-        role="menuitem"
-        class="workspace-thread-tf-order-menu-item workspace-thread-tf-order-menu-item--disabled"
-        disabled
-        aria-disabled="true"
-      >
-        Choose Thread
-      </button>
     </div>
   </div>
 <% else %>
@@ -76,20 +77,22 @@
       <span class="step-menu-flyout-chevron">▸</span>
     </div>
     <div class="step-submenu step-submenu--scrollable" role="presentation">
-      <% destinations.each do |th| %>
-        <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
-        <%= button_to th.title.to_s.truncate(80),
-                      move_path,
-                      method: :post,
-                      params: mp,
-                      form: { class: "step-menu--thread-handle-form", data: { turbo_submits_with: "…" } },
-                      role: "menuitem",
-                      class: "step-menu--thread-handle-submit",
-                      title: h(th.title.to_s) %>
+      <% move_sections.each_with_index do |threads, section_idx| %>
+        <% if section_idx.positive? %>
+          <hr class="step-menu-sep step-menu-sep--thread-handle" role="separator" aria-hidden="true" />
+        <% end %>
+        <% threads.each do |th| %>
+          <% mp = move_base.merge(scope_h).merge(target_thread_id: th.id).compact %>
+          <%= button_to th.title.to_s.truncate(80),
+                        move_path,
+                        method: :post,
+                        params: mp,
+                        form: { class: "step-menu--thread-handle-form", data: { turbo_submits_with: "…" } },
+                        role: "menuitem",
+                        class: "step-menu--thread-handle-submit",
+                        title: h(th.title.to_s) %>
+        <% end %>
       <% end %>
-      <button type="button" role="menuitem" disabled aria-disabled="true">
-        Choose Thread
-      </button>
     </div>
   </div>
 <% end %>

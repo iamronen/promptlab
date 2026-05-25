@@ -1,0 +1,38 @@
+<% intent_plain = ProjectPdfHtml.to_plain(@sequence.intent.to_s).strip %>
+<% show_intent = intent_plain.present? && intent_plain != Sequence::DEFAULT_INTENT %>
+
+<main
+  id="process_card_sequence_inner_<%= @sequence.id %>"
+  class="sequence-editor sequence-editor--readonly sequence-editor--process-card-modal"
+  data-controller="sequence-editor"
+  data-sequence-editor-readonly-value="true"
+  data-sequence-editor-default-title-value="<%= Sequence::DEFAULT_TITLE %>"
+  data-sequence-editor-default-intent-value="<%= Sequence::DEFAULT_INTENT %>"
+>
+  <% if show_intent %>
+    <section class="process-card-modal-intent" aria-label="Sequence intent">
+      <p class="m-0 text-sm/6 text-prompt-heading"><%= intent_plain %></p>
+    </section>
+  <% end %>
+
+  <section class="process-card-modal-metadata meta-fields prompt-thread-sequence-meta">
+    <%= render "sequences/sequence_meta_taxonomies_host",
+               project: @project,
+               sequence: @sequence,
+               subject_context: "standalone" %>
+  </section>
+
+  <section class="steps-section prompt-thread-steps-section">
+    <div class="steps-list prompt-thread-steps-list" data-editor-kind="sequence_steps_list">
+      <% @sequence.ordered_steps.each_with_index do |step_row, index| %>
+        <%= render "sequences/thread_editor_sequence_step_row",
+                   form_field_prefix: "sequence",
+                   thread_panel_editor_embed: true,
+                   nested_step_card: false,
+                   placeholder: false,
+                   step_row: step_row,
+                   index: index %>
+      <% end %>
+    </div>
+  </section>
+</main>

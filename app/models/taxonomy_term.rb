@@ -10,9 +10,16 @@ class TaxonomyTerm < ApplicationRecord
 
   before_validation :normalize_label
   before_validation :assign_default_position, on: :create
+  before_destroy :disable_taxonomy_default_value_if_needed
   after_update :sync_assignment_label_snapshots, if: :saved_change_to_label?
 
   private
+
+  def disable_taxonomy_default_value_if_needed
+    return unless taxonomy.default_taxonomy_term_id == id
+
+    taxonomy.disable_default_value!
+  end
 
   def assign_default_position
     return unless taxonomy

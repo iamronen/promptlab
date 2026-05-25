@@ -82,9 +82,19 @@
                                } %>
             </div>
           </header>
+          <%= render "sequences/sequence_meta_taxonomies_host",
+                     project: @project,
+                     sequence: @sequence,
+                     subject_context: "bundle" %>
         <% else %>
           <%= f.hidden_field :title %>
           <%= f.hidden_field :intent %>
+          <section class="meta-fields prompt-thread-sequence-meta bundle-editor-bundle-meta">
+            <%= render "sequences/sequence_meta_taxonomies_host",
+                       project: @project,
+                       sequence: @sequence,
+                       subject_context: "bundle" %>
+          </section>
         <% end %>
 
         <section class="steps-section bundle-pipeline-section<%= " bundle-pipeline-section--thread-embed-collapsible thread-editor-collapsible-body" if thread_panel_editor_embed %>">

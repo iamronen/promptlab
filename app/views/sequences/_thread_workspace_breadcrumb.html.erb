@@ -1,0 +1,43 @@
+<%# locals: thread:, project:, artifact:, nav_mode: (:stimulus | :fabric_link) %>
+<% nav_mode = local_assigns.fetch(:nav_mode, :stimulus).to_sym %>
+<% panel_owner_thread = local_assigns.fetch(:panel_owner_thread, thread) %>
+<% crumb_payload = thread.thread_workspace_breadcrumb_payload %>
+<% return unless crumb_payload %>
+
+<% lineage_nav_label = "Thread lineage: #{crumb_payload.lineage_label_text}" %>
+<nav class="workspace-thread-panel-title-breadcrumb process-card-modal-breadcrumb" aria-label="<%= h lineage_nav_label %>">
+  <% if crumb_payload.ellipsis %>
+    <span class="workspace-thread-panel-title-breadcrumb-ellipsis" aria-hidden="true">…</span>
+    <span class="workspace-thread-panel-title-breadcrumb-sep workspace-thread-panel-title-breadcrumb-sep--ellipsis" aria-hidden="true">/</span>
+  <% end %>
+  <% crumb_payload.visible_segments.each_with_index do |seg, idx| %>
+    <% unless idx.zero? %>
+      <span class="workspace-thread-panel-title-breadcrumb-sep" aria-hidden="true">/</span>
+    <% end %>
+    <% if seg.id == thread.id %>
+      <span
+        class="workspace-thread-panel-title-breadcrumb-current<%= " prompt-thread-panel-title" if nav_mode == :stimulus %>"
+        <% if nav_mode == :stimulus %>data-workspace-thread-panel-title-target="currentTitle"<% end %>
+      ><%= seg.title %></span>
+    <% elsif nav_mode == :fabric_link %>
+      <% ancestor_thread = project.sequences.threads.find_by(id: seg.id) %>
+      <% if ancestor_thread %>
+        <%= link_to seg.title,
+                    fabric_breadcrumb_thread_path(ancestor_thread),
+                    class: "workspace-thread-panel-title-breadcrumb-ancestor no-underline" %>
+      <% else %>
+        <span class="workspace-thread-panel-title-breadcrumb-ancestor"><%= seg.title %></span>
+      <% end %>
+    <% else %>
+      <button
+        type="button"
+        class="workspace-thread-panel-title-breadcrumb-ancestor"
+        data-action="click->thread-workspace#focusOrOpenAncestorFromBreadcrumb"
+        data-thread-workspace-ancestor-id-param="<%= seg.id %>"
+        data-thread-workspace-panel-owner-id-param="<%= panel_owner_thread.id %>"
+      >
+        <%= seg.title %>
+      </button>
+    <% end %>
+  <% end %>
+</nav>

@@ -2,6 +2,7 @@
 
 class Taxonomy < ApplicationRecord
   belongs_to :project
+  belongs_to :default_taxonomy_term, class_name: "TaxonomyTerm", optional: true
   # Listed before `taxonomy_terms` so teardown removes taxonomy-level assignment rows before terms.
   has_many :taxonomy_assignments, dependent: :destroy
   has_many :taxonomy_assignment_histories, dependent: :destroy
@@ -15,12 +16,55 @@ class Taxonomy < ApplicationRecord
   validates :single_select_ui, inclusion: { in: SINGLE_SELECT_UI_VALUES }, allow_nil: true
   validate :single_select_ui_matches_cardinality
   validate :process_tracking_matches_cardinality
+  validate :bundle_pipeline_sequences_requires_bundles
+  validate :default_taxonomy_term_belongs_to_taxonomy
 
   before_validation :normalize_name
   before_validation :assign_default_position, on: :create
+  before_validation :clear_default_taxonomy_term_when_disabled
   before_validation :clear_process_tracking_for_many
+  before_validation :clear_bundle_pipeline_sequences_for_process_tracking
+  before_validation :clear_bundle_pipeline_sequences_without_bundles
+
+  def applicable_to_sequence?(sequence)
+    return false unless applies_to_sequences?
+    return true unless sequence.in_bundle_pipeline?
+    return true unless applies_to_bundles?
+
+    applies_to_bundle_pipeline_sequences?
+  end
+
+  def applicable_to_bundle?
+    applies_to_bundles?
+  end
+
+  def disable_default_value!
+    update!(default_value_enabled: false, default_taxonomy_term: nil)
+  end
+
+  def default_value_configured?
+    default_value_enabled? && default_taxonomy_term_id.present?
+  end
+
+  after_commit :reconcile_project_default_process_taxonomy
 
   private
+
+  def clear_default_taxonomy_term_when_disabled
+    self.default_taxonomy_term = nil unless default_value_enabled?
+  end
+
+  def default_taxonomy_term_belongs_to_taxonomy
+    return if default_taxonomy_term_id.blank?
+
+    unless taxonomy_terms.exists?(id: default_taxonomy_term_id)
+      errors.add(:default_taxonomy_term, "must be a value in this taxonomy")
+    end
+  end
+
+  def reconcile_project_default_process_taxonomy
+    project&.reconcile_default_process_taxonomy!
+  end
 
   def assign_default_position
     return unless project
@@ -49,5 +93,20 @@ class Taxonomy < ApplicationRecord
     return if one?
 
     errors.add(:process_tracking, "is only allowed when cardinality is one")
+  end
+
+  def bundle_pipeline_sequences_requires_bundles
+    return unless applies_to_bundle_pipeline_sequences?
+    return if applies_to_bundles?
+
+    errors.add(:applies_to_bundle_pipeline_sequences, "requires applies to bundles")
+  end
+
+  def clear_bundle_pipeline_sequences_for_process_tracking
+    self.applies_to_bundle_pipeline_sequences = false if process_tracking?
+  end
+
+  def clear_bundle_pipeline_sequences_without_bundles
+    self.applies_to_bundle_pipeline_sequences = false unless applies_to_bundles?
   end
 end

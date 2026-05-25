@@ -32,10 +32,13 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "bundle edit wires workspace font size controller and scale target" do
+  test "bundle edit wires application shell font size controller and scale target" do
     get edit_project_bundle_path(@project, @bundle)
     assert_response :success
+    assert_select ".application-shell"
+    assert_select ".tool-container--full"
     assert_select ".workspace-shell"
+    assert_select ".workspace-fabric"
     assert_select '*[data-controller~="workspace-font-size"]'
     assert_select '*[data-workspace-font-size-target="scaleRoot"]'
   end
@@ -53,6 +56,66 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
     seq = Sequence.find(data["id"])
     assert_predicate seq, :sequence?
     refute seq.is_term?
+  end
+
+  test "update trims trailing whitespace from bundle title and intent" do
+    patch project_bundle_path(@project, @bundle), params: {
+      sequence: {
+        title: "Renamed bundle  ",
+        intent: "Updated intent  ",
+        prerequisite_bundle_ids: [""],
+        steps_attributes: {
+          "0" => { sequence_id: @gen.id, position: 1, _destroy: "false" }
+        }
+      }
+    }
+
+    assert_redirected_to edit_project_bundle_path(@project, @bundle)
+    @bundle.reload
+    assert_equal "Renamed bundle", @bundle.title
+    assert_equal "Updated intent", @bundle.intent
+  end
+
+  test "update trims trailing whitespace from nested generative sequence steps" do
+    patch project_bundle_path(@project, @bundle), params: {
+      sequence: {
+        title: @bundle.title,
+        intent: @bundle.intent,
+        prerequisite_bundle_ids: [""],
+        steps_attributes: {
+          "0" => { sequence_id: @gen.id, position: 1, _destroy: "false" }
+        }
+      },
+      nested_sequences: {
+        @gen.id.to_s => {
+          title: @gen.title,
+          intent: @gen.intent,
+          steps_attributes: {
+            "0" => { content: "<p>updated   </p><p></p>", position: 1, _destroy: "false" }
+          }
+        }
+      }
+    }
+
+    assert_redirected_to edit_project_bundle_path(@project, @bundle)
+    assert_equal [{ "content" => "<p>updated</p>" }], @gen.reload.steps_data
+  end
+
+  test "update trims trailing whitespace from sequence title and intent" do
+    patch project_sequence_path(@project, @gen), params: {
+      sequence: {
+        title: "Renamed sequence  ",
+        intent: "Updated intent  ",
+        steps_attributes: {
+          "0" => { content: "<p>a</p>", position: 1, _destroy: "false" }
+        }
+      }
+    }
+
+    assert_redirected_to edit_project_sequence_path(@project, @gen)
+    @gen.reload
+    assert_equal "Renamed sequence", @gen.title
+    assert_equal "Updated intent", @gen.intent
   end
 
   test "update saves nested generative sequence steps" do

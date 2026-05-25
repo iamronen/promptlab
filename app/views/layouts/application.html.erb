@@ -38,13 +38,8 @@
       %>
       <div class="<%= "#{flash_shell} #{flash_kind}" %>" role="status"><%= msg %></div>
     <% end %>
-    <% unless @render_flowbite_app_shell %>
-      <div class="flex justify-end border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
-        <%= render "layouts/account_nav" %>
-      </div>
-    <% end %>
-    <% if @render_flowbite_app_shell %>
-      <%= render "layouts/flowbite_app_shell" do %>
+    <% if render_application_shell? %>
+      <%= render "layouts/application_shell" do %>
         <%= yield %>
       <% end %>
     <% else %>

@@ -1,0 +1,5 @@
+<div class="workspace-process-board prompt-process-board">
+  <% board.columns.each do |column| %>
+    <%= render "sequences/process_board_column", column: column %>
+  <% end %>
+</div>

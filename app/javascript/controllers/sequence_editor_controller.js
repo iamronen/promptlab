@@ -5,6 +5,8 @@ import {
   buildBundlePipelineChildCopyTextFromPipelineRow,
   parseCopyTextDataset
 } from "sequence_copy_text"
+import { trimStepEditorHtml } from "sequence_step_content"
+import { trimTrailingWhitespaceInPlace } from "text_input_sanitizer"
 
 /** Generative step row (vs bundle pipeline slot: data-editor-kind="bundle_pipeline_slot"). */
 const SEQUENCE_STEP_ROW_SELECTOR = '[data-editor-kind="sequence_step"]'
@@ -29,7 +31,6 @@ export default class extends Controller {
     "contentInput",
     "editor",
     "stepTemplate",
-    "toolbar",
     "menu",
     "menuWrap"
   ]
@@ -113,6 +114,14 @@ export default class extends Controller {
     this.applyReadonlyMode()
   }
 
+  get threadEmbedStructuralControlsEnabled() {
+    return this.element.querySelector(".step-order-rail--thread-handle") !== null
+  }
+
+  readonlyBlocksStructure() {
+    return this.readonlyValue && !this.threadEmbedStructuralControlsEnabled
+  }
+
   applyReadonlyMode() {
     this.element.classList.toggle("sequence-editor--readonly", this.readonlyValue)
 
@@ -138,7 +147,6 @@ export default class extends Controller {
       this.closeAllMenus()
       this.deactivateEditing()
       this.setAllEditorsReadOnly()
-      this.hideAllToolbars()
       this.topLevelStepRowsForDrag().forEach((card) => {
         card.setAttribute("draggable", "false")
       })
@@ -149,7 +157,6 @@ export default class extends Controller {
     } else {
       this.installDragAndDrop()
       this.setAllEditorsReadOnly()
-      this.hideAllToolbars()
     }
 
     if (this.pipelineModeValue && !this.nestedValue) {
@@ -242,7 +249,7 @@ export default class extends Controller {
   }
 
   addStepBefore(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const card = this.cardFromEvent(event)
     this.closeAllMenus()
     if (this.pipelineModeValue && !this.nestedValue) {
@@ -255,7 +262,7 @@ export default class extends Controller {
   }
 
   addStepAfter(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const card = this.cardFromEvent(event)
     this.closeAllMenus()
     if (this.pipelineModeValue && !this.nestedValue) {
@@ -268,7 +275,7 @@ export default class extends Controller {
   }
 
   duplicateStep(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const card = this.cardFromEvent(event)
     this.closeAllMenus()
     let content = ""
@@ -290,7 +297,7 @@ export default class extends Controller {
   }
 
   async pipelineAddStep({ anchorCard = null, placeBefore = false }) {
-    if (this.readonlyValue || this.pipelineAddInFlight) return
+    if (this.readonlyBlocksStructure() || this.pipelineAddInFlight) return
     this.pipelineAddInFlight = true
     this.closeAllMenus()
 
@@ -411,14 +418,14 @@ export default class extends Controller {
   }
 
   openThreadEmbedStepMenu(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     event.preventDefault()
     event.stopPropagation()
     this.showThreadEmbedStepHandleMenu(event.currentTarget)
   }
 
   threadHandleMenuKeydown(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const keyOk = event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")
     if (!keyOk) return
     event.preventDefault()
@@ -427,7 +434,7 @@ export default class extends Controller {
   }
 
   toggleThreadEmbedStepHandleMenu(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     if (this.suppressThreadEmbedHandleClick) return
     event.preventDefault()
     event.stopPropagation()
@@ -444,7 +451,7 @@ export default class extends Controller {
   }
 
   showThreadEmbedStepHandleMenu(button) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const wrap = button?.closest(".thread-step-handle-wrap")
     const menu = wrap?.querySelector(".step-menu--thread-handle[data-sequence-editor-target=\"menu\"]")
     if (!menu) return
@@ -540,11 +547,11 @@ export default class extends Controller {
   }
 
   handleOutsideClick(event) {
-    if (this.readonlyValue) return
-
     if (event.target.closest(".step-menu-wrap")) return
     if (event.target.closest(".sequence-nav-menu-wrap")) return
     this.closeAllMenus()
+
+    if (this.readonlyValue) return
 
     if (this.activeCard && !this.activeCard.contains(event.target)) {
       this.deactivateEditing()
@@ -556,7 +563,6 @@ export default class extends Controller {
     this.activeCard = null
     this.clearSequenceStepDragActiveMarker()
     this.setAllEditorsReadOnly()
-    this.hideAllToolbars()
   }
 
   clearSequenceStepDragActiveMarker() {
@@ -579,10 +585,17 @@ export default class extends Controller {
     this.editorTargets.forEach((editor) => {
       const row = editor.closest(SEQUENCE_STEP_ROW_SELECTOR)
       if (!row || row.hidden) return
-      const inner = editor.closest(".step-card")
-      const contentInput = inner?.querySelector('[data-sequence-editor-target="contentInput"]')
-      if (contentInput) contentInput.value = editor.innerHTML.trim()
+      this.syncAndTrimStepEditor(editor)
     })
+  }
+
+  syncAndTrimStepEditor(editor) {
+    const inner = editor.closest(".step-card")
+    const contentInput = inner?.querySelector('[data-sequence-editor-target="contentInput"]')
+    const trimmed = trimStepEditorHtml(editor.innerHTML)
+    if (editor.innerHTML !== trimmed) editor.innerHTML = trimmed
+    if (contentInput) contentInput.value = trimmed
+    return trimmed
   }
 
   setAllEditorsReadOnly() {
@@ -604,7 +617,7 @@ export default class extends Controller {
   }
 
   moveUp(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     this.closeAllMenus()
     const card = this.cardFromEvent(event)
     if (!card) return
@@ -612,7 +625,7 @@ export default class extends Controller {
   }
 
   moveDown(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     this.closeAllMenus()
     const card = this.cardFromEvent(event)
     if (!card) return
@@ -822,7 +835,7 @@ export default class extends Controller {
   }
 
   moveCardByOffset(card, offset) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     const cards = this.visibleCards()
     const index = cards.indexOf(card)
     if (index < 0) return
@@ -857,7 +870,7 @@ export default class extends Controller {
   }
 
   removeStepCard(card) {
-    if (this.readonlyValue || !card) return
+    if (this.readonlyBlocksStructure() || !card) return
 
     this.closeAllMenus()
     card.remove()
@@ -903,26 +916,9 @@ export default class extends Controller {
     }
     const editor = row.querySelector('[data-sequence-editor-target="editor"]')
     if (editor) editor.contentEditable = "true"
-    this.hideAllToolbars()
-    const toolbar = row.querySelector('[data-sequence-editor-target="toolbar"]')
-    if (toolbar) toolbar.hidden = false
     if (editor) {
       requestAnimationFrame(() => editor.focus())
     }
-  }
-
-  hideAllToolbars() {
-    this.toolbarTargets.forEach((toolbar) => {
-      toolbar.hidden = true
-    })
-  }
-
-  formatText(event) {
-    if (this.readonlyValue) return
-    const format = event.currentTarget.dataset.format
-    if (!format) return
-
-    document.execCommand(format, false)
   }
 
   syncEditor(event) {
@@ -962,7 +958,7 @@ export default class extends Controller {
         }
         if (destroyInput && prefix) destroyInput.name = `${prefix}[steps_attributes][${index}][_destroy]`
         if (contentInput) {
-          if (editor) contentInput.value = editor.innerHTML.trim()
+          if (editor) contentInput.value = this.syncAndTrimStepEditor(editor)
           if (prefix) contentInput.name = `${prefix}[steps_attributes][${index}][content]`
         }
         if (upButton) upButton.disabled = index === 0
@@ -972,17 +968,26 @@ export default class extends Controller {
   }
 
   syncEditorsBeforeSubmit() {
+    this.syncTextInputsBeforeSubmit()
     if (this.pipelineModeValue && !this.nestedValue) {
       this.syncNestedEditorsBeforeSubmit()
     }
     if (!this.pipelineModeValue) {
       this.editorTargets.forEach((editor) => {
-        const card = editor.closest(".step-card")
-        const contentInput = card?.querySelector('[data-sequence-editor-target="contentInput"]')
-        if (contentInput) contentInput.value = editor.innerHTML.trim()
+        this.syncAndTrimStepEditor(editor)
       })
     }
     this.reindexSteps()
+  }
+
+  syncTextInputsBeforeSubmit() {
+    if (this.hasTitleInputTarget) trimTrailingWhitespaceInPlace(this.titleInputTarget)
+    if (this.hasIntentInputTarget) trimTrailingWhitespaceInPlace(this.intentInputTarget)
+    this.element
+      .querySelectorAll(
+        ".bundle-pipeline-bundle-title-input, .bundle-pipeline-child-title-input, .bundle-pipeline-child-intent-input"
+      )
+      .forEach((input) => trimTrailingWhitespaceInPlace(input))
   }
 
   csrfToken() {
@@ -1030,7 +1035,7 @@ export default class extends Controller {
   }
 
   onStepMouseMove(event) {
-    if (!this.dragArmedCard || this.readonlyValue) return
+    if (!this.dragArmedCard || this.readonlyBlocksStructure()) return
 
     const dy = Math.abs(event.clientY - this.stepDragStartY)
     if (!this.stepDragMoved) {
@@ -1087,7 +1092,7 @@ export default class extends Controller {
   }
 
   armDrag(event) {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     if (event.button !== undefined && event.button !== 0) return
 
     const card = this.cardFromEvent(event)
@@ -1211,7 +1216,7 @@ export default class extends Controller {
   }
 
   insertStep({ anchorCard = null, placeBefore = false, content = "", sequenceId = "" }) {
-    if (this.readonlyValue) return null
+    if (this.readonlyBlocksStructure()) return null
     const token = `${Date.now()}_${Math.floor(Math.random() * 100000)}`
     const html = this.stepTemplateTarget.innerHTML.replaceAll("NEW_RECORD", token)
 
@@ -1319,7 +1324,7 @@ export default class extends Controller {
   }
 
   async autosaveFormAsync(form) {
-    if (!form || this.readonlyValue) return
+    if (!form || this.readonlyBlocksStructure()) return
     if (this.autosaveInFlight) {
       this.autosaveQueued = true
       return
@@ -1422,7 +1427,7 @@ export default class extends Controller {
   }
 
   queueStructureAutosave() {
-    if (this.readonlyValue) return
+    if (this.readonlyBlocksStructure()) return
     this.markAutosaveDirty()
     void this.autosaveFormAsync(this.autosaveFormEl())
   }

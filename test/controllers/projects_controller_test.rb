@@ -8,6 +8,16 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     @project = Project.create!(name: "Alpha Project", user: users(:alice))
   end
 
+  test "index renders application shell with projects tool" do
+    get projects_path
+    assert_response :success
+    assert_select ".application-shell"
+    assert_select ".tool-container--centered"
+    assert_select ".tool-heading-title", text: "Projects"
+    assert_select "a", text: "Open Workspace"
+    assert_select ".sequence-nav-menu-trigger", count: 0
+  end
+
   test "redirects to sign-in when not authenticated" do
     sign_out users(:alice)
     get projects_path
@@ -28,6 +38,8 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/thread/i, response.body)
     assert_match(/sequences/i, response.body)
     assert_match(/Taxonomies/i, response.body)
+    assert_match(/Default process taxonomy/i, response.body)
+    assert_select "select[data-project-taxonomies-target='defaultProcessTaxonomySelect'][disabled]"
   end
 
   test "settings redirects to projects index without turbo frame" do
@@ -108,6 +120,46 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       delete project_path(@project)
     end
     assert_redirected_to projects_path
+  end
+
+  test "update default process taxonomy via json" do
+    first =
+      @project.taxonomies.create!(
+        name: "First",
+        cardinality: :one,
+        process_tracking: true,
+        single_select_ui: "dropdown",
+        position: 1
+      )
+    second =
+      @project.taxonomies.create!(
+        name: "Second",
+        cardinality: :one,
+        process_tracking: true,
+        single_select_ui: "dropdown",
+        position: 2
+      )
+    @project.update!(default_process_taxonomy: first)
+
+    patch project_path(@project),
+          params: { project: { default_process_taxonomy_id: second.id } },
+          as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal second.id, body["default_process_taxonomy_id"]
+    assert_equal second.id, @project.reload.default_process_taxonomy_id
+  end
+
+  test "update rejects non-process taxonomy as default via json" do
+    taxonomy = @project.taxonomies.create!(name: "Tags", cardinality: :many, position: 1)
+
+    patch project_path(@project),
+          params: { project: { default_process_taxonomy_id: taxonomy.id } },
+          as: :json
+
+    assert_response :unprocessable_entity
+    assert_nil @project.reload.default_process_taxonomy_id
   end
 
   test "destroy removes project with taxonomy terms and sequence assignments" do

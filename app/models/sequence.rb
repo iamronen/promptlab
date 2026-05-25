@@ -14,6 +14,8 @@ class Sequence < ApplicationRecord
   STRAND_FORK_DEFAULT_TITLE = "Untitled strand"
   UNTITLED_THREAD_BRANCH_TITLE = "Untitled thread"
 
+  MoveToThreadDestinationGroups = Struct.new(:parents, :parallels, :cousins, keyword_init: true)
+
   belongs_to :project, inverse_of: :sequences
   belongs_to :created_by, class_name: "User", inverse_of: :created_sequences
 
@@ -62,9 +64,11 @@ class Sequence < ApplicationRecord
   ThreadStepRow = Struct.new(:position, :bundle_id, :sequence_id, :title, keyword_init: true)
 
   # Oldest-first thread chain toward Genesis for workspace panel header breadcrumbs (includes Genesis).
+  THREAD_WORKSPACE_BREADCRUMB_MAX_VISIBLE = 5
+
   ThreadWorkspaceBreadcrumb = Struct.new(:full_segments, :ellipsis, keyword_init: true) do
     def visible_segments
-      ellipsis ? full_segments.last(3) : full_segments
+      ellipsis ? full_segments.last(Sequence::THREAD_WORKSPACE_BREADCRUMB_MAX_VISIBLE) : full_segments
     end
 
     def lineage_label_text
@@ -85,6 +89,7 @@ class Sequence < ApplicationRecord
 
   before_validation :assign_created_by, on: :create
   before_validation :clear_term_flag_for_non_generative_kinds
+  before_validation :trim_trailing_whitespace_from_text_fields
   before_validation :normalize_steps_data
   before_validation :sync_bundle_title_from_first_pipeline, if: :bundle?
 
@@ -97,6 +102,20 @@ class Sequence < ApplicationRecord
   after_save :sync_sequence_step_dependency_rows, if: :should_sync_sequence_step_rows?
   after_save :sync_thread_step_dependency_rows, if: :should_sync_thread_step_rows?
   after_save :sync_parent_bundle_titles_when_first_sequence_renamed, if: :should_sync_parent_bundle_titles_when_first_sequence_renamed?
+
+  def in_bundle_pipeline?
+    return false unless sequence?
+
+    parent_dependencies.sequence_step.exists?
+  end
+
+  # Thread whose strand directly references this generative sequence or bundle.
+  def strand_host_thread
+    parent_dependencies
+      .where(kind: [:thread_step_sequence, :thread_step_bundle])
+      .includes(:parent)
+      .first&.parent
+  end
 
   # Generative sequences referenced by this bundle pipeline, in order (excludes missing ids).
   def pipeline_generative_children_ordered
@@ -188,7 +207,7 @@ class Sequence < ApplicationRecord
     end
 
     full_segments = ancestors + [self]
-    ellipsis = full_segments.size > 3
+    ellipsis = full_segments.size > THREAD_WORKSPACE_BREADCRUMB_MAX_VISIBLE
 
     ThreadWorkspaceBreadcrumb.new(full_segments: full_segments, ellipsis: ellipsis)
   end
@@ -351,10 +370,24 @@ class Sequence < ApplicationRecord
     out
   end
 
+  # Fabric move menu: parent / parallel / cousin thread groups for the current thread.
+  def move_to_thread_menu_destination_groups
+    return MoveToThreadDestinationGroups.new(parents: [], parallels: [], cousins: []) unless thread?
+
+    parents = ancestor_threads_for_move_menu
+    parallels = parallel_threads_for_move_menu
+    cousins = cousin_threads_for_move_menu(parallels)
+    MoveToThreadDestinationGroups.new(parents: parents, parallels: parallels, cousins: cousins)
+  end
+
+  def move_to_thread_menu_destinations_any?
+    g = move_to_thread_menu_destination_groups
+    g.parents.any? || g.parallels.any? || g.cousins.any?
+  end
+
   # Branched threads that can be re-anchored onto +anchor_sequence_id+ (optional +anchor_bundle_id+).
-  # Same ordering/deduping as #move_to_thread_menu_destinations, but only threads that already have a
-  # ThreadNode, excluding genesis/orphans and excluding no-op (already anchored at this anchor).
-  def attach_branch_thread_menu_candidates(open_threads:, anchor_sequence_id:, anchor_bundle_id: nil)
+  # Direct child threads of this strand, strand-ordered; excludes no-op (already anchored at this anchor).
+  def attach_branch_thread_menu_candidates(anchor_sequence_id:, anchor_bundle_id: nil)
     return [] unless thread?
 
     sid = anchor_sequence_id.to_i
@@ -363,9 +396,8 @@ class Sequence < ApplicationRecord
     bid = anchor_bundle_id.to_i
     bid = nil unless bid.positive?
 
-    move_to_thread_menu_destinations(open_threads: open_threads).filter_map do |t|
+    direct_child_threads_ordered_for_attach_menu.filter_map do |t|
       next unless t.thread?
-      next if t.id == id
       next if t.is_genesis? || t.is_orphans?
 
       node = t.thread_node_as_child
@@ -379,7 +411,75 @@ class Sequence < ApplicationRecord
     end
   end
 
+  def attach_branch_thread_menu_candidates_any?(anchor_sequence_id:, anchor_bundle_id: nil)
+    attach_branch_thread_menu_candidates(
+      anchor_sequence_id: anchor_sequence_id,
+      anchor_bundle_id: anchor_bundle_id
+    ).any?
+  end
+
   private
+
+  def ancestor_threads_for_move_menu
+    return [] unless thread?
+
+    ancestors = []
+    cursor = self
+    seen_parents = {}
+    max_hops = 64
+
+    max_hops.times do
+      node = cursor.thread_node_as_child
+      break unless node
+
+      parent = node.parent_thread
+      break unless parent
+      break if seen_parents[parent.id]
+
+      seen_parents[parent.id] = true
+      ancestors.unshift(parent)
+      break if parent.is_genesis?
+
+      cursor = parent
+    end
+
+    ancestors
+  end
+
+  def parallel_threads_for_move_menu
+    return [] unless thread?
+
+    parent = thread_node_as_child&.parent_thread
+    return [] unless parent
+
+    ordered_child_threads_for_parent(parent).reject { |t| t.id == id }
+  end
+
+  def cousin_threads_for_move_menu(parallels)
+    seen = {}
+    out = []
+    Array.wrap(parallels).each do |pt|
+      ordered_child_threads_for_parent(pt).each do |ct|
+        next if ct.id == id || seen[ct.id]
+
+        seen[ct.id] = true
+        out << ct
+      end
+    end
+    out
+  end
+
+  def ordered_child_threads_for_parent(parent_thread)
+    ThreadNode.ordered_thread_nodes_for_parent(parent_thread.id)
+      .filter_map(&:child_thread)
+      .uniq { |t| t.id }
+  end
+
+  def direct_child_threads_ordered_for_attach_menu
+    return [] unless thread?
+
+    ordered_child_threads_for_parent(self)
+  end
 
   def plain_copy_field(value)
     ProjectPdfHtml.to_plain(value.to_s).strip
@@ -424,6 +524,11 @@ class Sequence < ApplicationRecord
 
   def assign_created_by
     self.created_by ||= Current.user || project&.user
+  end
+
+  def trim_trailing_whitespace_from_text_fields
+    self.title = TextInputSanitizer.trim_trailing(title)
+    self.intent = TextInputSanitizer.trim_trailing(intent)
   end
 
   def sync_bundle_title_from_first_pipeline

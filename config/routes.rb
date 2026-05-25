@@ -36,6 +36,9 @@ Rails.application.routes.draw do
       end
     end
     resources :taxonomies, only: %i[index create update destroy] do
+      member do
+        post :apply_default_value
+      end
       collection do
         put :reorder
       end
@@ -45,6 +48,7 @@ Rails.application.routes.draw do
         end
       end
     end
+    resources :process_cards, only: %i[show], controller: "process_card_details"
     resources :bundles, only: %i[edit update create destroy] do
       member do
         post :duplicate

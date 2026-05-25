@@ -1,0 +1,10 @@
+<article class="tool-part workspace-process-column prompt-process-column">
+  <header class="tool-part-header">
+    <p class="m-0 min-w-0 flex-1 text-sm/6 font-semibold text-prompt-heading"><%= column.label %></p>
+  </header>
+  <div class="tool-part-body workspace-process-column-body flex flex-col gap-2">
+    <% column.cards.each do |card| %>
+      <%= render "sequences/process_board_task_card", sequence: card.sequence %>
+    <% end %>
+  </div>
+</article>

@@ -47,7 +47,10 @@
     </div>
     <% taxonomy_subject = local_assigns.fetch(:taxonomy_subject, f.object) %>
     <% if taxonomy_subject.present? %>
-      <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
+      <%= render "sequences/sequence_meta_taxonomies_host",
+                 project: @project,
+                 sequence: taxonomy_subject,
+                 subject_context: "standalone" %>
     <% end %>
   </section>
 <% elsif variant == :bundle_child_tags %>
@@ -88,7 +91,10 @@
     </div>
     <% taxonomy_subject = local_assigns[:taxonomy_subject] %>
     <% if taxonomy_subject.present? %>
-      <%= render "sequences/sequence_meta_taxonomies_host", project: @project, sequence: taxonomy_subject %>
+      <%= render "sequences/sequence_meta_taxonomies_host",
+                 project: @project,
+                 sequence: taxonomy_subject,
+                 subject_context: "bundle_pipeline" %>
     <% end %>
   </section>
 <% end %>

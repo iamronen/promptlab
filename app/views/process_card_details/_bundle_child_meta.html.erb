@@ -1,0 +1,21 @@
+<%# locals: child (Sequence), pipeline_ord: (optional Integer) %>
+<% child_title = child.title.presence || Sequence::DEFAULT_TITLE %>
+<% intent_plain = ProjectPdfHtml.to_plain(child.intent.to_s).strip %>
+<% show_intent = intent_plain.present? && intent_plain != Sequence::DEFAULT_INTENT %>
+
+<section class="process-card-modal-sequence-block-meta meta-fields prompt-thread-sequence-meta">
+  <div class="sequence-heading-row">
+    <div class="field field--sequence-title">
+      <h3 class="process-card-modal-sequence-block-title m-0 text-base font-semibold text-prompt-heading"><%= child_title %></h3>
+    </div>
+  </div>
+  <% if show_intent %>
+    <div class="field field--sequence-intent process-card-modal-intent process-card-modal-intent--child">
+      <p class="m-0 text-sm/6 text-prompt-heading"><%= intent_plain %></p>
+    </div>
+  <% end %>
+  <%= render "sequences/sequence_meta_taxonomies_host",
+             project: @project,
+             sequence: child,
+             subject_context: "bundle_pipeline" %>
+</section>

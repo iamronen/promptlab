@@ -23,8 +23,8 @@ class SequencesController < ApplicationController
                 ]
 
   def edit
-    if params[:workspace_mode].to_s == "browsing" && !sequence_modal_request?
-      return redirect_to edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options),
+    if legacy_workspace_mode_redirect? && !sequence_modal_request?
+      return redirect_to edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options.except(:workspace_mode)),
                         status: :see_other
     end
 
@@ -98,9 +98,10 @@ class SequencesController < ApplicationController
       if was_thread
         redirect_after_thread_workspace_thread_destroy(deleted_sequence_id)
       elsif safe_workspace_editor_redirect?(params[:redirect_to])
-        redirect_to params[:redirect_to].to_s, notice: "Sequence deleted."
+        redirect_to redirect_url_after_generative_sequence_destroy(deleted_sequence_id),
+                    notice: "Sequence deleted."
       else
-        redirect_after_generative_sequence_destroy
+        redirect_after_generative_sequence_destroy(deleted_sequence_id)
       end
     else
       redirect_to edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options),
@@ -191,15 +192,39 @@ class SequencesController < ApplicationController
     ActiveModel::Type::Boolean.new.cast(params.dig(:sequence, :is_term))
   end
 
-  def redirect_after_generative_sequence_destroy
-    next_seq = @project.sequences.generative_sequences.order(:position).first
-    if next_seq
-      redirect_to edit_project_sequence_path(@project, next_seq, **workspace_editor_redirect_options),
-                  notice: "Sequence deleted."
-      return
+  def redirect_after_generative_sequence_destroy(deleted_sequence_id)
+    redirect_to generative_sequence_destroy_fallback_url(deleted_sequence_id),
+                notice: "Sequence deleted."
+  end
+
+  def redirect_url_after_generative_sequence_destroy(deleted_sequence_id)
+    ref = params[:redirect_to].to_s
+    base = "#{request.protocol}#{request.host_with_port}#{ref}"
+    uri = URI.parse(base)
+
+    if uri.path == edit_project_sequence_path(@project, deleted_sequence_id)
+      return generative_sequence_destroy_fallback_url(deleted_sequence_id)
     end
 
-    redirect_to open_project_path(@project), notice: "Sequence deleted."
+    extras = {}
+    q = Rack::Utils.parse_nested_query(uri.query.to_s)
+    focus_id = q["focus_transformation_id"].to_i
+    focus_id = params[:focus_transformation_id].to_i if focus_id.zero?
+    extras[:focus_transformation_id] = nil if focus_id == deleted_sequence_id
+
+    merge_query_for_url(base, extras)
+  end
+
+  def generative_sequence_destroy_fallback_url(deleted_sequence_id)
+    opts = workspace_editor_redirect_options
+    opts = opts.except(:focus_transformation_id) if opts[:focus_transformation_id].to_i == deleted_sequence_id
+
+    next_seq = @project.sequences.generative_sequences.order(:position).first
+    if next_seq
+      edit_project_sequence_path(@project, next_seq, **opts)
+    else
+      open_project_path(@project)
+    end
   end
 
   def redirect_after_thread_workspace_thread_destroy(deleted_thread_id)
@@ -265,7 +290,6 @@ class SequencesController < ApplicationController
 
     if remaining.empty?
       return {
-        workspace_mode: "fabric",
         open_threads: nil,
         weave_thread: nil,
         thread_partner: nil

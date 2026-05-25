@@ -2,6 +2,7 @@
 
 class Project < ApplicationRecord
   belongs_to :user
+  belongs_to :default_process_taxonomy, class_name: "Taxonomy", optional: true
 
   # All Sequence rows (generative `sequence`, `bundle`, and weave `thread` strands).
   has_many :sequences, -> { order(:position) }, dependent: :destroy, inverse_of: :project
@@ -9,6 +10,7 @@ class Project < ApplicationRecord
   has_many :taxonomy_assignment_histories, dependent: :destroy
 
   validates :name, presence: true
+  validate :default_process_taxonomy_belongs_to_project
 
   # Association `dependent: :destroy` registers `before_destroy` procs; without `prepend`,
   # they run before user `around_destroy` begins, so root threads abort first.
@@ -26,6 +28,32 @@ class Project < ApplicationRecord
 
   # Invoked after ProjectsController#create saves the project (not in after_create) so tests and
   # other callers of Project.create! can add their own first sequence without position clashes.
+  def process_taxonomies_ordered
+    taxonomies.where(process_tracking: true).order(:position, :id)
+  end
+
+  # Keeps default_process_taxonomy aligned with available process taxonomies:
+  # cleared when none exist, forced when only one exists, and repaired when invalid.
+  def reconcile_default_process_taxonomy!
+    ordered_ids = process_taxonomies_ordered.pluck(:id)
+
+    if ordered_ids.empty?
+      update_column(:default_process_taxonomy_id, nil) if default_process_taxonomy_id.present?
+      return
+    end
+
+    if ordered_ids.size == 1
+      new_id = ordered_ids.first
+      update_column(:default_process_taxonomy_id, new_id) if default_process_taxonomy_id != new_id
+      return
+    end
+
+    current_id = default_process_taxonomy_id
+    return if current_id && ordered_ids.include?(current_id)
+
+    update_column(:default_process_taxonomy_id, ordered_ids.first)
+  end
+
   def bootstrap_initial_sequence_on_genesis!
     g = genesis_thread
     raise ActiveRecord::RecordNotFound, "Missing genesis thread" unless g
@@ -52,6 +80,17 @@ class Project < ApplicationRecord
   end
 
   private
+
+  def default_process_taxonomy_belongs_to_project
+    return if default_process_taxonomy_id.blank?
+
+    tax = default_process_taxonomy
+    if tax.nil? || tax.project_id != id
+      errors.add(:default_process_taxonomy, "must belong to this project")
+    elsif !tax.process_tracking?
+      errors.add(:default_process_taxonomy, "must track process over time")
+    end
+  end
 
   def with_sequence_teardown_thread_flag
     prev = Thread.current[:wiping_project_id_for_sequences]

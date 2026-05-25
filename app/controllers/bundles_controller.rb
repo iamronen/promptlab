@@ -13,8 +13,8 @@ class BundlesController < ApplicationController
 
   def edit
     ensure_steps_placeholder
-    if params[:workspace_mode].to_s == "browsing" && !bundle_modal_request?
-      return redirect_to edit_project_bundle_path(@project, @sequence, **workspace_editor_redirect_options),
+    if legacy_workspace_mode_redirect? && !bundle_modal_request?
+      return redirect_to edit_project_bundle_path(@project, @sequence, **workspace_editor_redirect_options.except(:workspace_mode)),
                         status: :see_other
     end
     if bundle_modal_request?

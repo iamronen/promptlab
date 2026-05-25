@@ -23,6 +23,13 @@ class SequenceBundleDependenciesTest < ActiveSupport::TestCase
     )
   end
 
+  test "in_bundle_pipeline is true for generative sequence in bundle pipeline" do
+    @bundle.update!(steps_data: [{ "sequence_id" => @gen.id }])
+    @gen.reload
+
+    assert @gen.in_bundle_pipeline?
+  end
+
   test "sync sequence_step rows after bundle steps_data update" do
     @bundle.update!(steps_data: [{ "sequence_id" => @gen.id }])
     deps = SequenceDependency.where(parent_id: @bundle.id, kind: :sequence_step)

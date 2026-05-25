@@ -51,6 +51,7 @@ export default class extends Controller {
 
     this.scrollStrandRowIntoViewIfNeeded()
     this.revealAndFocusNewSequenceIfNeeded()
+    this.revealAndFocusBundleIfNeeded()
 
     syncThreadBranchStrandBridgeAlignment(this.element)
     this.boundThreadBranchAlign = () => syncThreadBranchStrandBridgeAlignment(this.element)
@@ -134,6 +135,40 @@ export default class extends Controller {
     frame.addEventListener("turbo:frame-load", focusTitle, { once: true })
     window.setTimeout(focusTitle, 400)
     window.setTimeout(focusTitle, 1100)
+  }
+
+  revealAndFocusBundleIfNeeded() {
+    const u = new URL(window.location.href)
+    const bundleId = u.searchParams.get("focus_bundle_id")
+    if (!bundleId || !this.hasIndexListTarget) return
+
+    const row = this.indexListTarget.querySelector(`.workspace-thread-strand-row[data-strand-step="b:${bundleId}"]`)
+    if (!row) return
+
+    const frameId = `thread_editor_bundle_${bundleId}`
+    const root = threadPanelRootFrom(this.element)
+    dispatchRevealThreadFrame(root, frameId, null)
+
+    const stripFocusParam = () => {
+      const cur = new URL(window.location.href)
+      if (!cur.searchParams.has("focus_bundle_id")) return
+      cur.searchParams.delete("focus_bundle_id")
+      const qs = cur.searchParams.toString()
+      window.history.replaceState(window.history.state, "", `${cur.pathname}${qs ? `?${qs}` : ""}${cur.hash}`)
+    }
+
+    const scrollBundle = () => {
+      const frame = document.getElementById(frameId)
+      if (!frame) return
+      stripFocusParam()
+    }
+
+    const frame = document.getElementById(frameId)
+    if (!frame) return
+
+    frame.addEventListener("turbo:frame-load", scrollBundle, { once: true })
+    window.setTimeout(scrollBundle, 400)
+    window.setTimeout(scrollBundle, 1100)
   }
 
   onDocumentClick(event) {

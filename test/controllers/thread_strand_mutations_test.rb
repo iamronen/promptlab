@@ -700,13 +700,23 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
 
     patch project_sequence_path(@project, child),
-          params: { autosave: "1", sequence: { title: "Renamed strand" } },
+          params: { autosave: "1", sequence: { title: "Renamed strand  " } },
           headers: { "Accept" => "application/json" }
 
     assert_response :ok
     body = JSON.parse(response.body)
     assert_equal "Renamed strand", body["title"]
     assert_equal "Renamed strand", child.reload.title
+  end
+
+  test "thread_fork_strand trims trailing whitespace from thread title" do
+    dest = "/projects/#{@project.id}/open"
+    assert_difference -> { @project.sequences.threads.count }, +1 do
+      post thread_fork_strand_project_sequence_path(@project, @genesis),
+           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Fork name  " }
+    end
+    child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
+    assert_equal "Fork name", child.title
   end
 
   test "sequences update rejects genesis thread title change via autosave" do

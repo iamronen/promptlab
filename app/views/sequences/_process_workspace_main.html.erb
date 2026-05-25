@@ -1,0 +1,8 @@
+<main class="workspace-process prompt-process-main" aria-label="Process" data-controller="process-card-modal">
+  <% if @process_board&.ready? %>
+    <%= render "sequences/process_board", board: @process_board %>
+  <% else %>
+    <%= render "sequences/process_board_empty_state" %>
+  <% end %>
+  <%= render "sequences/process_card_modal" %>
+</main>

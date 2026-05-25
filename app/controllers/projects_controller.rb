@@ -1,5 +1,4 @@
 class ProjectsController < ApplicationController
-  before_action :enable_flowbite_app_shell, only: %i[index]
   before_action :set_project, only: %i[update open settings destroy export_pdf]
 
   def index
@@ -51,12 +50,19 @@ class ProjectsController < ApplicationController
 
   def update
     if @project.update(project_params)
-      redirect_to projects_path, notice: "Project saved."
+      if request.format.json?
+        render json: { default_process_taxonomy_id: @project.default_process_taxonomy_id }
+      else
+        redirect_to project_update_redirect_path, notice: "Project saved."
+      end
+    elsif request.format.json?
+      render json: { errors: @project.errors.full_messages }, status: :unprocessable_entity
     elsif project_settings_modal_frame_request?
       render partial: "projects/project_settings_modal", layout: false, status: :unprocessable_entity
     else
-      redirect_to projects_path,
-                  alert: @project.errors.full_messages.to_sentence.presence || "Could not rename project."
+      redirect_to project_update_redirect_path,
+                  alert: @project.errors.full_messages.to_sentence.presence || "Could not rename project.",
+                  status: :see_other
     end
   end
 
@@ -91,14 +97,14 @@ class ProjectsController < ApplicationController
         is_term: false
       )
     end
-    redirect_to edit_project_sequence_path(@project, seq)
+    redirect_to edit_project_sequence_path(
+      @project,
+      seq,
+      weave_thread: @project.genesis_thread.id
+    )
   end
 
   private
-
-  def enable_flowbite_app_shell
-    @render_flowbite_app_shell = true
-  end
 
   def project_settings_modal_frame_request?
     request.headers["Turbo-Frame"].to_s == "project_settings_modal"
@@ -113,6 +119,21 @@ class ProjectsController < ApplicationController
   end
 
   def project_params
-    params.require(:project).permit(:name)
+    params.require(:project).permit(:name, :default_process_taxonomy_id)
+  end
+
+  def project_update_redirect_path
+    return_to = params[:return_to].to_s
+    return return_to if safe_project_return_to?(return_to)
+
+    projects_path
+  end
+
+  def safe_project_return_to?(path)
+    s = path.to_s
+    return false if s.blank? || !s.start_with?("/") || s.include?("..")
+    return false unless @project
+
+    s.match?(%r{\A/projects/#{Regexp.escape(@project.id.to_s)}(?:/|\z)})
   end
 end

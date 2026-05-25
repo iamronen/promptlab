@@ -89,8 +89,179 @@
   }
 
   /*
+   * Unified application shell — header + tool canvas for authenticated pages.
+   */
+  .application-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  body:has(.application-shell) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body:has(.application-shell) > :not(.application-shell) {
+    flex-shrink: 0;
+  }
+
+  .application-header {
+    @apply shrink-0 border-b border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .application-header-inner {
+    @apply mx-auto grid max-w-[120rem] grid-cols-[1fr_auto_1fr] items-center gap-x-4 px-4 py-3;
+  }
+
+  .application-header-spacer {
+    @apply min-w-0;
+  }
+
+  .application-title-container {
+    @apply relative flex items-center justify-center gap-2;
+  }
+
+  .application-title-brand {
+    @apply flex items-center gap-2;
+  }
+
+  .application-icon-placeholder {
+    @apply inline-block size-8 shrink-0 rounded-lg bg-gray-200 dark:bg-gray-600;
+  }
+
+  .application-name {
+    @apply text-lg font-bold tracking-tight text-prompt-heading dark:text-white;
+  }
+
+  .application-settings-trigger {
+    @apply inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600;
+  }
+
+  .application-settings-panel {
+    @apply absolute left-1/2 top-full z-50 mt-2 min-w-[12rem] -translate-x-1/2 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800;
+  }
+
+  .application-settings-panel-item {
+    @apply block w-full px-4 py-2 text-left text-sm font-medium text-gray-700 no-underline hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  .application-settings-panel-item--button {
+    @apply cursor-pointer border-0 bg-transparent;
+  }
+
+  .application-settings-panel-sign-out-form {
+    @apply m-0;
+  }
+
+  .application-header-toolbar {
+    @apply flex min-w-0 shrink-0 items-center justify-end justify-self-end;
+  }
+
+  .tool-canvas {
+    @apply min-h-0 flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900;
+  }
+
+  .tool-container {
+    @apply flex min-h-0 flex-col;
+  }
+
+  .tool-container--centered {
+    @apply mx-auto box-border w-full max-w-[720px] px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0))] pt-8;
+  }
+
+  .tool-canvas:has(.tool-container--full) {
+    @apply overflow-hidden;
+  }
+
+  .tool-container--full {
+    @apply h-full min-h-0 w-full;
+  }
+
+  .tool-heading {
+    @apply shrink-0 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .tool-container--centered .tool-heading {
+    @apply mb-6 border-0 bg-transparent px-0 py-0 shadow-none;
+  }
+
+  .tool-container--full .tool-heading {
+    @apply border-0 bg-transparent px-0 py-3 shadow-none;
+  }
+
+  .tool-heading-main {
+    @apply flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .tool-heading-title {
+    @apply m-0 text-[1.65rem] font-extrabold tracking-tight text-prompt-heading dark:text-white;
+  }
+
+  .tool-container--full .tool-heading-main {
+    @apply w-full;
+  }
+
+  .tool-heading-actions--full {
+    @apply min-w-0 flex-1;
+  }
+
+  .tool-heading-actions {
+    @apply flex shrink-0 flex-wrap items-center gap-2;
+  }
+
+  .tool-heading-bar {
+    @apply mx-auto grid w-full max-w-[120rem] grid-cols-[1fr_auto_1fr] items-center gap-x-4 px-4;
+  }
+
+  .tool-heading-bar-spacer {
+    @apply min-w-0;
+  }
+
+  .tool-heading-center {
+    @apply flex min-w-0 max-w-[720px] flex-wrap items-center justify-between gap-x-4 gap-y-2;
+  }
+
+  .tool-heading-center-controls {
+    @apply flex shrink-0 flex-wrap items-center gap-2;
+  }
+
+  .tool-heading-center .tool-heading-title {
+    @apply min-w-0 shrink text-base font-semibold md:text-lg;
+  }
+
+  .prompt-workspace-header-segment--active,
+  a.prompt-workspace-header-segment[aria-current="page"] {
+    @apply z-10 bg-gray-100 text-prompt-accent ring-1 ring-inset ring-prompt-accent/25 dark:bg-gray-700 dark:text-blue-400 dark:ring-blue-400/30;
+  }
+
+  .tool-body {
+    @apply min-h-0 flex-1;
+  }
+
+  .tool-container--centered .tool-body {
+    @apply flex flex-col gap-6;
+  }
+
+  .tool-part {
+    @apply w-full rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .tool-part-header {
+    @apply flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-t-xl border-b border-gray-200 bg-gray-100 px-4 py-3 sm:px-6 dark:border-gray-700 dark:bg-gray-900/75;
+  }
+
+  .tool-part-body {
+    @apply rounded-b-xl bg-white px-4 py-4 sm:px-6 dark:bg-gray-800;
+  }
+
+  /*
    * Project workspace top header (sequences/bundles edit) — Flowbite-style tabs + button groups.
-   * Not the admin Flowbite app shell; lives in app/views/sequences/_workspace_top_header.html.erb.
+   * Used in project tool heading and application header font-size controls.
    */
   .prompt-workspace-header {
     @apply sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
@@ -204,6 +375,126 @@
 
   .workspace-fabric-assistant-body.prompt-fabric-assistant-body {
     @apply flex min-h-0 flex-1 flex-col overflow-y-auto p-4;
+  }
+
+  /*
+   * Process workspace — kanban board columns from default process taxonomy.
+   */
+  main.workspace-process.prompt-process-main {
+    @apply flex min-h-0 flex-1 flex-col overflow-x-auto bg-prompt-canvas p-4;
+  }
+
+  .workspace-process-board.prompt-process-board {
+    @apply mx-auto flex min-h-0 w-max max-w-full flex-1 items-stretch gap-3;
+  }
+
+  .workspace-process-column.prompt-process-column {
+    @apply flex min-h-0 w-72 shrink-0 flex-col self-stretch;
+  }
+
+  .workspace-process-column-body {
+    @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto;
+  }
+
+  .workspace-process-task-card.prompt-process-task-card {
+    @apply flex w-full cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-left
+           hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+           dark:border-gray-600 dark:bg-gray-900/40 dark:hover:bg-gray-800/60;
+  }
+
+  .process-card-modal-dialog.bundle-edit-dialog {
+    width: min(52rem, calc(100vw - 2rem));
+  }
+
+  .process-card-modal-frame {
+    @apply block w-full;
+  }
+
+  .process-card-modal-panel {
+    @apply relative flex max-h-[min(90vh,760px)] flex-col overflow-hidden;
+  }
+
+  .process-card-modal-header {
+    @apply flex shrink-0 items-start justify-between gap-4 border-b border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-700 dark:bg-gray-800/80;
+  }
+
+  .process-card-modal-descriptor {
+    @apply flex min-w-0 flex-1 flex-col gap-1;
+  }
+
+  .process-card-modal-breadcrumb {
+    @apply text-xs text-prompt-muted;
+  }
+
+  .process-card-modal-title {
+    @apply text-xl font-bold tracking-tight text-prompt-heading;
+  }
+
+  .process-card-modal-controls {
+    @apply flex shrink-0 items-center gap-2;
+  }
+
+  .process-card-modal-close.bundle-edit-dialog-close {
+    @apply static right-auto top-auto;
+  }
+
+  .process-card-modal-body {
+    @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
+  }
+
+  .process-card-modal-intent {
+    @apply mb-4;
+  }
+
+  .process-card-modal-intent--child {
+    @apply mb-3;
+  }
+
+  .process-card-modal-metadata {
+    @apply mb-4;
+  }
+
+  .process-card-modal-sequence-blocks {
+    @apply flex flex-col gap-4;
+  }
+
+  .process-card-modal-sequence-block {
+    @apply rounded-lg border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-600 dark:bg-gray-900/30;
+  }
+
+  .process-card-modal-sequence-block-title {
+    @apply text-base font-semibold text-prompt-heading;
+  }
+
+  .sequence-editor--process-card-modal .steps-section {
+    @apply mt-4;
+  }
+
+  .prompt-process-bundle-icon__sheet {
+    fill: theme("colors.gray.50");
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .workspace-process-task-card.prompt-process-task-card:hover .prompt-process-bundle-icon__sheet {
+    fill: theme("colors.gray.100");
+  }
+
+  .workspace-shell--process {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .workspace-shell--process > .workspace.workspace--one-pane {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .workspace-fabric-assistant-placeholder.prompt-fabric-assistant-placeholder {
@@ -1467,6 +1758,56 @@
    * remaining viewport height so the thread strip’s horizontal scrollbar stays at the bottom edge
    * instead of below off-screen vertical overflow.
    */
+  body:has(.tool-container--full) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body:has(.tool-container--full) > :not(.application-shell) {
+    flex-shrink: 0;
+  }
+
+  .tool-container--full {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .tool-container--full .tool-heading {
+    flex-shrink: 0;
+  }
+
+  .tool-container--full .tool-heading-bar .prompt-workspace-header-toolbar {
+    @apply justify-self-end;
+  }
+
+  .tool-container--full .tool-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .tool-container--full .tool-body > .workspace-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .tool-container--full .tool-body > .workspace-shell > .workspace.workspace--three-pane,
+  .tool-container--full .tool-body > .workspace-shell > .workspace.workspace--two-pane,
+  .tool-container--full .tool-body > .workspace-shell > .workspace.workspace--one-pane,
+  .tool-container--full .tool-body > .workspace-settings-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   body:has(.workspace-shell--three-pane) {
     display: flex;
     flex-direction: column;
