@@ -273,6 +273,29 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_equal [[:sequence, @g.id]], @genesis.reload.strand_step_pairs
   end
 
+  test "thread_unbundle_pipeline_sequence redirects to workspace when bundle editor was open" do
+    @genesis.update!(steps_data: [{ "bundle_id" => @t1.id }])
+    bundle_id = @t1.id
+    dest = edit_project_bundle_path(@project, @t1, weave_thread: @genesis.id, workspace_mode: "fabric")
+
+    post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: bundle_id,
+           sequence_id: @g.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id,
+           workspace_mode: "fabric"
+         }
+
+    assert_response :redirect
+    assert_nil @project.sequences.bundles.find_by(id: bundle_id)
+    loc = @response.redirect_url
+    assert_match(%r{/projects/#{@project.id}/open}, loc)
+    refute_match(%r{/bundles/#{bundle_id}/edit}, loc)
+    assert_match(/focus_transformation_id=#{@g.id}/, loc)
+    refute_match(/focus_bundle_id=#{bundle_id}/, loc)
+  end
+
   test "thread_unbundle_pipeline_sequence nullifies parent_bundle_id on thread nodes when bundle destroyed" do
     dest = "/projects/#{@project.id}/open"
     g2 = @project.sequences.create!(

@@ -1,9 +1,10 @@
-<%# locals: child_sequence (Sequence), form_field_prefix (String), suppress_sequence_wrapper: (optional bool), suppress_footer_thread_branch_tail: (optional bool), readonly: (optional bool), suppress_footer: (optional bool) %>
+<%# locals: child_sequence (Sequence), form_field_prefix (String), suppress_sequence_wrapper: (optional bool), suppress_footer_thread_branch_tail: (optional bool), readonly: (optional bool), suppress_footer: (optional bool), suppress_step_rail: (optional bool) %>
 <% thread_panel_editor_embed = local_assigns.fetch(:thread_panel_editor_embed, false) %>
 <% suppress_sequence_wrapper = local_assigns.fetch(:suppress_sequence_wrapper, false) %>
 <% suppress_footer_thread_branch_tail = local_assigns.fetch(:suppress_footer_thread_branch_tail, false) %>
 <% readonly = local_assigns.fetch(:readonly, false) %>
 <% suppress_footer = local_assigns.fetch(:suppress_footer, false) %>
+<% suppress_step_rail = local_assigns.fetch(:suppress_step_rail, false) %>
 <% steps = child_sequence.ordered_steps %>
 <div
   class="nested-sequence-editor"
@@ -28,7 +29,8 @@
              insert_after_panel_thread_id: @workspace_thread&.id,
              steps_list_class: thread_panel_editor_embed ? "nested-sequence-editor-steps steps-list prompt-thread-steps-list" : "nested-sequence-editor-steps steps-list",
              footer_class: thread_panel_editor_embed ? "nested-sequence-editor-footer steps-footer prompt-thread-steps-footer" : "nested-sequence-editor-footer steps-footer",
-             suppress_footer: suppress_footer %>
+             suppress_footer: suppress_footer,
+             suppress_step_rail: suppress_step_rail %>
   <% if thread_panel_editor_embed && !suppress_sequence_wrapper %>
   </div>
   <% end %>
@@ -38,6 +40,7 @@
                form_field_prefix: form_field_prefix,
                thread_panel_editor_embed: thread_panel_editor_embed,
                nested_step_card: true,
-               placeholder: true %>
+               placeholder: true,
+               suppress_step_rail: suppress_step_rail %>
   </template>
 </div>

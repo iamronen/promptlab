@@ -8,7 +8,7 @@ module TaxonomyJsonPayload
   def taxonomy_payload(taxonomy)
     terms = taxonomy.taxonomy_terms.sort_by(&:position)
     counts = term_applied_sequence_counts(terms.map(&:id))
-    {
+    payload = {
       id: taxonomy.id,
       name: taxonomy.name,
       cardinality: taxonomy.cardinality,
@@ -25,6 +25,8 @@ module TaxonomyJsonPayload
       position: taxonomy.position,
       terms: terms.map { |term| term_payload(term, counts: counts) }
     }
+    payload[:exclusion_rules] = exclusion_rules_payload(taxonomy) if taxonomy.process_tracking?
+    payload
   end
 
   # Distinct sequences (including bundles: `Sequence` kind bundle) using this term.
@@ -48,6 +50,25 @@ module TaxonomyJsonPayload
 
   def unassigned_applicable_count_for(taxonomy)
     Taxonomies::ApplyDefaultValue.unassigned_applicable_sequences_for(taxonomy).size
+  end
+
+  def exclusion_rules_payload(taxonomy)
+    taxonomy
+      .exclusion_rules
+      .includes(:excluding_taxonomy, excluding_terms: :taxonomy)
+      .order(:id)
+      .map { |rule| exclusion_rule_payload(rule) }
+  end
+
+  def exclusion_rule_payload(rule)
+    terms = rule.excluding_terms.sort_by(&:position)
+    {
+      id: rule.id,
+      excluding_taxonomy_id: rule.excluding_taxonomy_id,
+      excluding_taxonomy_name: rule.excluding_taxonomy.name,
+      excluding_term_ids: terms.map(&:id),
+      excluding_terms: terms.map { |term| { id: term.id, label: term.label } }
+    }
   end
 
   def term_payload(term, counts: nil)

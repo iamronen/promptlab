@@ -1195,16 +1195,6 @@ export default class extends Controller {
 
       if (upButton) upButton.disabled = index === 0
       if (downButton) downButton.disabled = index === cards.length - 1
-
-      const readonlySeqLabel = article.querySelector(
-        ".bundle-readonly-sequence-index .step-label"
-      )
-      if (readonlySeqLabel) readonlySeqLabel.textContent = String(index + 1)
-
-      article.querySelectorAll(".bundle-readonly-nested-step-row").forEach((row, stepIdx) => {
-        const compound = row.querySelector(".bundle-readonly-nested-index .step-label")
-        if (compound) compound.textContent = `${index + 1}.${stepIdx + 1}`
-      })
     })
   }
 

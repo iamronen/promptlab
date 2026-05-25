@@ -626,6 +626,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     get edit_project_sequence_path(@project, @seq, workspace_mode: "process")
     assert_response :success
     assert_select ".workspace-process-board"
+    assert_select "turbo-frame#process_board"
     assert_select "[data-controller='process-card-modal']"
     assert_select "dialog.process-card-modal-dialog"
     assert_select "turbo-frame#process_card_modal"
@@ -657,10 +658,8 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
       column = headers.first.ancestors(".workspace-process-column").first
       assert column.at_css(".workspace-process-task-card[aria-label*='Alpha']")
     end
-    assert_select ".tool-part-header", text: /Unassigned/ do |headers|
-      column = headers.first.ancestors(".workspace-process-column").first
-      assert_nil column.at_css(".workspace-process-task-card")
-    end
+    assert_select ".workspace-process-column", count: 2
+    assert_select ".tool-part-header", text: /Unassigned/, count: 0
   end
 
   test "process mode shows bundle card when taxonomy applies to bundles" do

@@ -379,21 +379,30 @@
 
   /*
    * Process workspace — kanban board columns from default process taxonomy.
+   * Height is capped to the viewport pane; column bodies scroll independently.
    */
   main.workspace-process.prompt-process-main {
-    @apply flex min-h-0 flex-1 flex-col overflow-x-auto bg-prompt-canvas p-4;
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden bg-prompt-canvas p-4 pb-5;
+  }
+
+  main.workspace-process.prompt-process-main > turbo-frame#process_board {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
   }
 
   .workspace-process-board.prompt-process-board {
-    @apply mx-auto flex min-h-0 w-max max-w-full flex-1 items-stretch gap-3;
+    @apply mx-auto flex min-h-0 w-max max-w-full flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden;
   }
 
   .workspace-process-column.prompt-process-column {
-    @apply flex min-h-0 w-72 shrink-0 flex-col self-stretch;
+    @apply flex min-h-0 w-72 shrink-0 flex-col self-stretch overflow-hidden;
+  }
+
+  .workspace-process-column.prompt-process-column .tool-part-header {
+    @apply shrink-0;
   }
 
   .workspace-process-column-body {
-    @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto;
+    @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-4;
   }
 
   .workspace-process-task-card.prompt-process-task-card {
@@ -423,7 +432,14 @@
   }
 
   .process-card-modal-breadcrumb {
-    @apply text-xs text-prompt-muted;
+    @apply text-xs font-normal text-prompt-muted;
+  }
+
+  .process-card-modal-breadcrumb.workspace-thread-panel-title-breadcrumb,
+  .process-card-modal-breadcrumb .workspace-thread-panel-title-breadcrumb-sep,
+  .process-card-modal-breadcrumb .workspace-thread-panel-title-breadcrumb-current,
+  .process-card-modal-breadcrumb a.workspace-thread-panel-title-breadcrumb-ancestor {
+    @apply font-normal;
   }
 
   .process-card-modal-title {
@@ -440,6 +456,46 @@
 
   .process-card-modal-body {
     @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
+  }
+
+  .process-card-modal-footer {
+    @apply flex shrink-0 items-center justify-between gap-4 border-t border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-700 dark:bg-gray-800/80;
+  }
+
+  .process-card-modal-footer-process {
+    @apply min-w-0 flex-1;
+  }
+
+  .process-card-modal-footer-actions {
+    @apply flex shrink-0 items-center gap-2;
+  }
+
+  .process-card-modal-process-taxonomy {
+    @apply flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-prompt-heading;
+  }
+
+  .process-card-modal-process-taxonomy__label {
+    @apply shrink-0 font-medium text-prompt-muted;
+  }
+
+  .process-card-modal-process-taxonomy__value {
+    @apply min-w-0 font-medium text-prompt-heading;
+  }
+
+  .process-card-modal-process-taxonomy__date {
+    @apply shrink-0 text-prompt-muted;
+  }
+
+  .process-card-modal-process-taxonomy__select {
+    @apply min-w-[8rem] rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-prompt-heading dark:border-gray-600 dark:bg-gray-900;
+  }
+
+  .process-card-modal-process-taxonomy__actions {
+    @apply flex shrink-0 items-center gap-2;
+  }
+
+  .process-card-modal-process-taxonomy__error {
+    @apply w-full text-sm text-red-600 dark:text-red-400;
   }
 
   .process-card-modal-intent {
@@ -464,10 +520,6 @@
 
   .process-card-modal-sequence-block-title {
     @apply text-base font-semibold text-prompt-heading;
-  }
-
-  .sequence-editor--process-card-modal .steps-section {
-    @apply mt-4;
   }
 
   .prompt-process-bundle-icon__sheet {
@@ -3745,20 +3797,6 @@
     gap: var(--bundle-pipeline-strand-bridge-grid-gap);
   }
 
-  .bundle-modal-shell--thread-embed
-    main.sequence-editor--bundle
-    .bundle-readonly-sequence-content {
-    padding: 0.65rem 0.9rem 0.85rem 1em;
-    box-sizing: border-box;
-  }
-
-  .bundle-modal-shell--thread-embed
-    main.sequence-editor--bundle
-    .bundle-pipeline-edit-stack {
-    border-left: none;
-    padding-left: 0;
-  }
-
   .bundle-modal-shell--thread-embed .step-actions-area {
     border-right: none;
   }
@@ -4205,22 +4243,6 @@
   .bundle-modal-shell--thread-embed
     .thread-editor-thread-branch-indicator-tail:has(.step-row--thread-branches-indicator-multi) {
     margin-bottom: 1.55rem;
-  }
-
-  .bundle-modal-shell--thread-embed .bundle-readonly-sequence-shell {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .bundle-modal-shell--thread-embed .bundle-readonly-nested-step-row {
-    border: none;
-    border-radius: 0;
-    gap: 0;
-  }
-
-  .bundle-modal-shell--thread-embed .bundle-readonly-nested-step-body {
-    padding-left: 1em;
   }
 
   /* Thread strand editors: match single-sequence title scale to bundle pipeline titles */

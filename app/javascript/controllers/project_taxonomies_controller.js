@@ -194,7 +194,7 @@ export default class extends Controller {
     const bundleChecked = t.applies_to_bundles === true ? " checked" : ""
     const bundlesEnabled = t.applies_to_bundles === true
     const pipelineFieldsetHtml =
-      t.process_tracking === true ? "" : this.bundlePipelineFieldsetHtml(t, bundlesEnabled)
+      t.process_tracking === true || !bundlesEnabled ? "" : this.bundlePipelineFieldsetHtml(t)
 
     return `
   <fieldset class="project-taxonomy-applies-to m-0 space-y-2 border-0 p-0">
@@ -215,29 +215,21 @@ export default class extends Controller {
   </fieldset>`
   }
 
-  bundlePipelineFieldsetHtml(t, bundlesEnabled) {
-    const pipelineDisabled = !bundlesEnabled
-    const pipelineDisabledAttr = pipelineDisabled ? " disabled" : ""
-    const pipelineOffChecked =
-      t.applies_to_bundle_pipeline_sequences !== true || pipelineDisabled ? " checked" : ""
-    const pipelineOnChecked =
-      t.applies_to_bundle_pipeline_sequences === true && !pipelineDisabled ? " checked" : ""
-    const pipelineFieldsetDisabled = pipelineDisabled ? " project-taxonomy-bundle-pipeline--disabled" : ""
-    const pipelineLabelClass = pipelineDisabled
-      ? "flex items-center gap-2 text-prompt-muted"
-      : "flex cursor-pointer items-center gap-2"
+  bundlePipelineFieldsetHtml(t) {
+    const pipelineOffChecked = t.applies_to_bundle_pipeline_sequences !== true ? " checked" : ""
+    const pipelineOnChecked = t.applies_to_bundle_pipeline_sequences === true ? " checked" : ""
 
     return `
-      <fieldset class="project-taxonomy-bundle-pipeline m-0 ml-5 space-y-2 border-0 p-0${pipelineFieldsetDisabled}"${pipelineDisabled ? " aria-disabled=\"true\"" : ""}>
+      <fieldset class="project-taxonomy-bundle-pipeline m-0 ml-5 space-y-2 border-0 p-0">
         <legend class="mb-1 block text-xs font-medium text-prompt-muted">Sequences inside bundles</legend>
         <div class="flex flex-col gap-y-2">
-          <label class="${pipelineLabelClass}">
-            <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="false"${pipelineOffChecked}${pipelineDisabledAttr}
+          <label class="flex cursor-pointer items-center gap-2">
+            <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="false"${pipelineOffChecked}
               data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange click->project-taxonomies#stopSummaryToggle" />
             <span>Do not apply to sequences inside bundles</span>
           </label>
-          <label class="${pipelineLabelClass}">
-            <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="true"${pipelineOnChecked}${pipelineDisabledAttr}
+          <label class="flex cursor-pointer items-center gap-2">
+            <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="true"${pipelineOnChecked}
               data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange click->project-taxonomies#stopSummaryToggle" />
             <span>Apply also to sequences inside bundles</span>
           </label>
@@ -248,6 +240,8 @@ export default class extends Controller {
   processTrackingFieldsetHtml(t) {
     const hiddenClass = t.cardinality === "one" ? "" : " project-taxonomy-process-tracking--hidden"
     const checked = t.process_tracking === true ? " checked" : ""
+    const exclusionHtml =
+      t.process_tracking === true ? this.exclusionRulesFieldsetHtml(t) : ""
     return `
   <fieldset class="project-taxonomy-process-tracking m-0 space-y-2 border-0 p-0${hiddenClass}">
     <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Process</legend>
@@ -256,7 +250,200 @@ export default class extends Controller {
         data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onProcessTrackingChange click->project-taxonomies#stopSummaryToggle" />
       <span>Track process over time</span>
     </label>
+    ${exclusionHtml}
   </fieldset>`
+  }
+
+  exclusionRulesFieldsetHtml(t) {
+    const rules = Array.isArray(t.exclusion_rules) ? t.exclusion_rules : []
+    const rows = rules.map((rule, idx) => this.exclusionRuleRowHtml(t, rule, idx)).join("")
+    return `
+  <div class="project-taxonomy-exclusion-rules mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700" data-taxonomy-id="${t.id}">
+    <p class="m-0 text-xs font-semibold uppercase tracking-wide text-prompt-muted">Exclusion rules</p>
+    <p class="m-0 text-xs text-prompt-muted">When a sequence or bundle has any selected value on the trigger taxonomy, it is excluded from this process taxonomy.</p>
+    <div class="project-taxonomy-exclusion-rules-list space-y-3" data-exclusion-rules-list="${t.id}">
+      ${rows || '<p class="project-taxonomy-exclusion-rules-empty m-0 text-xs text-prompt-muted">No exclusion rules yet.</p>'}
+    </div>
+    <button type="button" class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#addExclusionRule click->project-taxonomies#stopSummaryToggle">
+      Add exclusion rule
+    </button>
+  </div>`
+  }
+
+  exclusionRuleRowHtml(processTaxonomy, rule, ruleIndex) {
+    const processId = processTaxonomy.id
+    const excludingTaxonomyId = rule.excluding_taxonomy_id
+    const selectedTermIds = new Set((rule.excluding_term_ids || []).map(Number))
+    const otherTaxonomies = this.taxonomies.filter((x) => x.id !== processId)
+    const taxonomyOptions = otherTaxonomies
+      .map((tax) => {
+        const selected = tax.id === excludingTaxonomyId ? " selected" : ""
+        return `<option value="${tax.id}"${selected}>${escapeHtml(tax.name)}</option>`
+      })
+      .join("")
+
+    const triggerTax = this.taxonomies.find((x) => x.id === excludingTaxonomyId)
+    const terms = triggerTax ? [...(triggerTax.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0)) : []
+    const termChecks =
+      terms.length > 0
+        ? terms
+            .map((term) => {
+              const checked = selectedTermIds.has(term.id) ? " checked" : ""
+              return `<label class="flex cursor-pointer items-center gap-2 text-sm text-prompt-heading">
+      <input type="checkbox" class="shrink-0" value="${term.id}"${checked}
+        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
+        data-action="change->project-taxonomies#onExclusionRuleTermChange click->project-taxonomies#stopSummaryToggle" />
+      <span>${escapeHtml(term.label)}</span>
+    </label>`
+            })
+            .join("")
+        : '<p class="m-0 text-xs text-prompt-muted">Select a trigger taxonomy with values.</p>'
+
+    return `
+  <div class="project-taxonomy-exclusion-rule rounded-lg border border-gray-100 p-3 dark:border-gray-700"
+    data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <label class="block text-xs text-prompt-muted" for="exclusion-taxonomy-${processId}-${ruleIndex}">When assigned</label>
+      <button type="button" class="sequence-nav-menu-button sequence-nav-menu-button-danger text-xs"
+        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
+        data-action="click->project-taxonomies#removeExclusionRule click->project-taxonomies#stopSummaryToggle">Remove</button>
+    </div>
+    <select id="exclusion-taxonomy-${processId}-${ruleIndex}" class="mb-2 w-full max-w-md rounded-lg border border-prompt-field-border px-2 py-2 text-sm text-prompt-heading"
+      data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
+      data-action="change->project-taxonomies#onExclusionRuleTaxonomyChange click->project-taxonomies#stopSummaryToggle">
+      <option value="">Select taxonomy…</option>
+      ${taxonomyOptions}
+    </select>
+    <div class="space-y-1">${termChecks}</div>
+  </div>`
+  }
+
+  exclusionRulesPayloadFor(processTaxonomyId) {
+    const tax = this.taxonomies.find((x) => x.id === processTaxonomyId)
+    if (!tax) return []
+    const rules = Array.isArray(tax.exclusion_rules) ? tax.exclusion_rules : []
+    return rules
+      .map((rule) => ({
+        excluding_taxonomy_id: rule.excluding_taxonomy_id,
+        excluding_term_ids: [...(rule.excluding_term_ids || [])].map(Number).filter((id) => id > 0)
+      }))
+      .filter((row) => row.excluding_taxonomy_id > 0 && row.excluding_term_ids.length > 0)
+  }
+
+  async putExclusionRules(processTaxonomyId, rules) {
+    const openIds = this.collectOpenTaxonomyIds()
+    openIds.add(processTaxonomyId)
+    const url = `${this.indexUrlValue}/${processTaxonomyId}/exclusion_rules`
+    const res = await fetch(url, {
+      method: "PUT",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-Token": this.csrfToken(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify({ exclusion_rules: rules })
+    })
+
+    if (!res.ok) return { ok: false }
+
+    const updated = await res.json()
+    if (this.mergeTaxonomyFromServer(updated)) {
+      this.renderMainList(openIds)
+    } else {
+      await this.loadTaxonomies(openIds)
+    }
+    return { ok: true }
+  }
+
+  addExclusionRule(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    if (!tax || tax.process_tracking !== true) return
+
+    const other = this.taxonomies.find((x) => x.id !== processId)
+    if (!other) return
+
+    const rules = [...(tax.exclusion_rules || [])]
+    const usedIds = new Set(rules.map((r) => r.excluding_taxonomy_id))
+    const candidate = this.taxonomies.find((x) => x.id !== processId && !usedIds.has(x.id))
+    if (!candidate) return
+
+    rules.push({
+      id: null,
+      excluding_taxonomy_id: candidate.id,
+      excluding_taxonomy_name: candidate.name,
+      excluding_term_ids: [],
+      excluding_terms: []
+    })
+    tax.exclusion_rules = rules
+    const openIds = this.collectOpenTaxonomyIds()
+    openIds.add(processId)
+    this.renderMainList(openIds)
+  }
+
+  removeExclusionRule(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    if (!tax) return
+
+    const rules = [...(tax.exclusion_rules || [])]
+    rules.splice(ruleIndex, 1)
+    tax.exclusion_rules = rules
+    void this.putExclusionRules(processId, this.exclusionRulesPayloadFor(processId))
+  }
+
+  onExclusionRuleTaxonomyChange(event) {
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
+    const excludingTaxonomyId = parseInt(event.currentTarget.value || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    if (!tax) return
+
+    const rules = [...(tax.exclusion_rules || [])]
+    const rule = rules[ruleIndex]
+    if (!rule) return
+
+    const triggerTax = this.taxonomies.find((x) => x.id === excludingTaxonomyId)
+    rule.excluding_taxonomy_id = excludingTaxonomyId
+    rule.excluding_taxonomy_name = triggerTax?.name || ""
+    rule.excluding_term_ids = []
+    rule.excluding_terms = []
+    tax.exclusion_rules = rules
+
+    const openIds = this.collectOpenTaxonomyIds()
+    openIds.add(processId)
+    this.renderMainList(openIds)
+  }
+
+  onExclusionRuleTermChange(event) {
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
+    const termId = parseInt(event.currentTarget.value || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    if (!tax) return
+
+    const rules = [...(tax.exclusion_rules || [])]
+    const rule = rules[ruleIndex]
+    if (!rule) return
+
+    const ids = new Set((rule.excluding_term_ids || []).map(Number))
+    if (event.currentTarget.checked) ids.add(termId)
+    else ids.delete(termId)
+    rule.excluding_term_ids = [...ids]
+    tax.exclusion_rules = rules
+
+    void this.putExclusionRules(processId, this.exclusionRulesPayloadFor(processId))
   }
 
   singleSelectUiFieldsetHtml(t) {

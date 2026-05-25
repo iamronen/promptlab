@@ -38,6 +38,7 @@ Rails.application.routes.draw do
     resources :taxonomies, only: %i[index create update destroy] do
       member do
         post :apply_default_value
+        put :exclusion_rules, to: "taxonomy_exclusion_rules#update"
       end
       collection do
         put :reorder
@@ -48,6 +49,7 @@ Rails.application.routes.draw do
         end
       end
     end
+    resource :process_board, only: %i[show]
     resources :process_cards, only: %i[show], controller: "process_card_details"
     resources :bundles, only: %i[edit update create destroy] do
       member do

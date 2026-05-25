@@ -1,7 +1,8 @@
 <%# locals: steps, form_field_prefix, thread_panel_editor_embed, nested_step_card (bool), steps_list_class, footer_class,
     indicator_sequence: (optional Sequence), suppress_footer_thread_branch_tail: (optional bool),
-    insert_after_panel_thread_id: (optional Integer), suppress_footer: (optional bool) %>
+    insert_after_panel_thread_id: (optional Integer), suppress_footer: (optional bool), suppress_step_rail: (optional bool) %>
 <% suppress_footer = local_assigns.fetch(:suppress_footer, false) %>
+<% suppress_step_rail = local_assigns.fetch(:suppress_step_rail, false) %>
 <% indicator_sequence = local_assigns[:indicator_sequence] %>
 <% suppress_footer_thread_branch_tail = local_assigns.fetch(:suppress_footer_thread_branch_tail, false) %>
 <% show_thread_branches_indicator =
@@ -15,6 +16,7 @@
                thread_panel_editor_embed: thread_panel_editor_embed,
                nested_step_card: nested_step_card,
                placeholder: false,
+               suppress_step_rail: suppress_step_rail,
                step_row: step_row,
                index: index %>
   <% end %>

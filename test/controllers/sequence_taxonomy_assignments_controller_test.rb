@@ -106,6 +106,63 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     assert_equal @m2.id, rows.first.taxonomy_term_id
   end
 
+  test "bundle update succeeds when payload omits sequence-only taxonomies" do
+    bundle =
+      @project.sequences.create!(
+        kind: :bundle,
+        title: "B",
+        intent: "i",
+        position: 1,
+        steps_data: [],
+        is_term: false
+      )
+    @taxonomy_one.update!(applies_to_bundles: false, applies_to_sequences: true)
+    process_taxonomy =
+      @project.taxonomies.create!(
+        name: "Stage",
+        cardinality: :one,
+        process_tracking: true,
+        applies_to_bundles: true,
+        position: 3
+      )
+    doing = process_taxonomy.taxonomy_terms.create!(label: "Doing", position: 1)
+
+    put project_sequence_taxonomy_assignments_path(@project, bundle),
+        params: {
+          assignments: [{ taxonomy_id: process_taxonomy.id, taxonomy_term_ids: [doing.id] }]
+        },
+        as: :json
+
+    assert_response :success
+    assert TaxonomyAssignment.exists?(sequence_id: bundle.id, taxonomy_id: process_taxonomy.id, taxonomy_term_id: doing.id)
+  end
+
+  test "bundle update rejects sequence-only taxonomy in payload" do
+    bundle =
+      @project.sequences.create!(
+        kind: :bundle,
+        title: "B",
+        intent: "i",
+        position: 1,
+        steps_data: [],
+        is_term: false
+      )
+    @taxonomy_one.update!(applies_to_bundles: false)
+
+    put project_sequence_taxonomy_assignments_path(@project, bundle),
+        params: {
+          assignments: [
+            { taxonomy_id: @taxonomy_one.id, taxonomy_term_ids: [@p1.id] },
+            { taxonomy_id: @taxonomy_many.id, taxonomy_term_ids: [] }
+          ]
+        },
+        as: :json
+
+    assert_response :unprocessable_entity
+    body = JSON.parse(response.body)
+    assert body["errors"].join.include?("does not apply to this bundle")
+  end
+
   test "bundle assignments work when taxonomy applies to bundles" do
     bundle =
       @project.sequences.create!(
@@ -191,6 +248,46 @@ class SequenceTaxonomyAssignmentsControllerTest < ActionDispatch::IntegrationTes
     assert_equal @p2.label, row["histories"].first["label_snapshot"]
     assert row["histories"].first["assigned_at"].present?
     assert row["histories"].first["ended_at"].present?
+  end
+
+  test "update strips process assignment when exclusion rule triggers" do
+    stage =
+      @project.taxonomies.create!(
+        name: "Stage",
+        cardinality: :one,
+        process_tracking: true,
+        position: 3
+      )
+    stage_term = stage.taxonomy_terms.create!(label: "Doing", position: 1)
+    perspective = @project.taxonomies.create!(name: "Perspective", cardinality: :one, position: 4)
+    vision = perspective.taxonomy_terms.create!(label: "Vision", position: 1)
+
+    Taxonomies::SyncExclusionRules.call(
+      taxonomy: stage,
+      rules: [{ excluding_taxonomy_id: perspective.id, excluding_term_ids: [vision.id] }]
+    )
+
+    TaxonomyAssignment.create!(
+      project_id: @project.id,
+      sequence_id: @sequence.id,
+      taxonomy_id: stage.id,
+      taxonomy_term_id: stage_term.id,
+      label_snapshot: stage_term.label,
+      assigned_at: Time.current
+    )
+
+    put project_sequence_taxonomy_assignments_path(@project, @sequence),
+        params: {
+          assignments: [
+            { taxonomy_id: perspective.id, taxonomy_term_ids: [vision.id] },
+            { taxonomy_id: stage.id, taxonomy_term_ids: [stage_term.id] }
+          ]
+        },
+        as: :json
+
+    assert_response :success
+    assert_not TaxonomyAssignment.exists?(sequence_id: @sequence.id, taxonomy_id: stage.id)
+    assert TaxonomyAssignment.exists?(sequence_id: @sequence.id, taxonomy_id: perspective.id)
   end
 
   test "update on process taxonomy archives previous value" do

@@ -2,7 +2,9 @@
   <%= render "sequences/sequence_meta_taxonomies_host",
              project: @project,
              sequence: @sequence,
-             subject_context: "bundle" %>
+             subject_context: "bundle",
+             exclude_taxonomy_ids: [@project.default_process_taxonomy_id].compact,
+             process_board_url: project_process_board_path(@project) %>
 </section>
 
 <div class="process-card-modal-sequence-blocks">
@@ -12,14 +14,17 @@
 
     <article class="process-card-modal-sequence-block thread-strand-sequence-container thread-editor-sequence">
       <%= render "process_card_details/bundle_child_meta", child: child, pipeline_ord: index + 1 %>
-      <%= render "sequences/nested_generative_steps",
-                 child_sequence: child,
-                 form_field_prefix: "nested_sequences[#{child.id}]",
-                 thread_panel_editor_embed: true,
-                 suppress_sequence_wrapper: true,
-                 suppress_footer_thread_branch_tail: true,
-                 readonly: true,
-                 suppress_footer: true %>
+      <%= render layout: "process_card_details/readonly_thread_steps_shell" do %>
+        <%= render "sequences/nested_generative_steps",
+                   child_sequence: child,
+                   form_field_prefix: "nested_sequences[#{child.id}]",
+                   thread_panel_editor_embed: true,
+                   suppress_sequence_wrapper: true,
+                   suppress_footer_thread_branch_tail: true,
+                   readonly: true,
+                   suppress_footer: true,
+                   suppress_step_rail: true %>
+      <% end %>
     </article>
   <% end %>
 </div>

@@ -95,6 +95,14 @@ body {
   display: none;
 }
 
+.project-taxonomy-exclusion-rule {
+  background: var(--prompt-surface, #fafafa);
+}
+
+.project-taxonomy-exclusion-rules-empty {
+  padding: 0.25rem 0;
+}
+
 .project-taxonomy-bundle-pipeline--disabled {
   opacity: 0.55;
   pointer-events: none;
@@ -448,48 +456,6 @@ body {
   background: transparent;
 }
 
-.step-order-rail .step-order-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 1px 2px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: #4a5d73;
-  border-radius: 3px;
-  line-height: 0;
-  font: inherit;
-}
-
-.step-order-rail .step-order-btn:hover {
-  background: rgba(15, 98, 254, 0.08);
-  color: #1846a3;
-}
-
-.step-order-rail .step-order-btn:focus-visible {
-  outline: 2px solid rgba(15, 98, 254, 0.35);
-  outline-offset: 0;
-}
-
-.step-order-rail .step-order-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.step-order-rail .step-order-btn svg {
-  display: block;
-  flex-shrink: 0;
-}
-
-.step-order-rail .step-order-caret {
-  width: 12px;
-  height: 8px;
-}
-
 .step-card {
   position: relative;
   flex: 1 1 auto;
@@ -680,47 +646,6 @@ body {
   box-sizing: border-box;
   padding-block: var(--step-strip-pad-block);
   padding-left: 1em;
-}
-
-.step-order-rail .drag-handle {
-  cursor: grab;
-  padding-block: 2px;
-}
-
-.step-order-rail .drag-handle:active {
-  cursor: grabbing;
-}
-
-/* Steps only (not bundle pipeline rows): discrete drag grips until hover, active editing, menus, dragging, or focus */
-.step-row[data-editor-kind="sequence_step"] > .step-order-rail:not(.step-order-rail--thread-handle) .drag-handle {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
-}
-
-.step-row[data-editor-kind="sequence_step"]:hover
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle,
-.step-row[data-editor-kind="sequence_step"].step-row--sequence-active
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle,
-.step-row[data-editor-kind="sequence_step"]:focus-within
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle,
-.step-row[data-editor-kind="sequence_step"]:has(.step-menu:not([hidden]))
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle,
-.step-row[data-editor-kind="sequence_step"].dragging
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle,
-.step-row[data-editor-kind="sequence_step"]
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle:hover,
-.step-row[data-editor-kind="sequence_step"]
-  > .step-order-rail:not(.step-order-rail--thread-handle)
-  .drag-handle:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .step-row[data-editor-kind="sequence_step"] > .step-order-rail--thread-handle .workspace-thread-tf-drag-handle {
@@ -1012,37 +937,11 @@ body {
   border: 0;
 }
 
-/* Transformation editor: pipeline section */
-.bundle-pipeline-heading {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #3d4752;
-}
-
-.bundle-pipeline-hint {
-  margin: 0 0 0.65rem;
-  font-size: 0.82rem;
-  color: #6b7785;
-}
-
+/* Bundle editor: pipeline section */
 .bundle-pipeline-section {
   margin-top: 1rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e8edf3;
-}
-
-.bundle-step-picker-area {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Pipeline segment title/intent: reuse .sequence-title-input / .sequence-intent-input (see .meta-fields) */
-.bundle-pipeline-child-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.35rem;
-  margin-top: 0;
 }
 
 /* Bundle editor only: ~30% smaller title/intent than sequence editor (main.sequence-editor has no --bundle). */
@@ -1466,13 +1365,8 @@ main.sequence-editor--bundle .sequence-intent-input {
   opacity: 1;
 }
 
-/* Transformation: document view vs pipeline editor */
-main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-hint--edit,
-main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-heading,
-main.sequence-editor--bundle:not(.sequence-editor--readonly) .bundle-segment-readonly,
-main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-edit-stack,
+/* Bundle pipeline readonly (thread embed) */
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-footer,
-main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-actions,
 main.sequence-editor--bundle.sequence-editor--readonly .step-order-rail:not(.step-order-rail--thread-handle),
 main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-step-number {
   display: none !important;
@@ -1487,131 +1381,10 @@ main.sequence-editor--bundle.sequence-editor--readonly .bundle-pipeline-step-car
   padding-right: 0;
 }
 
-main.sequence-editor--bundle.sequence-editor--readonly .bundle-segment-document {
-  margin-top: 0;
-}
-
-/* Transformation readonly: one card per pipeline generative sequence */
-.bundle-readonly-sequence-shell {
-  border: 1px solid #d6dde7;
-  border-radius: 10px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.bundle-readonly-sequence-layout {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  min-width: 0;
-}
-
-.bundle-readonly-sequence-index {
-  flex: 0 0 auto;
-  min-width: 2.75rem;
-  align-self: stretch;
-}
-
-.bundle-readonly-sequence-content {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0.65rem 0.9rem 0.85rem 1rem;
-  box-sizing: border-box;
-}
-
-main.sequence-editor--bundle .bundle-readonly-sequence-content .bundle-segment-heading {
-  margin: 0 0 0.35rem;
-  padding: 0;
-}
-
-main.sequence-editor--bundle .bundle-readonly-sequence-intent {
-  margin: 0 0 1.05rem;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: #5c6670;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-wrap: break-word;
-}
-
-.bundle-readonly-nested-step-row {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  min-width: 0;
-  margin-left: 0;
-  margin-right: -0.9rem;
-  padding-left: 0;
-  border: 1px solid #d6dde7;
-  border-radius: 8px;
-  overflow: hidden;
-  gap: 0.85rem;
-}
-
-.bundle-readonly-nested-step-row:first-of-type {
-  margin-top: 0.25rem;
-}
-
-.bundle-readonly-nested-step-row + .bundle-readonly-nested-step-row {
-  margin-top: 0.65rem;
-}
-
-.bundle-readonly-nested-index {
-  flex: 0 0 auto;
-  min-width: 2.75rem;
-  align-self: stretch;
-}
-
-.bundle-readonly-nested-index.step-number-area {
-  border-radius: 0;
-}
-
-.bundle-readonly-nested-step-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0.65rem 0.85rem 0.65rem 0;
-  box-sizing: border-box;
-}
-
-main.sequence-editor--bundle .bundle-segment-heading {
-  margin: 1.25rem 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #2c3339;
-}
-
-main.sequence-editor--bundle .bundle-segment-heading:first-child {
-  margin-top: 0.35rem;
-}
-
-main.sequence-editor--bundle .bundle-segment-step-prose,
-main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose {
-  margin: 0 0 0.85rem;
-  line-height: 1.5;
-  color: #2d3339;
-}
-
-main.sequence-editor--bundle .bundle-segment-step-prose:last-child,
-main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose:last-child {
-  margin-bottom: 0;
-}
-
-main.sequence-editor--bundle .bundle-readonly-nested-step-body .bundle-segment-step-prose {
-  margin-bottom: 0;
-}
-
 main.sequence-editor--bundle .bundle-segment-missing {
   margin: 0;
   font-size: 0.9rem;
   color: #8a94a1;
-}
-
-main.sequence-editor--bundle .bundle-pipeline-edit-stack {
-  margin-top: 0.65rem;
-  padding-left: 1em;
-  padding-right: 1em;
-  padding-bottom: 1em;
-  border-left: 2px solid #e4eaf1;
 }
 
 main.sequence-editor--bundle .nested-sequence-editor {

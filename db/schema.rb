@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_25_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -150,6 +150,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
     t.index ["taxonomy_term_id"], name: "index_taxonomy_assignments_on_taxonomy_term_id"
   end
 
+  create_table "taxonomy_exclusion_rule_terms", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "taxonomy_exclusion_rule_id", null: false
+    t.bigint "taxonomy_term_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["taxonomy_exclusion_rule_id", "taxonomy_term_id"], name: "index_taxonomy_exclusion_rule_terms_on_rule_and_term", unique: true
+    t.index ["taxonomy_exclusion_rule_id"], name: "idx_on_taxonomy_exclusion_rule_id_e5b1d7c588"
+    t.index ["taxonomy_term_id"], name: "index_taxonomy_exclusion_rule_terms_on_taxonomy_term_id"
+  end
+
+  create_table "taxonomy_exclusion_rules", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "excluding_taxonomy_id", null: false
+    t.bigint "project_id", null: false
+    t.bigint "taxonomy_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["excluding_taxonomy_id"], name: "index_taxonomy_exclusion_rules_on_excluding_taxonomy_id"
+    t.index ["project_id"], name: "index_taxonomy_exclusion_rules_on_project_id"
+    t.index ["taxonomy_id", "excluding_taxonomy_id"], name: "index_taxonomy_exclusion_rules_on_taxonomy_and_excluding", unique: true
+    t.index ["taxonomy_id"], name: "index_taxonomy_exclusion_rules_on_taxonomy_id"
+  end
+
   create_table "taxonomy_terms", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "label", null: false
@@ -204,6 +226,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
   add_foreign_key "taxonomy_assignments", "sequences"
   add_foreign_key "taxonomy_assignments", "taxonomies"
   add_foreign_key "taxonomy_assignments", "taxonomy_terms", on_delete: :restrict
+  add_foreign_key "taxonomy_exclusion_rule_terms", "taxonomy_exclusion_rules", on_delete: :cascade
+  add_foreign_key "taxonomy_exclusion_rule_terms", "taxonomy_terms", on_delete: :cascade
+  add_foreign_key "taxonomy_exclusion_rules", "projects", on_delete: :cascade
+  add_foreign_key "taxonomy_exclusion_rules", "taxonomies", column: "excluding_taxonomy_id", on_delete: :cascade
+  add_foreign_key "taxonomy_exclusion_rules", "taxonomies", on_delete: :cascade
   add_foreign_key "taxonomy_terms", "taxonomies"
   add_foreign_key "thread_nodes", "sequences", column: "child_thread_id"
   add_foreign_key "thread_nodes", "sequences", column: "parent_bundle_id"

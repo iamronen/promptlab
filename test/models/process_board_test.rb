@@ -42,8 +42,21 @@ class ProcessBoardTest < ActiveSupport::TestCase
     assert_empty ProcessBoard.new(@project).columns
   end
 
-  test "columns follow term position order then unassigned" do
-    assert_equal ["Doing", "Todo", ProcessBoard::UNASSIGNED_LABEL], @board.columns.map(&:label)
+  test "columns place unassigned first then term position order" do
+    assert_equal [ProcessBoard::UNASSIGNED_LABEL, "Doing", "Todo"], @board.columns.map(&:label)
+  end
+
+  test "hides unassigned column when empty" do
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: @taxonomy,
+      taxonomy_term: @doing,
+      label_snapshot: @doing.label,
+      assigned_at: Time.current
+    )
+
+    assert_equal ["Doing", "Todo"], @board.columns.map(&:label)
   end
 
   test "places assigned sequence in term column" do
@@ -61,7 +74,7 @@ class ProcessBoardTest < ActiveSupport::TestCase
   end
 
   test "places unassigned sequence in unassigned column" do
-    unassigned = @board.columns.last
+    unassigned = @board.columns.first
     assert_equal ProcessBoard::UNASSIGNED_LABEL, unassigned.label
     assert_equal [@seq.id], unassigned.cards.map { |c| c.sequence.id }
   end
@@ -118,6 +131,57 @@ class ProcessBoardTest < ActiveSupport::TestCase
 
     all_ids = @board.columns.flat_map { |c| c.cards.map { |card| card.sequence.id } }
     assert_not_includes all_ids, term.id
+  end
+
+  test "excludes sequences with exclusion rule trigger values" do
+    perspective = @project.taxonomies.create!(name: "Perspective", cardinality: :one, position: 2)
+    vision = perspective.taxonomy_terms.create!(label: "Vision", position: 1)
+
+    Taxonomies::SyncExclusionRules.call(
+      taxonomy: @taxonomy,
+      rules: [{ excluding_taxonomy_id: perspective.id, excluding_term_ids: [vision.id] }]
+    )
+
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: perspective,
+      taxonomy_term: vision,
+      label_snapshot: vision.label,
+      assigned_at: Time.current
+    )
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: @taxonomy,
+      taxonomy_term: @doing,
+      label_snapshot: @doing.label,
+      assigned_at: Time.current
+    )
+
+    all_ids = ProcessBoard.new(@project).columns.flat_map { |c| c.cards.map { |card| card.sequence.id } }
+    assert_not_includes all_ids, @seq.id
+  end
+
+  test "excludes unassigned sequences when exclusion rule triggers" do
+    perspective = @project.taxonomies.create!(name: "Perspective", cardinality: :one, position: 2)
+    vision = perspective.taxonomy_terms.create!(label: "Vision", position: 1)
+
+    Taxonomies::SyncExclusionRules.call(
+      taxonomy: @taxonomy,
+      rules: [{ excluding_taxonomy_id: perspective.id, excluding_term_ids: [vision.id] }]
+    )
+
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: perspective,
+      taxonomy_term: vision,
+      label_snapshot: vision.label,
+      assigned_at: Time.current
+    )
+
+    assert_nil ProcessBoard.new(@project).columns.find { |c| c.label == ProcessBoard::UNASSIGNED_LABEL }
   end
 
   test "sorts cards by position then id within column" do

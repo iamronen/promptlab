@@ -22,6 +22,7 @@ module TaxonomyAssignments
 
       begin
         ActiveRecord::Base.transaction do
+          apply_exclusion_strips!
           apply!
         end
       rescue ActiveRecord::RecordInvalid => e
@@ -73,6 +74,43 @@ module TaxonomyAssignments
           @errors << "taxonomy_term_ids must be an array"
         end
       end
+    end
+
+    def apply_exclusion_strips!
+      project = @sequence.project
+      process_taxonomies = project.taxonomies.where(process_tracking: true).includes(:exclusion_rules)
+      term_ids_by_taxonomy = merged_term_ids_by_taxonomy_for_exclusion
+
+      @assignments.each do |row|
+        taxonomy_id = row["taxonomy_id"].to_i
+        taxonomy = process_taxonomies.find { |t| t.id == taxonomy_id }
+        next unless taxonomy
+        next unless Taxonomies::Exclusion.excluded_with_term_ids_by_taxonomy?(
+          process_taxonomy: taxonomy,
+          term_ids_by_taxonomy: term_ids_by_taxonomy
+        )
+
+        row["taxonomy_term_ids"] = []
+      end
+    end
+
+    def merged_term_ids_by_taxonomy_for_exclusion
+      existing_by_taxonomy =
+        TaxonomyAssignment.where(sequence_id: @sequence.id).group_by(&:taxonomy_id)
+      payload_taxonomy_ids = @assignments.map { |row| row["taxonomy_id"].to_i }.to_set
+      merged = {}
+
+      @assignments.each do |row|
+        merged[row["taxonomy_id"].to_i] = Array(row["taxonomy_term_ids"]).map(&:to_i).uniq
+      end
+
+      existing_by_taxonomy.each_key do |taxonomy_id|
+        next if payload_taxonomy_ids.include?(taxonomy_id)
+
+        merged[taxonomy_id] = existing_by_taxonomy[taxonomy_id].map(&:taxonomy_term_id)
+      end
+
+      merged
     end
 
     def apply!

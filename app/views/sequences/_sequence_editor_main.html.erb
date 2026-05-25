@@ -1,14 +1,11 @@
 <% modal_mode = local_assigns.fetch(:modal, false) %>
-<% thread_panel_editor_embed = local_assigns.fetch(:thread_panel_editor_embed, false) %>
 <% editor_form_data = { sequence_editor_target: "form", action: "submit->sequence-editor#syncEditorsBeforeSubmit" } %>
 <% editor_form_data[:turbo_frame] = "_top" if modal_mode %>
 <% if modal_mode %>
 <div
-  class="thread-strand-sequence-container thread-editor-sequence<%= " prompt-thread-sequence-shell" if thread_panel_editor_embed %>"
-<% if thread_panel_editor_embed %>
+  class="thread-strand-sequence-container thread-editor-sequence prompt-thread-sequence-shell"
   data-controller="thread-editor-body-collapse"
   data-thread-editor-body-collapse-expanded-value="true"
-<% end %>
 >
 <% end %>
     <main
@@ -55,19 +52,19 @@
         <%= render "sequences/thread_editor_sequence_meta",
                    variant: :form_builder,
                    f: f,
-                   thread_panel_editor_embed: thread_panel_editor_embed %>
+                   thread_panel_editor_embed: true %>
 
-        <section class="steps-section<%= thread_panel_editor_embed ? " prompt-thread-steps-section thread-editor-collapsible-body" : "" %>">
+        <section class="steps-section prompt-thread-steps-section thread-editor-collapsible-body">
           <%= render "sequences/thread_editor_sequence_steps_list_footer",
                      steps: @sequence.ordered_steps,
                      form_field_prefix: "sequence",
-                     thread_panel_editor_embed: thread_panel_editor_embed,
+                     thread_panel_editor_embed: true,
                      nested_step_card: false,
                      indicator_sequence: @sequence,
                      suppress_footer_thread_branch_tail: @strand_thread_chip_parent,
                      insert_after_panel_thread_id: @workspace_thread&.id,
-                     steps_list_class: thread_panel_editor_embed ? "steps-list prompt-thread-steps-list" : "steps-list",
-                     footer_class: thread_panel_editor_embed ? "steps-footer prompt-thread-steps-footer" : "steps-footer" %>
+                     steps_list_class: "steps-list prompt-thread-steps-list",
+                     footer_class: "steps-footer prompt-thread-steps-footer" %>
         </section>
 
       <% end %>
@@ -75,7 +72,7 @@
       <template data-sequence-editor-target="stepTemplate">
         <%= render "sequences/thread_editor_sequence_step_row",
                    form_field_prefix: "sequence",
-                   thread_panel_editor_embed: thread_panel_editor_embed,
+                   thread_panel_editor_embed: true,
                    nested_step_card: false,
                    placeholder: true %>
       </template>

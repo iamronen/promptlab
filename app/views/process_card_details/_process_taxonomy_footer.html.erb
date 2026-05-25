@@ -1,0 +1,61 @@
+<%# locals: project, sequence %>
+<% subject_context = sequence.bundle? ? "bundle" : "standalone" %>
+<div
+  class="process-card-modal-process-taxonomy process-card-process-taxonomy"
+  data-controller="process-card-process-taxonomy"
+  data-process-card-process-taxonomy-taxonomies-url-value="<%= project_taxonomies_path(project) %>"
+  data-process-card-process-taxonomy-assignments-url-value="<%= project_sequence_taxonomy_assignments_path(project, sequence) %>"
+  data-process-card-process-taxonomy-taxonomy-id-value="<%= project.default_process_taxonomy_id %>"
+  data-process-card-process-taxonomy-sequence-id-value="<%= sequence.id %>"
+  data-process-card-process-taxonomy-subject-context-value="<%= subject_context %>"
+  data-process-card-process-taxonomy-process-board-url-value="<%= project_process_board_path(project) %>"
+>
+  <div
+    class="process-card-modal-process-taxonomy__display flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+    data-process-card-process-taxonomy-target="displayRoot"
+  >
+    <span class="process-card-modal-process-taxonomy__label" data-process-card-process-taxonomy-target="label"></span>
+    <span class="process-card-modal-process-taxonomy__value" data-process-card-process-taxonomy-target="value"></span>
+    <span class="process-card-modal-process-taxonomy__date" data-process-card-process-taxonomy-target="date"></span>
+    <button
+      type="button"
+      class="prompt-btn-secondary shrink-0 px-2.5 py-1 text-[0.8rem]"
+      data-process-card-process-taxonomy-target="modifyButton"
+      data-action="process-card-process-taxonomy#beginEdit"
+    >
+      Modify
+    </button>
+  </div>
+  <div
+    class="process-card-modal-process-taxonomy__edit hidden flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+    data-process-card-process-taxonomy-target="editRoot"
+  >
+    <span class="process-card-modal-process-taxonomy__label" data-process-card-process-taxonomy-target="editLabel"></span>
+    <select
+      class="process-card-modal-process-taxonomy__select"
+      data-process-card-process-taxonomy-target="select"
+      aria-label="Process taxonomy value"
+    ></select>
+    <div class="process-card-modal-process-taxonomy__actions">
+      <button
+        type="button"
+        class="prompt-btn-primary shrink-0 px-2.5 py-1 text-[0.8rem]"
+        data-action="process-card-process-taxonomy#update"
+      >
+        Update
+      </button>
+      <button
+        type="button"
+        class="prompt-btn-secondary shrink-0 px-2.5 py-1 text-[0.8rem]"
+        data-action="process-card-process-taxonomy#cancelEdit"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+  <div
+    class="process-card-modal-process-taxonomy__error hidden"
+    data-process-card-process-taxonomy-target="errorRoot"
+    role="alert"
+  ></div>
+</div>

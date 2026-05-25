@@ -12,12 +12,6 @@
         <h2 id="process-card-modal-heading" class="process-card-modal-title m-0"><%= process_card_title %></h2>
       </div>
       <div class="process-card-modal-controls" role="group" aria-label="Card actions">
-        <% if @fabric_open_url %>
-          <%= link_to "Open in Thread",
-                      @fabric_open_url,
-                      class: "prompt-btn-primary shrink-0 px-4 py-2 text-[0.85rem] font-semibold no-underline",
-                      data: { turbo_frame: "_top" } %>
-        <% end %>
         <button
           type="button"
           class="process-card-modal-close bundle-edit-dialog-close"
@@ -35,5 +29,20 @@
         <%= render "process_card_details/sequence_card_body" %>
       <% end %>
     </div>
+    <footer class="process-card-modal-footer">
+      <div class="process-card-modal-footer-process">
+        <% if @project.default_process_taxonomy_id.present? %>
+          <%= render "process_card_details/process_taxonomy_footer", project: @project, sequence: @sequence %>
+        <% end %>
+      </div>
+      <div class="process-card-modal-footer-actions">
+        <% if @fabric_open_url %>
+          <%= link_to "Open in Thread",
+                      @fabric_open_url,
+                      class: "prompt-btn-primary shrink-0 px-4 py-2 text-[0.85rem] font-semibold no-underline",
+                      data: { turbo_frame: "_top" } %>
+        <% end %>
+      </div>
+    </footer>
   </div>
 <% end %>

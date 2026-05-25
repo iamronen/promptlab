@@ -28,7 +28,9 @@ export default class extends Controller {
     taxonomiesUrl: String,
     assignmentsUrl: String,
     sequenceId: { type: Number, default: 0 },
-    subjectContext: { type: String, default: "standalone" }
+    subjectContext: { type: String, default: "standalone" },
+    excludeTaxonomyIds: { type: Array, default: [] },
+    processBoardUrl: String
   }
 
   connect() {
@@ -194,16 +196,58 @@ export default class extends Controller {
     if (wrap.childElementCount > 0) container.appendChild(wrap)
   }
 
+  /** Taxonomies included in replace-all assignment PUT (matches server applicability for this context). */
+  taxonomiesForAssignmentsPayload() {
+    const context = this.subjectContextValue || "standalone"
+    const exclude = new Set((this.excludeTaxonomyIdsValue || []).map(Number))
+
+    return this.taxonomies.filter((tax) => {
+      const taxId = Number(tax.id)
+      if (exclude.has(taxId)) {
+        return (this.termIdsByTaxonomy[tax.id] || []).length > 0
+      }
+      if (!this.taxonomyVisibleForContext(tax, context)) return false
+      if (tax.process_tracking === true && this.isProcessTaxonomyExcluded(tax)) return true
+      return true
+    })
+  }
+
   buildAssignmentsBody() {
-    return this.taxonomies.map((t) => ({
+    this.stripExcludedProcessTaxonomies()
+    return this.taxonomiesForAssignmentsPayload().map((t) => ({
       taxonomy_id: Number(t.id),
       taxonomy_term_ids: [...(this.termIdsByTaxonomy[t.id] || [])].map(Number)
     }))
   }
 
+  /** @param {any} tax @param {Record<number, number[]>} [termIdsByTaxonomy] */
+  isProcessTaxonomyExcluded(tax, termIdsByTaxonomy = this.termIdsByTaxonomy) {
+    if (tax.process_tracking !== true) return false
+    const rules = tax.exclusion_rules || []
+    if (!rules.length) return false
+    return rules.some((rule) => {
+      const triggerIds = termIdsByTaxonomy[rule.excluding_taxonomy_id] || []
+      const excluding = (rule.excluding_term_ids || []).map(Number)
+      return triggerIds.some((id) => excluding.includes(Number(id)))
+    })
+  }
+
+  stripExcludedProcessTaxonomies() {
+    for (const tax of this.taxonomies) {
+      if (tax.process_tracking === true && this.isProcessTaxonomyExcluded(tax)) {
+        this.termIdsByTaxonomy[tax.id] = []
+      }
+    }
+  }
+
   visibleTaxonomies() {
     const context = this.subjectContextValue || "standalone"
-    return this.taxonomies.filter((tax) => this.taxonomyVisibleForContext(tax, context))
+    const exclude = new Set((this.excludeTaxonomyIdsValue || []).map(Number))
+    return this.taxonomies.filter((tax) => {
+      if (exclude.size > 0 && exclude.has(Number(tax.id))) return false
+      if (tax.process_tracking === true && this.isProcessTaxonomyExcluded(tax)) return false
+      return this.taxonomyVisibleForContext(tax, context)
+    })
   }
 
   /** @param {any} tax @param {string} context */
@@ -491,6 +535,27 @@ export default class extends Controller {
     }
   }
 
+  refreshProcessBoard() {
+    if (!this.processBoardUrlValue) return
+    const frame = document.getElementById("process_board")
+    if (!frame) return
+    frame.src = this.processBoardUrlValue
+  }
+
+  notifyProcessCardAssignmentsChanged() {
+    if (!this.processBoardUrlValue) return
+    document.dispatchEvent(
+      new CustomEvent("process-card:assignments-changed", {
+        detail: { sequenceId: this.sequenceIdValue }
+      })
+    )
+  }
+
+  afterAssignmentsPersisted() {
+    this.refreshProcessBoard()
+    this.notifyProcessCardAssignmentsChanged()
+  }
+
   async persist() {
     if (this.readonly || this.persistInFlight) return
     this.persistInFlight = true
@@ -524,6 +589,7 @@ export default class extends Controller {
       this.applyAssignmentsPayload(assignments)
 
       if (this.hasRootTarget) this.render()
+      this.afterAssignmentsPersisted()
     } catch {
       this.persistErrorTexts = ["Taxonomy assignments could not be saved."]
       await this.reloadAssignmentsFromServer()

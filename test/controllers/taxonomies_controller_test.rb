@@ -435,6 +435,51 @@ class TaxonomiesControllerTest < ActionDispatch::IntegrationTest
     assert TaxonomyAssignment.exists?(sequence_id: seq.id, taxonomy_term_id: term.id)
   end
 
+  test "apply_default_value skips sequences excluded by exclusion rules" do
+    stage =
+      @project.taxonomies.create!(
+        name: "Stage",
+        cardinality: :one,
+        process_tracking: true,
+        position: 1
+      )
+    open_term = stage.taxonomy_terms.create!(label: "Open", position: 1)
+    stage.update!(default_value_enabled: true, default_taxonomy_term: open_term)
+
+    perspective = @project.taxonomies.create!(name: "Perspective", cardinality: :one, position: 2)
+    vision = perspective.taxonomy_terms.create!(label: "Vision", position: 1)
+
+    Taxonomies::SyncExclusionRules.call(
+      taxonomy: stage,
+      rules: [{ excluding_taxonomy_id: perspective.id, excluding_term_ids: [vision.id] }]
+    )
+
+    seq =
+      @project.sequences.create!(
+        kind: :sequence,
+        title: "S",
+        intent: "i",
+        position: 1,
+        steps_data: [{ "content" => "" }],
+        is_term: false
+      )
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: seq,
+      taxonomy: perspective,
+      taxonomy_term: vision,
+      label_snapshot: vision.label,
+      assigned_at: Time.current
+    )
+
+    post apply_default_value_project_taxonomy_path(@project, stage), as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal 0, body["applied_count"]
+    assert_not TaxonomyAssignment.exists?(sequence_id: seq.id, taxonomy_id: stage.id)
+  end
+
   test "apply_default_value rejects when default is not configured" do
     taxonomy = @project.taxonomies.create!(name: "Status", cardinality: :one, position: 1)
     taxonomy.taxonomy_terms.create!(label: "Open", position: 1)

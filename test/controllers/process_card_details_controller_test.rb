@@ -37,7 +37,9 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".process-card-modal-breadcrumb", count: 0
     assert_select ".process-card-modal-intent", text: /Ship the feature/
     assert_select ".sequence-meta-taxonomies-host"
-    assert_select "a", text: "Open in Thread" do |links|
+    assert_select ".process-card-modal-footer"
+    assert_select ".process-card-modal-controls a", text: "Open in Thread", count: 0
+    assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
       href = links.first["href"]
       assert_includes href, "weave_thread=#{@genesis.id}"
       assert_includes href, "focus_transformation_id=#{@seq.id}"
@@ -45,6 +47,9 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_select ".sequence-title-input", count: 0
     assert_select "h3.process-card-modal-sequence-block-title", count: 0
+    assert_select ".bundle-modal-shell--thread-embed"
+    assert_select ".prompt-thread-step-card"
+    assert_select ".step-order-rail--thread-handle", count: 0
   end
 
   test "show sequence card breadcrumb links to fabric for branched thread host" do
@@ -88,7 +93,7 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".process-card-modal-breadcrumb"
     assert_select ".process-card-modal-breadcrumb a.workspace-thread-panel-title-breadcrumb-ancestor", text: @genesis.title
-    assert_select "a", text: "Open in Thread" do |links|
+    assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
       assert_includes links.first["href"], "weave_thread=#{child.id}"
     end
   end
@@ -121,11 +126,14 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".process-card-modal-sequence-block", count: 1
     assert_select "h3.process-card-modal-sequence-block-title", text: "Child seq"
     assert_select ".process-card-modal-intent--child", text: /Child intent/
-    assert_select "a", text: "Open in Thread" do |links|
+    assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
       href = links.first["href"]
       assert_includes href, "weave_thread=#{@genesis.id}"
       assert_includes href, "focus_bundle_id=#{bundle.id}"
     end
+    assert_select ".bundle-modal-shell--thread-embed"
+    assert_select ".prompt-thread-step-card"
+    assert_select ".step-order-rail--thread-handle", count: 0
   end
 
   test "show hides open in thread when artifact has no host thread" do
@@ -143,5 +151,38 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "a", text: "Open in Thread", count: 0
     assert_select ".process-card-modal-breadcrumb", count: 0
+    assert_select ".process-card-modal-footer"
+  end
+
+  test "show sequence card excludes default process taxonomy from body metadata and renders footer process host" do
+    process_taxonomy =
+      @project.taxonomies.create!(
+        name: "Stage",
+        cardinality: :one,
+        position: 1,
+        process_tracking: true,
+        applies_to_sequences: true
+      )
+    term = process_taxonomy.taxonomy_terms.create!(label: "In progress", position: 1)
+    @project.update!(default_process_taxonomy: process_taxonomy)
+
+    TaxonomyAssignment.create!(
+      project_id: @project.id,
+      sequence_id: @seq.id,
+      taxonomy_id: process_taxonomy.id,
+      taxonomy_term_id: term.id,
+      label_snapshot: term.label,
+      single_value_taxonomy_copy: true
+    )
+
+    get project_process_card_path(@project, @seq), headers: { "Turbo-Frame" => "process_card_modal" }
+    assert_response :success
+
+    assert_select ".process-card-process-taxonomy[data-process-card-process-taxonomy-taxonomy-id-value='#{process_taxonomy.id}']"
+    assert_select ".process-card-modal-footer .process-card-process-taxonomy"
+    assert_select ".process-card-process-taxonomy[data-process-card-process-taxonomy-process-board-url-value='#{project_process_board_path(@project)}']"
+
+    assert_select ".process-card-modal-body .sequence-meta-taxonomies-host[data-sequence-meta-taxonomies-exclude-taxonomy-ids-value='[#{process_taxonomy.id}]']"
+    assert_select ".process-card-modal-body .sequence-meta-taxonomies-host:not([data-sequence-meta-taxonomies-exclude-taxonomy-ids-value])", count: 0
   end
 end

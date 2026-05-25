@@ -335,12 +335,14 @@ module ThreadStrandMutations
     end
 
     if ok
+      bundle_destroyed = remaining_ids.size < 2
       extras = { focus_transformation_id: gen.id }
-      extras[:focus_bundle_id] = bundle_id if remaining_ids.size >= 2
+      extras[:focus_bundle_id] = bundle_id unless bundle_destroyed
       if workspace_autosave_request?
         head :no_content
       else
-        redirect_to thread_redirect_url(extras), notice: "Sequence removed from bundle."
+        redirect_to unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed: bundle_destroyed),
+                    notice: "Sequence removed from bundle."
       end
     else
       respond_unbundle_failure(err_msg || "Could not unbundle.")
@@ -394,10 +396,12 @@ module ThreadStrandMutations
     if ok
       extras = {}
       extras[:focus_transformation_id] = pipeline_ids.first if pipeline_ids.any?
+      extras[:focus_bundle_id] = nil
       if workspace_autosave_request?
         head :no_content
       else
-        redirect_to thread_redirect_url(extras), notice: "Bundle unbundled onto strand."
+        redirect_to unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed: true),
+                    notice: "Bundle unbundled onto strand."
       end
     else
       respond_unbundle_failure(err_msg || "Could not unbundle.")
@@ -1063,6 +1067,23 @@ module ThreadStrandMutations
     return false if next_pairs.length != next_pairs.uniq { |k, id| [k, id] }.length
 
     current.sort_by { |k, id| [k.to_s, id] } == next_pairs.sort_by { |k, id| [k.to_s, id] }
+  end
+
+  def unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed:)
+    extras_sym = extras.compact.symbolize_keys
+    extras_sym[:focus_bundle_id] = nil if bundle_destroyed
+
+    ref = params[:redirect_to].to_s
+    if bundle_destroyed && ref.start_with?("/") && !ref.include?("..")
+      uri = URI.parse("#{request.protocol}#{request.host_with_port}#{ref}")
+      if uri.path == edit_project_bundle_path(@project, bundle_id)
+        ref_q = Rack::Utils.parse_nested_query(uri.query.to_s).symbolize_keys
+        merged = workspace_editor_redirect_options.merge(ref_q).merge(extras_sym)
+        return merge_query_for_url(open_project_path(@project), merged)
+      end
+    end
+
+    thread_redirect_url(extras_sym)
   end
 
   def thread_redirect_url(extra = {})

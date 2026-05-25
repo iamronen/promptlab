@@ -7,6 +7,15 @@ class Taxonomy < ApplicationRecord
   has_many :taxonomy_assignments, dependent: :destroy
   has_many :taxonomy_assignment_histories, dependent: :destroy
   has_many :taxonomy_terms, -> { order(:position) }, dependent: :destroy, inverse_of: :taxonomy
+  has_many :exclusion_rules,
+           class_name: "TaxonomyExclusionRule",
+           dependent: :destroy,
+           inverse_of: :taxonomy
+  has_many :excluding_taxonomy_rules,
+           class_name: "TaxonomyExclusionRule",
+           foreign_key: :excluding_taxonomy_id,
+           dependent: :destroy,
+           inverse_of: :excluding_taxonomy
 
   enum :cardinality, { one: "one", many: "many" }, validate: true
 
@@ -46,6 +55,7 @@ class Taxonomy < ApplicationRecord
     default_value_enabled? && default_taxonomy_term_id.present?
   end
 
+  after_save :destroy_exclusion_rules_unless_process_tracking, if: :saved_change_to_process_tracking?
   after_commit :reconcile_project_default_process_taxonomy
 
   private
@@ -60,6 +70,10 @@ class Taxonomy < ApplicationRecord
     unless taxonomy_terms.exists?(id: default_taxonomy_term_id)
       errors.add(:default_taxonomy_term, "must be a value in this taxonomy")
     end
+  end
+
+  def destroy_exclusion_rules_unless_process_tracking
+    exclusion_rules.destroy_all unless process_tracking?
   end
 
   def reconcile_project_default_process_taxonomy

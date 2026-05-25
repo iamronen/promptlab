@@ -19,20 +19,25 @@
     <%= render "sequences/sequence_meta_taxonomies_host",
                project: @project,
                sequence: @sequence,
-               subject_context: "standalone" %>
+               subject_context: "standalone",
+               exclude_taxonomy_ids: [@project.default_process_taxonomy_id].compact,
+               process_board_url: project_process_board_path(@project) %>
   </section>
 
-  <section class="steps-section prompt-thread-steps-section">
-    <div class="steps-list prompt-thread-steps-list" data-editor-kind="sequence_steps_list">
-      <% @sequence.ordered_steps.each_with_index do |step_row, index| %>
-        <%= render "sequences/thread_editor_sequence_step_row",
-                   form_field_prefix: "sequence",
-                   thread_panel_editor_embed: true,
-                   nested_step_card: false,
-                   placeholder: false,
-                   step_row: step_row,
-                   index: index %>
-      <% end %>
-    </div>
-  </section>
+  <%= render layout: "process_card_details/readonly_thread_steps_shell" do %>
+    <section class="steps-section prompt-thread-steps-section">
+      <div class="steps-list prompt-thread-steps-list" data-editor-kind="sequence_steps_list">
+        <% @sequence.ordered_steps.each_with_index do |step_row, index| %>
+          <%= render "sequences/thread_editor_sequence_step_row",
+                     form_field_prefix: "sequence",
+                     thread_panel_editor_embed: true,
+                     nested_step_card: false,
+                     placeholder: false,
+                     suppress_step_rail: true,
+                     step_row: step_row,
+                     index: index %>
+        <% end %>
+      </div>
+    </section>
+  <% end %>
 </main>

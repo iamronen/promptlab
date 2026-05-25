@@ -35,6 +35,13 @@ class ProcessBoard
       cards_by_term_id[term_id] << TaskCard.new(sequence: sequence)
     end
 
+    unassigned_column =
+      Column.new(
+        term: nil,
+        label: UNASSIGNED_LABEL,
+        cards: sort_cards(cards_by_term_id[nil])
+      )
+
     term_columns =
       taxonomy.taxonomy_terms.map do |term|
         Column.new(
@@ -44,21 +51,24 @@ class ProcessBoard
         )
       end
 
-    term_columns + [
-      Column.new(
-        term: nil,
-        label: UNASSIGNED_LABEL,
-        cards: sort_cards(cards_by_term_id[nil])
-      )
-    ]
+    unassigned_column.cards.any? ? [unassigned_column] + term_columns : term_columns
   end
 
   private
 
   def applicable_artifacts
+    excluded_ids = excluded_sequence_ids.to_set
     sequences = @project.sequences.generative_sequences.where(is_term: false).to_a
     bundles = @project.sequences.bundles.to_a
-    (sequences + bundles).select { |artifact| applicable?(artifact) }
+    (sequences + bundles)
+      .select { |artifact| applicable?(artifact) }
+      .reject { |artifact| excluded_ids.include?(artifact.id) }
+  end
+
+  def excluded_sequence_ids
+    return [] unless ready?
+
+    Taxonomies::Exclusion.excluded_sequence_ids_for(@project, process_taxonomy: taxonomy)
   end
 
   def applicable?(artifact)

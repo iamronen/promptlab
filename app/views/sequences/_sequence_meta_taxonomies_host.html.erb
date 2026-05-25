@@ -1,4 +1,6 @@
-<%# locals: project, sequence, subject_context: "standalone" %>
+<%# locals: project, sequence, subject_context: "standalone", exclude_taxonomy_ids: [], process_board_url: nil %>
+<% exclude_taxonomy_ids = Array(local_assigns.fetch(:exclude_taxonomy_ids, [])).compact %>
+<% process_board_url = local_assigns[:process_board_url] %>
 <div
   class="sequence-meta-taxonomies-host"
   data-controller="sequence-meta-taxonomies"
@@ -6,6 +8,12 @@
   data-sequence-meta-taxonomies-assignments-url-value="<%= project_sequence_taxonomy_assignments_path(project, sequence) %>"
   data-sequence-meta-taxonomies-sequence-id-value="<%= sequence.id %>"
   data-sequence-meta-taxonomies-subject-context-value="<%= local_assigns.fetch(:subject_context, "standalone") %>"
+  <% if exclude_taxonomy_ids.any? %>
+    data-sequence-meta-taxonomies-exclude-taxonomy-ids-value="<%= exclude_taxonomy_ids.to_json %>"
+  <% end %>
+  <% if process_board_url.present? %>
+    data-sequence-meta-taxonomies-process-board-url-value="<%= process_board_url %>"
+  <% end %>
 >
   <div class="sequence-meta-taxonomy">
     <%= render "sequences/sequence_meta_creator_row", sequence: sequence %>

@@ -1,0 +1,7 @@
+<%= turbo_frame_tag "process_board" do %>
+  <% if @process_board.ready? %>
+    <%= render "sequences/process_board", board: @process_board %>
+  <% else %>
+    <%= render "sequences/process_board_empty_state" %>
+  <% end %>
+<% end %>

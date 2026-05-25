@@ -57,6 +57,7 @@ module Taxonomies
       project.sequences.where(kind: %i[sequence bundle]).filter_map do |sequence|
         next if assigned_sequence_ids.include?(sequence.id)
         next unless applicable?(sequence)
+        next if Exclusion.excluded?(sequence, process_taxonomy: @taxonomy)
 
         sequence
       end
