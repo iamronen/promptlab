@@ -4,3 +4,7 @@
 require_relative "config/application"
 
 Rails.application.load_tasks
+
+if Rake::Task.task_defined?("tailwindcss:build")
+  Rake::Task["tailwindcss:build"].enhance(["render:install_npm_packages"])
+end

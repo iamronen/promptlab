@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bundle install
+npm ci
+SECRET_KEY_BASE_DUMMY=1 bundle exec rake assets:precompile
+SECRET_KEY_BASE_DUMMY=1 bundle exec rake assets:clean
