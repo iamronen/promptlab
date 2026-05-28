@@ -24,7 +24,7 @@ class SequencesController < ApplicationController
 
   def edit
     if legacy_workspace_mode_redirect? && !sequence_modal_request?
-      return redirect_to edit_project_sequence_path(@project, @sequence, **workspace_editor_redirect_options.except(:workspace_mode)),
+      return redirect_to edit_project_sequence_path(@project, @sequence, **legacy_workspace_mode_redirect_options),
                         status: :see_other
     end
 

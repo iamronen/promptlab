@@ -939,6 +939,82 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_empty other.reload.strand_step_pairs
   end
 
+  test "thread_move_sequence_to_thread migrates branch threads to target" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Solo",
+      intent: "s",
+      position: 99,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [{ "sequence_id" => solo.id }, { "bundle_id" => @t1.id }]
+    )
+
+    branch = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => @g.id }],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    branch_node = ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: solo.id,
+      child_thread: branch,
+      child_order: 1
+    )
+
+    target = @project.sequences.create!(
+      kind: :thread,
+      title: "Target",
+      intent: "t",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: @g.id,
+      child_thread: target,
+      child_order: 1
+    )
+
+    post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           sequence_id: solo.id,
+           target_thread_id: target.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id
+         }
+
+    assert_response :redirect
+    assert_nil flash[:alert], flash.to_hash.inspect
+    assert_equal "Sequence moved to thread.", flash[:notice]
+    assert_equal [[:bundle, @t1.id]], @genesis.reload.strand_step_pairs
+    assert_equal [[:sequence, solo.id]], target.reload.strand_step_pairs
+
+    branch_node.reload
+    assert_equal target.id, branch_node.parent_thread_id
+    assert_equal solo.id, branch_node.parent_generative_sequence_id
+    assert_equal branch.id, branch_node.child_thread_id
+    assert_nil branch_node.parent_bundle_id
+    assert_equal [[:sequence, @g.id]], branch.reload.strand_step_pairs
+    assert SequenceDependency.exists?(
+      parent_id: target.id,
+      child_id: branch.id,
+      kind: :thread_branch,
+      anchor_sequence_id: solo.id
+    )
+  end
+
   test "thread_move_bundle_to_thread appends bundle to end of target strand" do
     dest = "/projects/#{@project.id}/open"
     anchor = @project.sequences.create!(
@@ -987,6 +1063,98 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_equal [[:bundle, @t1.id]], other.reload.strand_step_pairs
     assert_match(/focus_bundle_id=#{@t1.id}/, @response.redirect_url)
     assert_match(/weave_thread=#{other.id}/, @response.redirect_url)
+  end
+
+  test "thread_move_bundle_to_thread migrates branch threads for pipeline sequences" do
+    dest = "/projects/#{@project.id}/open"
+    solo = @project.sequences.create!(
+      kind: :sequence,
+      title: "Pipe",
+      intent: "p",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    bundle_only = @project.sequences.create!(
+      kind: :bundle,
+      title: "Pipeline bundle",
+      intent: "b",
+      position: @project.sequences.bundles.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => solo.id }],
+      is_term: false
+    )
+    strand_anchor = @project.sequences.create!(
+      kind: :sequence,
+      title: "Strand anchor",
+      intent: "a",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    @genesis.update!(
+      steps_data: [{ "bundle_id" => bundle_only.id }, { "sequence_id" => strand_anchor.id }]
+    )
+
+    branch = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch",
+      intent: "b",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => @g.id }],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    branch_node = ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: solo.id,
+      child_thread: branch,
+      child_order: 1
+    )
+
+    target = @project.sequences.create!(
+      kind: :thread,
+      title: "Target",
+      intent: "t",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+    ThreadNode.create!(
+      parent_thread: @genesis,
+      parent_generative_sequence_id: strand_anchor.id,
+      child_thread: target,
+      child_order: 1
+    )
+
+    post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
+         params: {
+           bundle_id: bundle_only.id,
+           target_thread_id: target.id,
+           redirect_to: dest,
+           weave_thread: @genesis.id
+         }
+
+    assert_response :redirect
+    assert_nil flash[:alert], flash.to_hash.inspect
+    assert_equal "Bundle moved to thread.", flash[:notice]
+    assert_equal [[:sequence, strand_anchor.id]], @genesis.reload.strand_step_pairs
+    assert_equal [[:bundle, bundle_only.id]], target.reload.strand_step_pairs
+
+    branch_node.reload
+    assert_equal target.id, branch_node.parent_thread_id
+    assert_equal solo.id, branch_node.parent_generative_sequence_id
+    assert_equal bundle_only.id, branch_node.parent_bundle_id
+    assert_equal branch.id, branch_node.child_thread_id
+    assert_equal [[:sequence, @g.id]], branch.reload.strand_step_pairs
+    assert SequenceDependency.exists?(
+      parent_id: target.id,
+      child_id: branch.id,
+      kind: :thread_branch,
+      anchor_sequence_id: solo.id
+    )
   end
 
   test "thread_move_bundle_to_thread rejects moving to same thread" do

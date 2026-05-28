@@ -8,6 +8,7 @@ class TaxonomyTerm < ApplicationRecord
 
   validates :label, presence: true
   validates :position, numericality: { only_integer: true, greater_than: 0 }
+  validate :process_end_state_requires_process_tracking
 
   before_validation :normalize_label
   before_validation :assign_default_position, on: :create
@@ -15,6 +16,13 @@ class TaxonomyTerm < ApplicationRecord
   after_update :sync_assignment_label_snapshots, if: :saved_change_to_label?
 
   private
+
+  def process_end_state_requires_process_tracking
+    return unless process_end_state?
+    return if taxonomy&.process_tracking?
+
+    errors.add(:process_end_state, "is only allowed on process taxonomy values")
+  end
 
   def disable_taxonomy_default_value_if_needed
     return unless taxonomy.default_taxonomy_term_id == id

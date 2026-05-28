@@ -1,15 +1,18 @@
 <% base = workspace_editor_redirect_options.except(:workspace_mode) %>
 <% if @sequence.bundle? %>
   <% fabric_href = edit_project_bundle_path(@project, @sequence, **base) %>
-  <% process_href = edit_project_bundle_path(@project, @sequence, **base.merge(workspace_mode: :process)) %>
+  <% making_href = edit_project_bundle_path(@project, @sequence, **base.merge(workspace_mode: :making)) %>
+  <% made_href = edit_project_bundle_path(@project, @sequence, **base.merge(workspace_mode: :made)) %>
   <% settings_href = edit_project_bundle_path(@project, @sequence, **base.merge(workspace_mode: :settings)) %>
 <% else %>
   <% fabric_href = edit_project_sequence_path(@project, @sequence, **base) %>
-  <% process_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :process)) %>
+  <% making_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :making)) %>
+  <% made_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :made)) %>
   <% settings_href = edit_project_sequence_path(@project, @sequence, **base.merge(workspace_mode: :settings)) %>
 <% end %>
 <% fabric_active = workspace_fabric? %>
-<% process_active = workspace_process? %>
+<% making_active = workspace_making? %>
+<% made_active = workspace_made? %>
 <% settings_active = workspace_settings? %>
 
 <div class="tool-heading-bar">
@@ -33,13 +36,20 @@
                     { "prompt-workspace-header-segment--active" => fabric_active }
                   ),
                   aria: (fabric_active ? { current: "page" } : {}) %>
-      <%= link_to "Process",
-                  process_href,
+      <%= link_to "Making",
+                  making_href,
                   class: class_names(
                     "prompt-workspace-header-segment prompt-workspace-header-segment--mid no-underline",
-                    { "prompt-workspace-header-segment--active" => process_active }
+                    { "prompt-workspace-header-segment--active" => making_active }
                   ),
-                  aria: (process_active ? { current: "page" } : {}) %>
+                  aria: (making_active ? { current: "page" } : {}) %>
+      <%= link_to "Made",
+                  made_href,
+                  class: class_names(
+                    "prompt-workspace-header-segment prompt-workspace-header-segment--mid no-underline",
+                    { "prompt-workspace-header-segment--active" => made_active }
+                  ),
+                  aria: (made_active ? { current: "page" } : {}) %>
       <%= link_to settings_href,
                   class: class_names(
                     "prompt-workspace-header-segment prompt-workspace-header-segment--last no-underline",
@@ -55,7 +65,7 @@
       <% end %>
     </div>
 
-    <% unless workspace_settings? || workspace_process? %>
+    <% unless workspace_settings? || workspace_making? || workspace_made? %>
       <div
         class="prompt-workspace-header-btn-group prompt-workspace-header-btn-group--ring"
         role="group"

@@ -1,4 +1,4 @@
-<main class="workspace-process prompt-process-main" aria-label="Process" data-controller="process-card-modal">
+<main class="workspace-process prompt-process-main" aria-label="Making" data-controller="process-card-modal">
   <%= turbo_frame_tag "process_board" do %>
     <% if @process_board&.ready? %>
       <%= render "sequences/process_board", board: @process_board %>

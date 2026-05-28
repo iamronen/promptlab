@@ -20,6 +20,7 @@ module SequenceEditing
     @sequence.title = attrs["title"] if attrs.key?("title")
     @sequence.intent = attrs["intent"] if attrs.key?("intent")
     return unless attrs["steps_attributes"].present?
+    return if workspace_autosave_request? && !autosave_includes_steps?
 
     @sequence.steps_data = steps_payload_from_params(attrs)
   end
@@ -84,17 +85,15 @@ module SequenceEditing
     "#{base} (copy)"
   end
 
+  def autosave_includes_steps?
+    ActiveModel::Type::Boolean.new.cast(params[:save_steps])
+  end
+
   def sequence_params
-    seq = params.require(:sequence)
-    permitted = seq.permit(:title, :intent)
-    nested = {}
-    seq[:steps_attributes]&.each_pair do |key, attrs|
-      next unless attrs.respond_to?(:permit)
-
-      nested[key] = attrs.permit(:content, :position, :_destroy)
-    end
-    permitted[:steps_attributes] = nested unless nested.empty?
-
-    permitted
+    params.require(:sequence).permit(
+      :title,
+      :intent,
+      steps_attributes: [:content, :position, :_destroy]
+    )
   end
 end

@@ -4,15 +4,16 @@
 module WorkspaceSidebarData
   extend ActiveSupport::Concern
 
-  VALID_WORKSPACE_MODES = %w[fabric process settings].freeze
+  VALID_WORKSPACE_MODES = %w[fabric making made settings].freeze
   VALID_WORKSPACE_SHELLS = %w[v1 v2].freeze
 
   included do
     helper_method :workspace_editor_redirect_options,
-                  :workspace_mode_param, :workspace_fabric?, :workspace_process?, :workspace_settings?,
+                  :workspace_mode_param, :workspace_fabric?, :workspace_making?, :workspace_made?, :workspace_settings?,
                   :current_workspace_mode,
                   :workspace_shell_param, :workspace_shell_v2?,
-                  :workspace_settings_return_path, :workspace_process_return_path,
+                  :workspace_settings_return_path, :workspace_making_return_path, :workspace_made_return_path,
+                  :workspace_board_refresh_path,
                   :workspace_thread_scope_params, :fabric_thread_path,
                   :fabric_panel_thread, :fabric_selected_weave_thread_id,
                   :thread_workspace_open_threads_param if respond_to?(:helper_method)
@@ -53,12 +54,22 @@ module WorkspaceSidebarData
     end
   end
 
-  def workspace_process_return_path
-    base = workspace_editor_redirect_options.except(:workspace_mode).merge(workspace_mode: :process)
-    if @sequence.bundle?
-      edit_project_bundle_path(@project, @sequence, **base)
+  def workspace_making_return_path
+    workspace_mode_return_path(:making)
+  end
+
+  def workspace_made_return_path
+    workspace_mode_return_path(:made)
+  end
+
+  def workspace_board_refresh_path
+    case workspace_mode_param
+    when "made"
+      project_made_board_path(@project)
+    when "making"
+      project_process_board_path(@project)
     else
-      edit_project_sequence_path(@project, @sequence, **base)
+      nil
     end
   end
 
@@ -92,8 +103,13 @@ module WorkspaceSidebarData
       end
 
     @process_board =
-      if workspace_process?
+      if workspace_making?
         ProcessBoard.new(@project)
+      end
+
+    @made_timeline =
+      if workspace_made?
+        MadeTimeline.new(@project)
       end
   end
 
@@ -106,8 +122,12 @@ module WorkspaceSidebarData
     workspace_mode_param.nil? || workspace_mode_param == "fabric"
   end
 
-  def workspace_process?
-    workspace_mode_param == "process"
+  def workspace_making?
+    workspace_mode_param == "making"
+  end
+
+  def workspace_made?
+    workspace_mode_param == "made"
   end
 
   def workspace_settings?
@@ -115,7 +135,25 @@ module WorkspaceSidebarData
   end
 
   def legacy_workspace_mode_redirect?
-    params[:workspace_mode].to_s.in?(%w[browsing sequencing])
+    params[:workspace_mode].to_s.in?(%w[browsing sequencing process])
+  end
+
+  def legacy_workspace_mode_redirect_options
+    case params[:workspace_mode].to_s
+    when "process"
+      workspace_editor_redirect_options.merge(workspace_mode: :making)
+    else
+      workspace_editor_redirect_options.except(:workspace_mode)
+    end
+  end
+
+  def workspace_mode_return_path(mode)
+    base = workspace_editor_redirect_options.except(:workspace_mode).merge(workspace_mode: mode)
+    if @sequence.bundle?
+      edit_project_bundle_path(@project, @sequence, **base)
+    else
+      edit_project_sequence_path(@project, @sequence, **base)
+    end
   end
 
   def current_workspace_mode

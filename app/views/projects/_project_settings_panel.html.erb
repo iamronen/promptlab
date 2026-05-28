@@ -169,6 +169,48 @@
     </dialog>
 
     <dialog
+      class="bundle-edit-dialog bundle-edit-dialog--taxonomy-settings"
+      aria-labelledby="taxonomy-settings-heading-<%= @project.id %>"
+      data-project-taxonomies-target="settingsDialog"
+      data-action="click->project-taxonomies#onSettingsDialogBackdrop"
+    >
+      <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--taxonomy-settings-modal">
+        <button
+          type="button"
+          class="bundle-edit-dialog-close"
+          data-action="click->project-taxonomies#closeTaxonomySettings"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div class="project-settings-modal-body taxonomy-settings-modal-body flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div class="taxonomy-settings-modal-header">
+            <h2
+              id="taxonomy-settings-heading-<%= @project.id %>"
+              class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading"
+            >
+              Taxonomy Settings
+            </h2>
+          </div>
+          <div
+            class="taxonomy-settings-modal-content mt-4 min-h-0 flex-1 overflow-y-auto"
+            data-project-taxonomies-target="settingsDialogBody"
+          ></div>
+          <div class="taxonomy-settings-modal-footer mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <button
+              type="button"
+              class="prompt-btn-secondary border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/70"
+              data-project-taxonomies-target="settingsDialogDeleteButton"
+              data-action="click->project-taxonomies#deleteTaxonomy"
+            >
+              Delete taxonomy
+            </button>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog
       class="project-delete-confirm-dialog rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-600 dark:bg-gray-800"
       aria-labelledby="taxonomy-bundle-settings-heading-<%= @project.id %>"
       data-project-taxonomies-target="bundleSettingsDialog"

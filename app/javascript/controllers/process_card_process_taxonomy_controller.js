@@ -40,7 +40,8 @@ export default class extends Controller {
     taxonomyId: Number,
     sequenceId: { type: Number, default: 0 },
     subjectContext: { type: String, default: "standalone" },
-    processBoardUrl: String
+    processBoardUrl: String,
+    madeBoardUrl: String
   }
 
   connect() {
@@ -379,10 +380,15 @@ export default class extends Controller {
   }
 
   refreshProcessBoard() {
-    if (!this.processBoardUrlValue) return
-    const frame = document.getElementById("process_board")
-    if (!frame) return
-    frame.src = this.processBoardUrlValue
+    const madeFrame = document.getElementById("made_board")
+    if (madeFrame && this.hasMadeBoardUrlValue) {
+      madeFrame.src = this.madeBoardUrlValue
+      return
+    }
+    const processFrame = document.getElementById("process_board")
+    if (processFrame && this.hasProcessBoardUrlValue) {
+      processFrame.src = this.processBoardUrlValue
+    }
   }
 
   async persist() {

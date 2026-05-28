@@ -62,29 +62,14 @@ body {
   border: 1px solid #e4e8ee;
   border-radius: 0.5rem;
   background: #fff;
-  overflow: hidden;
 }
 
-/* Taxonomy “⋯” flyout: escape card clipping + stack above sibling accordion cards (cf. .sequence-nav-item). */
-.project-taxonomy-card:has(.sequence-nav-menu:not([hidden])) {
-  position: relative;
-  z-index: 20;
-  overflow: visible;
+.project-taxonomy-card--row {
+  background: #fff;
 }
 
-/* Modal footer & title rows come before/after in DOM with normal stacking; lift section while menu is open so the flyout isn’t covered. */
-.project-settings-taxonomies-section:has(.sequence-nav-menu:not([hidden])) {
-  position: relative;
-  z-index: 25;
-}
-
-.project-taxonomy-card-chevron {
-  display: inline-block;
-  transition: transform 0.12s ease;
-}
-
-.project-taxonomy-card[open] .project-taxonomy-card-chevron {
-  transform: rotate(90deg);
+.dark .project-taxonomy-card--row {
+  background: transparent;
 }
 
 .project-taxonomy-single-select-ui--hidden {
@@ -95,12 +80,58 @@ body {
   display: none;
 }
 
-.project-taxonomy-exclusion-rule {
-  background: var(--prompt-surface, #fafafa);
+.project-taxonomy-exclusion-rules-table {
+  border: 1px solid #e4e8ee;
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
-.project-taxonomy-exclusion-rules-empty {
-  padding: 0.25rem 0;
+.dark .project-taxonomy-exclusion-rules-table {
+  border-color: rgb(55 65 81);
+}
+
+.project-taxonomy-exclusion-rules-table__heading {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e4e8ee;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+  color: rgb(107 119 139);
+  background: rgb(249 250 251);
+}
+
+.dark .project-taxonomy-exclusion-rules-table__heading {
+  border-bottom-color: rgb(55 65 81);
+  background: rgb(31 41 55);
+}
+
+.project-taxonomy-exclusion-rules-table__heading--actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.project-taxonomy-exclusion-rule-row td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #e4e8ee;
+  vertical-align: top;
+}
+
+.dark .project-taxonomy-exclusion-rule-row td {
+  border-bottom-color: rgb(55 65 81);
+}
+
+.project-taxonomy-exclusion-rules-list tr:last-child td {
+  border-bottom: none;
+}
+
+.project-taxonomy-exclusion-rules-empty td {
+  padding: 0.65rem 0.75rem;
+}
+
+.project-taxonomy-exclusion-rule-values-inner {
+  min-width: 10rem;
 }
 
 .project-taxonomy-bundle-pipeline--disabled {

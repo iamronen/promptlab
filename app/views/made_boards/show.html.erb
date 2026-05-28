@@ -1,0 +1,7 @@
+<%= turbo_frame_tag "made_board" do %>
+  <% if @made_timeline.ready? %>
+    <%= render "sequences/made_timeline", timeline: @made_timeline %>
+  <% else %>
+    <%= render "sequences/process_board_empty_state" %>
+  <% end %>
+<% end %>

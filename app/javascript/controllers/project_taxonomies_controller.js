@@ -14,6 +14,9 @@ const EDIT_VALUE_SVG =
 const DELETE_VALUE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
 
+const TAXONOMY_SETTINGS_GEAR_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>'
+
 export default class extends Controller {
   static targets = [
     "list",
@@ -24,7 +27,11 @@ export default class extends Controller {
     "bundleSettingsDialog",
     "bundleSettingsDialogMessage",
     "defaultProcessTaxonomySelect",
-    "defaultProcessTaxonomyHelp"
+    "defaultProcessTaxonomyHelp",
+    "settingsDialog",
+    "settingsDialogBody",
+    "settingsDialogDeleteButton",
+    "taxonomyNameEditInput"
   ]
   static values = { indexUrl: String, updateUrl: String }
 
@@ -41,6 +48,10 @@ export default class extends Controller {
     this._pendingDeleteTerm = null
     this._pendingBundleSettingsChange = null
     this._bundleSettingsConfirmInFlight = false
+    this._activeSettingsTaxonomyId = null
+    this.editingTaxonomyNameId = null
+    this._exclusionTermPickerWrap = null
+    this._exclusionTermPickerCloser = null
 
     this._boundVDragStart = this.onValuesDragStart.bind(this)
     this._boundVDragEnd = this.onValuesDragEnd.bind(this)
@@ -67,25 +78,22 @@ export default class extends Controller {
     if (this.hasBundleSettingsDialogTarget && this.bundleSettingsDialogTarget.open) {
       this.bundleSettingsDialogTarget.close()
     }
+    if (this.hasSettingsDialogTarget && this.settingsDialogTarget.open) {
+      this.settingsDialogTarget.close()
+    }
+    this._activeSettingsTaxonomyId = null
+    this.editingTaxonomyNameId = null
+    this.closeExclusionTermPicker()
+    this.closeEndStateTermPicker()
   }
 
   csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
   }
 
-  collectOpenTaxonomyIds() {
-    const openIds = new Set()
-    if (!this.hasListTarget) return openIds
-    this.listTarget.querySelectorAll("details.project-taxonomy-card[open]").forEach((el) => {
-      const id = el.getAttribute("data-taxonomy-id")
-      if (id) openIds.add(parseInt(id, 10))
-    })
-    return openIds
-  }
-
-  async loadTaxonomies(preserveOpenIds = null) {
+  async loadTaxonomies() {
     if (!this.indexUrlValue) return
-    const openIds = preserveOpenIds ?? this.collectOpenTaxonomyIds()
+    const activeId = this._activeSettingsTaxonomyId
     try {
       const res = await fetch(this.indexUrlValue, {
         credentials: "same-origin",
@@ -96,8 +104,15 @@ export default class extends Controller {
       const data = await res.json()
       this.taxonomies = data.taxonomies || []
       this.defaultProcessTaxonomyId = data.default_process_taxonomy_id ?? null
-      this.renderMainList(openIds)
+      this.renderMainList()
       this.renderDefaultProcessTaxonomySelect()
+      if (activeId != null) {
+        if (this.taxonomies.some((t) => t.id === activeId)) {
+          this.refreshActiveSettingsModal()
+        } else {
+          this.closeTaxonomySettings()
+        }
+      }
     } catch (_) {
       /* ignore */
     }
@@ -111,21 +126,150 @@ export default class extends Controller {
     return true
   }
 
-  onTaxonomyDetailsToggle(event) {
-    const detail = event.currentTarget
-    if (!detail.open || !this.hasListTarget) return
-    this.listTarget.querySelectorAll("details.project-taxonomy-card").forEach((other) => {
-      if (other !== detail) other.removeAttribute("open")
-    })
+  openTaxonomySettings(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const id = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
+    if (!id) return
+    this.openTaxonomySettingsById(id)
   }
 
-  cardinalityFieldsetHtml(t) {
+  openTaxonomySettingsById(id) {
+    const tax = this.taxonomies.find((x) => x.id === id)
+    if (!tax || !this.hasSettingsDialogTarget) return
+
+    this._activeSettingsTaxonomyId = id
+    this.editingTaxonomyNameId = null
+    this.renderTaxonomySettingsModal(tax)
+    this.settingsDialogTarget.showModal()
+  }
+
+  closeTaxonomySettings(event) {
+    event?.preventDefault()
+    if (this.hasSettingsDialogTarget && this.settingsDialogTarget.open) {
+      this.settingsDialogTarget.close()
+    }
+    this._activeSettingsTaxonomyId = null
+    this.editingTaxonomyNameId = null
+  }
+
+  onSettingsDialogBackdrop(event) {
+    if (event.target === this.settingsDialogTarget) this.closeTaxonomySettings(event)
+  }
+
+  renderTaxonomySettingsModal(t) {
+    if (this.hasSettingsDialogBodyTarget) {
+      this.settingsDialogBodyTarget.innerHTML = this.taxonomySettingsBodyHtml(t)
+    }
+    if (this.hasSettingsDialogDeleteButtonTarget) {
+      this.settingsDialogDeleteButtonTarget.setAttribute("data-taxonomy-id", String(t.id))
+    }
+  }
+
+  refreshActiveSettingsModal() {
+    if (this._activeSettingsTaxonomyId == null) return
+    const tax = this.taxonomies.find((x) => x.id === this._activeSettingsTaxonomyId)
+    if (!tax) {
+      this.closeTaxonomySettings()
+      return
+    }
+    if (this.hasSettingsDialogTarget && this.settingsDialogTarget.open) {
+      this.closeExclusionTermPicker()
+      this.closeEndStateTermPicker()
+      this.renderTaxonomySettingsModal(tax)
+    }
+  }
+
+  taxonomySettingsSectionHtml(title, innerHtml, { hidden = false, sectionClass = "" } = {}) {
+    const hiddenAttr = hidden ? " hidden" : ""
+    const extraClass = sectionClass ? ` ${sectionClass}` : ""
+    return `
+<section class="taxonomy-settings-section${extraClass}"${hiddenAttr}>
+  <h3 class="taxonomy-settings-section-title">${escapeHtml(title)}</h3>
+  <div class="taxonomy-settings-section-body space-y-3">${innerHtml}</div>
+</section>`
+  }
+
+  taxonomySettingsBodyHtml(t) {
+    return `
+<div class="taxonomy-settings-layout">
+  <div class="taxonomy-settings-top">
+    ${this.configurationSectionHtml(t)}
+    ${this.valuesSectionHtml(t)}
+  </div>
+  ${this.processTrackingSectionHtml(t)}
+</div>`
+  }
+
+  configurationSectionHtml(t) {
+    const inner = `
+${this.taxonomyNameRowHtml(t)}
+${this.appliesToFieldsetHtml(t)}
+${this.selectionFieldsetHtml(t)}
+${this.singleSelectUiFieldsetHtml(t)}`
+    return this.taxonomySettingsSectionHtml("Configuration", inner)
+  }
+
+  taxonomyNameRowHtml(t) {
+    if (this.editingTaxonomyNameId === t.id) {
+      return `
+<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+  <label class="shrink-0 text-sm text-prompt-heading" for="taxonomy-name-edit-${t.id}">Taxonomy name</label>
+  <input id="taxonomy-name-edit-${t.id}" type="text"
+    class="min-w-0 flex-1 rounded-lg border border-prompt-field-border px-2 py-1.5 text-sm font-medium text-prompt-heading"
+    value="${escapeHtml(t.name)}" autocomplete="off"
+    data-project-taxonomies-target="taxonomyNameEditInput" data-taxonomy-id="${t.id}"
+    data-action="keydown->project-taxonomies#onTaxonomyNameEditKeydown" />
+  <div class="flex shrink-0 gap-1">
+    <button type="button" class="prompt-btn-primary px-2 py-1 text-[0.8rem]"
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#saveTaxonomyNameEdit">Save</button>
+    <button type="button" class="prompt-btn-secondary px-2 py-1 text-[0.8rem]"
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#cancelTaxonomyNameEdit">Cancel</button>
+  </div>
+</div>`
+    }
+    return `
+<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+  <span class="shrink-0 text-sm text-prompt-heading">Taxonomy name</span>
+  <div class="flex min-w-0 max-w-full items-center gap-1">
+    <span class="min-w-0 truncate text-sm font-medium text-prompt-heading">${escapeHtml(t.name)}</span>
+    <button type="button" class="tool-button shrink-0" title="Edit name" aria-label="Edit name"
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#beginTaxonomyNameEdit">${EDIT_VALUE_SVG}</button>
+  </div>
+</div>`
+  }
+
+  valuesSectionHtml(t) {
+    const inner = `
+<ul class="taxonomy-values-term-list m-0 list-none overflow-y-auto" data-taxonomy-term-list="${t.id}">${this.termsListInnerHtml(
+      t
+    )}</ul>
+<div class="project-taxonomy-card-add-row flex flex-wrap items-stretch gap-2">
+  <label class="visually-hidden" for="new-term-${t.id}">New value for ${escapeHtml(t.name)}</label>
+  <input id="new-term-${t.id}" type="text"
+    class="min-w-[10rem] flex-1 rounded-lg border border-prompt-field-border px-2 py-2 text-[0.9rem]"
+    placeholder="New value" autocomplete="off" data-taxonomy-id="${t.id}"
+    data-action="keydown->project-taxonomies#onNewTermKeydown" />
+  <button type="button" class="prompt-btn-primary shrink-0 px-3 py-2 text-[0.85rem]" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#addTerm">
+    Add value
+  </button>
+</div>
+${this.defaultValueFieldsetHtml(t)}`
+    return this.taxonomySettingsSectionHtml("Values", inner, { sectionClass: "taxonomy-settings-section--values" })
+  }
+
+  processTrackingSectionHtml(t) {
+    const hidden = t.cardinality !== "one"
+    const inner = this.processTrackingFieldsetHtml(t)
+    return this.taxonomySettingsSectionHtml("Process Tracking", inner, { hidden })
+  }
+
+  selectionFieldsetHtml(t) {
     const oneChecked = t.cardinality === "one" ? " checked" : ""
     const manyChecked = t.cardinality === "many" ? " checked" : ""
     return `
-<div class="project-taxonomy-card-settings space-y-3 border-b border-gray-100 pb-4 dark:border-gray-700">
   <fieldset class="m-0 space-y-2 border-0 p-0">
-    <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Selection</legend>
+    <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Value selection</legend>
     <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-prompt-heading">
       <label class="flex cursor-pointer items-center gap-2">
         <input type="radio" class="shrink-0" name="taxonomy-${t.id}-cardinality" value="one"${oneChecked}
@@ -138,55 +282,49 @@ export default class extends Controller {
         <span>Multiple</span>
       </label>
     </div>
-  </fieldset>
-  ${this.singleSelectUiFieldsetHtml(t)}
-  ${this.processTrackingFieldsetHtml(t)}
-  ${this.appliesToFieldsetHtml(t)}
-</div>`
+  </fieldset>`
+  }
+
+  defaultValueSelectedTermId(t) {
+    const id = t.default_taxonomy_term_id
+    if (!t.default_value_enabled || id == null) return null
+    const terms = t.terms || []
+    return terms.some((term) => term.id === id) ? id : null
+  }
+
+  defaultValueSelectOptionsHtml(t) {
+    const selectedId = this.defaultValueSelectedTermId(t)
+    const noneSelected = selectedId == null ? " selected" : ""
+    const terms = [...(t.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
+    const termOptions = terms
+      .map((term) => {
+        const selected = term.id === selectedId ? " selected" : ""
+        return `<option value="${term.id}"${selected}>${escapeHtml(term.label)}</option>`
+      })
+      .join("")
+    return `<option value=""${noneSelected}>None</option>${termOptions}`
   }
 
   defaultValueFieldsetHtml(t) {
-    const enabled = t.default_value_enabled === true
-    const checked = enabled ? " checked" : ""
-    const terms = [...(t.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
-    const hasTerms = terms.length > 0
-    const selectedId = t.default_taxonomy_term_id
-    const hasSelection = selectedId != null && terms.some((term) => term.id === selectedId)
-    const detailsHidden = enabled ? "" : " hidden"
-    const applyHidden = enabled && hasSelection ? "" : " hidden"
-    const selectDisabled = !hasTerms ? " disabled" : ""
-    const unassigned = t.unassigned_applicable_count ?? 0
-
-    const options = hasTerms
-      ? terms
-          .map((term) => {
-            const selected = term.id === selectedId ? " selected" : ""
-            return `<option value="${term.id}"${selected}>${escapeHtml(term.label)}</option>`
-          })
-          .join("")
-      : '<option value="">No values yet</option>'
-
     return `
-  <fieldset class="project-taxonomy-default-value m-0 mt-4 space-y-2 border-0 border-t border-gray-100 p-0 pt-4 dark:border-gray-700">
-    <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Default value</legend>
-    <label class="flex cursor-pointer items-center gap-2 text-sm text-prompt-heading">
-      <input type="checkbox" class="shrink-0"${checked}
-        data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onDefaultValueEnabledChange click->project-taxonomies#stopSummaryToggle" />
-      <span>Set default value</span>
-    </label>
-    <div class="project-taxonomy-default-value-details space-y-2 pl-0${detailsHidden}" data-taxonomy-id="${t.id}"${enabled ? "" : " hidden"}>
-      <label class="block text-xs text-prompt-muted" for="default-term-${t.id}">Default value</label>
-      <select id="default-term-${t.id}" class="w-full max-w-md rounded-lg border border-prompt-field-border px-2 py-2 text-sm text-prompt-heading"${selectDisabled}
+  <fieldset class="project-taxonomy-default-value m-0 border-0 p-0">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-2">
+      <label class="shrink-0 text-sm text-prompt-heading" for="default-term-${t.id}">Default value</label>
+      <select id="default-term-${t.id}" data-default-value-select="${t.id}"
+        class="min-w-[10rem] max-w-md flex-1 rounded-lg border border-prompt-field-border px-2 py-2 text-sm text-prompt-heading"
         data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onDefaultTaxonomyTermChange">
-        <option value="">Select a value…</option>
-        ${options}
+        ${this.defaultValueSelectOptionsHtml(t)}
       </select>
-      <button type="button" class="prompt-btn-primary px-3 py-2 text-[0.85rem] project-taxonomy-apply-default-value${applyHidden}"
-        data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#applyDefaultValue"${enabled && hasSelection ? "" : " hidden"}>
-        Apply${unassigned > 0 ? ` (${unassigned})` : ""}
-      </button>
     </div>
   </fieldset>`
+  }
+
+  refreshDefaultValueSelect(taxonomy) {
+    const select = this.element.querySelector(`select[data-default-value-select="${taxonomy.id}"]`)
+    if (!select) return
+    select.innerHTML = this.defaultValueSelectOptionsHtml(taxonomy)
+    const selectedId = this.defaultValueSelectedTermId(taxonomy)
+    select.value = selectedId != null ? String(selectedId) : ""
   }
 
   appliesToFieldsetHtml(t) {
@@ -202,12 +340,12 @@ export default class extends Controller {
     <div class="space-y-2 text-sm text-prompt-heading">
       <label class="flex cursor-pointer items-center gap-2">
         <input type="checkbox" class="shrink-0"${seqChecked}
-          data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onAppliesToSequencesChange click->project-taxonomies#stopSummaryToggle" />
+          data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onAppliesToSequencesChange" />
         <span>Sequences</span>
       </label>
       <label class="flex cursor-pointer items-center gap-2">
         <input type="checkbox" class="shrink-0"${bundleChecked}
-          data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onAppliesToBundlesChange click->project-taxonomies#stopSummaryToggle" />
+          data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onAppliesToBundlesChange" />
         <span>Bundles</span>
       </label>
       ${pipelineFieldsetHtml}
@@ -225,12 +363,12 @@ export default class extends Controller {
         <div class="flex flex-col gap-y-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="false"${pipelineOffChecked}
-              data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange click->project-taxonomies#stopSummaryToggle" />
+              data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange" />
             <span>Do not apply to sequences inside bundles</span>
           </label>
           <label class="flex cursor-pointer items-center gap-2">
             <input type="radio" class="shrink-0" name="taxonomy-${t.id}-bundle-pipeline" value="true"${pipelineOnChecked}
-              data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange click->project-taxonomies#stopSummaryToggle" />
+              data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onBundlePipelineSequencesChange" />
             <span>Apply also to sequences inside bundles</span>
           </label>
         </div>
@@ -238,34 +376,212 @@ export default class extends Controller {
   }
 
   processTrackingFieldsetHtml(t) {
-    const hiddenClass = t.cardinality === "one" ? "" : " project-taxonomy-process-tracking--hidden"
     const checked = t.process_tracking === true ? " checked" : ""
+    const endStateHtml =
+      t.process_tracking === true ? this.endStateValuesFieldsetHtml(t) : ""
     const exclusionHtml =
       t.process_tracking === true ? this.exclusionRulesFieldsetHtml(t) : ""
     return `
-  <fieldset class="project-taxonomy-process-tracking m-0 space-y-2 border-0 p-0${hiddenClass}">
-    <legend class="mb-1 block text-xs font-semibold uppercase tracking-wide text-prompt-muted">Process</legend>
+  <fieldset class="project-taxonomy-process-tracking m-0 space-y-2 border-0 p-0">
     <label class="flex cursor-pointer items-center gap-2 text-sm text-prompt-heading">
       <input type="checkbox" class="shrink-0"${checked}
-        data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onProcessTrackingChange click->project-taxonomies#stopSummaryToggle" />
+        data-taxonomy-id="${t.id}" data-action="change->project-taxonomies#onProcessTrackingChange" />
       <span>Track process over time</span>
     </label>
+    ${endStateHtml}
     ${exclusionHtml}
   </fieldset>`
+  }
+
+  endStateValuesFieldsetHtml(t) {
+    return `
+  <div class="project-taxonomy-end-state-values mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700" data-taxonomy-id="${t.id}">
+    <p class="m-0 text-xs font-semibold uppercase tracking-wide text-prompt-muted">End state values</p>
+    <div class="project-taxonomy-end-state-values-inner">
+      ${this.endStateValuesCellHtml(t)}
+    </div>
+  </div>`
+  }
+
+  endStateValuesCellHtml(t) {
+    const taxonomyId = t.id
+    const selectedTermIds = [...(t.end_state_term_ids || [])].map(Number).filter((id) => id > 0)
+    const terms = [...(t.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
+
+    if (!terms.length) {
+      return '<p class="project-taxonomy-end-state-values-empty m-0 text-xs text-prompt-muted">No values in this taxonomy yet.</p>'
+    }
+
+    const selectedSet = new Set(selectedTermIds)
+    const chips = selectedTermIds
+      .map((termId) => {
+        const term = terms.find((x) => x.id === termId)
+        if (!term) return ""
+        return `<span class="sequence-meta-taxonomy-chip">
+      <span class="sequence-meta-taxonomy-chip__label">${escapeHtml(term.label)}</span>
+      <button type="button" class="sequence-meta-taxonomy-chip__remove" aria-label="Remove value" title="Remove"
+        data-taxonomy-id="${taxonomyId}" data-term-id="${term.id}"
+        data-action="click->project-taxonomies#removeEndStateTerm">×</button>
+    </span>`
+      })
+      .join("")
+
+    const remaining = terms.filter((term) => !selectedSet.has(term.id))
+    const addBtn =
+      remaining.length > 0
+        ? `<button type="button" class="sequence-meta-taxonomy-add-btn" aria-label="Add end state value" title="Add value"
+        data-taxonomy-id="${taxonomyId}"
+        data-action="click->project-taxonomies#openEndStateTermPicker">+</button>`
+        : ""
+
+    return `<div class="project-taxonomy-end-state-values-chips sequence-meta-taxonomy-row__values" data-end-state-values="${taxonomyId}">${chips}${addBtn}</div>`
+  }
+
+  closeEndStateTermPicker() {
+    if (this._endStateTermPickerWrap) {
+      this._endStateTermPickerWrap.remove()
+      this._endStateTermPickerWrap = null
+    }
+    if (this._endStateTermPickerCloser) {
+      document.removeEventListener("mousedown", this._endStateTermPickerCloser, true)
+      this._endStateTermPickerCloser = null
+    }
+  }
+
+  openEndStateTermPicker(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeEndStateTermPicker()
+
+    const btn = event.currentTarget
+    const taxonomyId = parseInt(btn.getAttribute("data-taxonomy-id") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === taxonomyId)
+    if (!tax) return
+
+    const terms = [...(tax.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
+    const selectedSet = new Set((tax.end_state_term_ids || []).map(Number))
+    const remaining = terms.filter((term) => !selectedSet.has(term.id))
+    if (!remaining.length) return
+
+    const valuesInner = btn.closest("[data-end-state-values]")
+    if (!valuesInner) return
+
+    const wrapper = document.createElement("div")
+    wrapper.className = "sequence-meta-taxonomy-picker"
+    const sel = document.createElement("select")
+    sel.className = "sequence-meta-taxonomy-picker__select"
+    sel.setAttribute("aria-label", "Choose end state value")
+    sel.setAttribute("data-taxonomy-id", String(taxonomyId))
+    sel.addEventListener("change", (evt) => this.onEndStateTermPickerChange(evt))
+
+    const opt0 = document.createElement("option")
+    opt0.value = ""
+    opt0.textContent = "Choose a value…"
+    sel.appendChild(opt0)
+
+    for (const term of remaining) {
+      const o = document.createElement("option")
+      o.value = String(term.id)
+      o.textContent = term.label || ""
+      sel.appendChild(o)
+    }
+
+    wrapper.appendChild(sel)
+    valuesInner.appendChild(wrapper)
+    this._endStateTermPickerWrap = wrapper
+
+    this._endStateTermPickerCloser = (evt) => {
+      if (!(evt instanceof MouseEvent)) return
+      if (wrapper.contains(evt.target)) return
+      this.closeEndStateTermPicker()
+    }
+    setTimeout(() => document.addEventListener("mousedown", this._endStateTermPickerCloser, true), 0)
+
+    sel.focus()
+  }
+
+  onEndStateTermPickerChange(event) {
+    event.stopPropagation()
+    const taxonomyId = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
+    const termId = parseInt(event.currentTarget.value || "", 10)
+    this.closeEndStateTermPicker()
+    if (!Number.isFinite(termId) || termId <= 0) return
+
+    const tax = this.taxonomies.find((x) => x.id === taxonomyId)
+    if (!tax) return
+
+    const ids = new Set((tax.end_state_term_ids || []).map(Number))
+    ids.add(termId)
+    tax.end_state_term_ids = [...ids]
+
+    void this.putEndStateTerms(taxonomyId, tax.end_state_term_ids)
+  }
+
+  removeEndStateTerm(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const taxonomyId = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
+    const termId = parseInt(event.currentTarget.getAttribute("data-term-id") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === taxonomyId)
+    if (!tax) return
+
+    tax.end_state_term_ids = (tax.end_state_term_ids || []).map(Number).filter((id) => id !== termId)
+
+    void this.putEndStateTerms(taxonomyId, tax.end_state_term_ids)
+  }
+
+  async putEndStateTerms(taxonomyId, termIds) {
+    const url = `${this.indexUrlValue}/${taxonomyId}/end_state_terms`
+    const res = await fetch(url, {
+      method: "PUT",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-Token": this.csrfToken(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify({ end_state_term_ids: termIds })
+    })
+
+    if (!res.ok) return { ok: false }
+
+    const updated = await res.json()
+    if (this.mergeTaxonomyFromServer(updated)) {
+      this.renderMainList()
+      this.refreshActiveSettingsModal()
+    } else {
+      await this.loadTaxonomies()
+    }
+    return { ok: true }
   }
 
   exclusionRulesFieldsetHtml(t) {
     const rules = Array.isArray(t.exclusion_rules) ? t.exclusion_rules : []
     const rows = rules.map((rule, idx) => this.exclusionRuleRowHtml(t, rule, idx)).join("")
+    const emptyRow =
+      '<tr class="project-taxonomy-exclusion-rules-empty"><td colspan="3" class="text-xs text-prompt-muted">No exclusion rules yet.</td></tr>'
     return `
   <div class="project-taxonomy-exclusion-rules mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700" data-taxonomy-id="${t.id}">
     <p class="m-0 text-xs font-semibold uppercase tracking-wide text-prompt-muted">Exclusion rules</p>
     <p class="m-0 text-xs text-prompt-muted">When a sequence or bundle has any selected value on the trigger taxonomy, it is excluded from this process taxonomy.</p>
-    <div class="project-taxonomy-exclusion-rules-list space-y-3" data-exclusion-rules-list="${t.id}">
-      ${rows || '<p class="project-taxonomy-exclusion-rules-empty m-0 text-xs text-prompt-muted">No exclusion rules yet.</p>'}
+    <div class="project-taxonomy-exclusion-rules-table-wrap overflow-x-auto">
+      <table class="project-taxonomy-exclusion-rules-table w-full border-collapse text-sm">
+        <thead>
+          <tr>
+            <th scope="col" class="project-taxonomy-exclusion-rules-table__heading">Taxonomy</th>
+            <th scope="col" class="project-taxonomy-exclusion-rules-table__heading">Excluded values</th>
+            <th scope="col" class="project-taxonomy-exclusion-rules-table__heading project-taxonomy-exclusion-rules-table__heading--actions"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody class="project-taxonomy-exclusion-rules-list" data-exclusion-rules-list="${t.id}">
+          ${rows || emptyRow}
+        </tbody>
+      </table>
     </div>
     <button type="button" class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
-      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#addExclusionRule click->project-taxonomies#stopSummaryToggle">
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#addExclusionRule">
       Add exclusion rule
     </button>
   </div>`
@@ -274,7 +590,6 @@ export default class extends Controller {
   exclusionRuleRowHtml(processTaxonomy, rule, ruleIndex) {
     const processId = processTaxonomy.id
     const excludingTaxonomyId = rule.excluding_taxonomy_id
-    const selectedTermIds = new Set((rule.excluding_term_ids || []).map(Number))
     const otherTaxonomies = this.taxonomies.filter((x) => x.id !== processId)
     const taxonomyOptions = otherTaxonomies
       .map((tax) => {
@@ -283,40 +598,177 @@ export default class extends Controller {
       })
       .join("")
 
-    const triggerTax = this.taxonomies.find((x) => x.id === excludingTaxonomyId)
-    const terms = triggerTax ? [...(triggerTax.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0)) : []
-    const termChecks =
-      terms.length > 0
-        ? terms
-            .map((term) => {
-              const checked = selectedTermIds.has(term.id) ? " checked" : ""
-              return `<label class="flex cursor-pointer items-center gap-2 text-sm text-prompt-heading">
-      <input type="checkbox" class="shrink-0" value="${term.id}"${checked}
-        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
-        data-action="change->project-taxonomies#onExclusionRuleTermChange click->project-taxonomies#stopSummaryToggle" />
-      <span>${escapeHtml(term.label)}</span>
-    </label>`
-            })
-            .join("")
-        : '<p class="m-0 text-xs text-prompt-muted">Select a trigger taxonomy with values.</p>'
-
     return `
-  <div class="project-taxonomy-exclusion-rule rounded-lg border border-gray-100 p-3 dark:border-gray-700"
+  <tr class="project-taxonomy-exclusion-rule-row"
     data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}">
-    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-      <label class="block text-xs text-prompt-muted" for="exclusion-taxonomy-${processId}-${ruleIndex}">When assigned</label>
-      <button type="button" class="sequence-nav-menu-button sequence-nav-menu-button-danger text-xs"
+    <td class="project-taxonomy-exclusion-rule-taxonomy align-top">
+      <label class="visually-hidden" for="exclusion-taxonomy-${processId}-${ruleIndex}">Taxonomy</label>
+      <select id="exclusion-taxonomy-${processId}-${ruleIndex}" class="w-full min-w-[8rem] rounded-lg border border-prompt-field-border px-2 py-2 text-sm text-prompt-heading"
         data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
-        data-action="click->project-taxonomies#removeExclusionRule click->project-taxonomies#stopSummaryToggle">Remove</button>
-    </div>
-    <select id="exclusion-taxonomy-${processId}-${ruleIndex}" class="mb-2 w-full max-w-md rounded-lg border border-prompt-field-border px-2 py-2 text-sm text-prompt-heading"
-      data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
-      data-action="change->project-taxonomies#onExclusionRuleTaxonomyChange click->project-taxonomies#stopSummaryToggle">
-      <option value="">Select taxonomy…</option>
-      ${taxonomyOptions}
-    </select>
-    <div class="space-y-1">${termChecks}</div>
-  </div>`
+        data-action="change->project-taxonomies#onExclusionRuleTaxonomyChange">
+        <option value="">Select taxonomy…</option>
+        ${taxonomyOptions}
+      </select>
+    </td>
+    <td class="project-taxonomy-exclusion-rule-values align-top">
+      ${this.exclusionRuleValuesCellHtml(processTaxonomy, rule, ruleIndex)}
+    </td>
+    <td class="project-taxonomy-exclusion-rule-actions align-top">
+      <button type="button" class="sequence-nav-menu-button sequence-nav-menu-button-danger text-xs whitespace-nowrap"
+        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
+        data-action="click->project-taxonomies#removeExclusionRule">Remove</button>
+    </td>
+  </tr>`
+  }
+
+  exclusionRuleValuesCellHtml(processTaxonomy, rule, ruleIndex) {
+    const processId = processTaxonomy.id
+    const excludingTaxonomyId = rule.excluding_taxonomy_id
+    const selectedTermIds = [...(rule.excluding_term_ids || [])].map(Number).filter((id) => id > 0)
+    const triggerTax = this.taxonomies.find((x) => x.id === excludingTaxonomyId)
+    const terms = triggerTax
+      ? [...(triggerTax.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
+      : []
+
+    if (!excludingTaxonomyId) {
+      return '<p class="project-taxonomy-exclusion-rule-values-empty m-0 text-xs text-prompt-muted">Select a taxonomy.</p>'
+    }
+    if (!terms.length) {
+      return '<p class="project-taxonomy-exclusion-rule-values-empty m-0 text-xs text-prompt-muted">No values in this taxonomy.</p>'
+    }
+
+    const selectedSet = new Set(selectedTermIds)
+    const chips = selectedTermIds
+      .map((termId) => {
+        const term = terms.find((x) => x.id === termId)
+        if (!term) return ""
+        return `<span class="sequence-meta-taxonomy-chip">
+      <span class="sequence-meta-taxonomy-chip__label">${escapeHtml(term.label)}</span>
+      <button type="button" class="sequence-meta-taxonomy-chip__remove" aria-label="Remove value" title="Remove"
+        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}" data-term-id="${term.id}"
+        data-action="click->project-taxonomies#removeExclusionTerm">×</button>
+    </span>`
+      })
+      .join("")
+
+    const remaining = terms.filter((term) => !selectedSet.has(term.id))
+    const addBtn =
+      remaining.length > 0
+        ? `<button type="button" class="sequence-meta-taxonomy-add-btn" aria-label="Add excluded value" title="Add value"
+        data-process-taxonomy-id="${processId}" data-rule-index="${ruleIndex}"
+        data-action="click->project-taxonomies#openExclusionTermPicker">+</button>`
+        : ""
+
+    return `<div class="project-taxonomy-exclusion-rule-values-inner sequence-meta-taxonomy-row__values" data-exclusion-rule-values="${processId}-${ruleIndex}">${chips}${addBtn}</div>`
+  }
+
+  closeExclusionTermPicker() {
+    if (this._exclusionTermPickerWrap) {
+      this._exclusionTermPickerWrap.remove()
+      this._exclusionTermPickerWrap = null
+    }
+    if (this._exclusionTermPickerCloser) {
+      document.removeEventListener("mousedown", this._exclusionTermPickerCloser, true)
+      this._exclusionTermPickerCloser = null
+    }
+  }
+
+  openExclusionTermPicker(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeExclusionTermPicker()
+    this.closeEndStateTermPicker()
+
+    const btn = event.currentTarget
+    const processId = parseInt(btn.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(btn.getAttribute("data-rule-index") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    const rule = tax?.exclusion_rules?.[ruleIndex]
+    if (!tax || !rule) return
+
+    const excludingTaxonomyId = rule.excluding_taxonomy_id
+    const triggerTax = this.taxonomies.find((x) => x.id === excludingTaxonomyId)
+    const terms = triggerTax
+      ? [...(triggerTax.terms || [])].sort((a, b) => (a.position || 0) - (b.position || 0))
+      : []
+    const selectedSet = new Set((rule.excluding_term_ids || []).map(Number))
+    const remaining = terms.filter((term) => !selectedSet.has(term.id))
+    if (!remaining.length) return
+
+    const valuesInner = btn.closest("[data-exclusion-rule-values]")
+    if (!valuesInner) return
+
+    const wrapper = document.createElement("div")
+    wrapper.className = "sequence-meta-taxonomy-picker"
+    const sel = document.createElement("select")
+    sel.className = "sequence-meta-taxonomy-picker__select"
+    sel.setAttribute("aria-label", "Choose value to exclude")
+    sel.setAttribute("data-process-taxonomy-id", String(processId))
+    sel.setAttribute("data-rule-index", String(ruleIndex))
+    sel.addEventListener("change", (evt) => this.onExclusionTermPickerChange(evt))
+
+    const opt0 = document.createElement("option")
+    opt0.value = ""
+    opt0.textContent = "Choose a value…"
+    sel.appendChild(opt0)
+
+    for (const term of remaining) {
+      const o = document.createElement("option")
+      o.value = String(term.id)
+      o.textContent = term.label || ""
+      sel.appendChild(o)
+    }
+
+    wrapper.appendChild(sel)
+    valuesInner.appendChild(wrapper)
+    this._exclusionTermPickerWrap = wrapper
+
+    this._exclusionTermPickerCloser = (evt) => {
+      if (!(evt instanceof MouseEvent)) return
+      if (wrapper.contains(evt.target)) return
+      this.closeExclusionTermPicker()
+    }
+    setTimeout(() => document.addEventListener("mousedown", this._exclusionTermPickerCloser, true), 0)
+
+    sel.focus()
+  }
+
+  onExclusionTermPickerChange(event) {
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
+    const termId = parseInt(event.currentTarget.value || "", 10)
+    this.closeExclusionTermPicker()
+    if (!Number.isFinite(termId) || termId <= 0) return
+
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    const rules = [...(tax?.exclusion_rules || [])]
+    const rule = rules[ruleIndex]
+    if (!tax || !rule) return
+
+    const ids = new Set((rule.excluding_term_ids || []).map(Number))
+    ids.add(termId)
+    rule.excluding_term_ids = [...ids]
+    tax.exclusion_rules = rules
+
+    void this.putExclusionRules(processId, this.exclusionRulesPayloadFor(processId))
+  }
+
+  removeExclusionTerm(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
+    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
+    const termId = parseInt(event.currentTarget.getAttribute("data-term-id") || "", 10)
+    const tax = this.taxonomies.find((x) => x.id === processId)
+    const rules = [...(tax?.exclusion_rules || [])]
+    const rule = rules[ruleIndex]
+    if (!tax || !rule) return
+
+    rule.excluding_term_ids = (rule.excluding_term_ids || []).map(Number).filter((id) => id !== termId)
+    tax.exclusion_rules = rules
+
+    void this.putExclusionRules(processId, this.exclusionRulesPayloadFor(processId))
   }
 
   exclusionRulesPayloadFor(processTaxonomyId) {
@@ -332,8 +784,6 @@ export default class extends Controller {
   }
 
   async putExclusionRules(processTaxonomyId, rules) {
-    const openIds = this.collectOpenTaxonomyIds()
-    openIds.add(processTaxonomyId)
     const url = `${this.indexUrlValue}/${processTaxonomyId}/exclusion_rules`
     const res = await fetch(url, {
       method: "PUT",
@@ -352,9 +802,10 @@ export default class extends Controller {
 
     const updated = await res.json()
     if (this.mergeTaxonomyFromServer(updated)) {
-      this.renderMainList(openIds)
+      this.renderMainList()
+      this.refreshActiveSettingsModal()
     } else {
-      await this.loadTaxonomies(openIds)
+      await this.loadTaxonomies()
     }
     return { ok: true }
   }
@@ -382,9 +833,7 @@ export default class extends Controller {
       excluding_terms: []
     })
     tax.exclusion_rules = rules
-    const openIds = this.collectOpenTaxonomyIds()
-    openIds.add(processId)
-    this.renderMainList(openIds)
+    this.refreshActiveSettingsModal()
   }
 
   removeExclusionRule(event) {
@@ -419,31 +868,7 @@ export default class extends Controller {
     rule.excluding_term_ids = []
     rule.excluding_terms = []
     tax.exclusion_rules = rules
-
-    const openIds = this.collectOpenTaxonomyIds()
-    openIds.add(processId)
-    this.renderMainList(openIds)
-  }
-
-  onExclusionRuleTermChange(event) {
-    event.stopPropagation()
-    const processId = parseInt(event.currentTarget.getAttribute("data-process-taxonomy-id") || "", 10)
-    const ruleIndex = parseInt(event.currentTarget.getAttribute("data-rule-index") || "", 10)
-    const termId = parseInt(event.currentTarget.value || "", 10)
-    const tax = this.taxonomies.find((x) => x.id === processId)
-    if (!tax) return
-
-    const rules = [...(tax.exclusion_rules || [])]
-    const rule = rules[ruleIndex]
-    if (!rule) return
-
-    const ids = new Set((rule.excluding_term_ids || []).map(Number))
-    if (event.currentTarget.checked) ids.add(termId)
-    else ids.delete(termId)
-    rule.excluding_term_ids = [...ids]
-    tax.exclusion_rules = rules
-
-    void this.putExclusionRules(processId, this.exclusionRulesPayloadFor(processId))
+    this.refreshActiveSettingsModal()
   }
 
   singleSelectUiFieldsetHtml(t) {
@@ -477,17 +902,28 @@ export default class extends Controller {
     return terms.map((term) => this.termRowHtml(taxonomy.id, term)).join("")
   }
 
-  taxonomyCardMenuHtml(t) {
-    return `
-        <div class="step-menu-submenu-host project-taxonomy-move-submenu-host">
-          <div class="step-menu-submenu-title sequence-nav-menu-button">Move <span class="step-menu-flyout-chevron" aria-hidden="true">›</span></div>
-          <div class="step-submenu project-taxonomy-move-submenu">
-            <button type="button" class="sequence-nav-menu-button" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#moveTaxonomyUp">Up</button>
-            <button type="button" class="sequence-nav-menu-button" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#moveTaxonomyDown">Down</button>
-          </div>
-        </div>
-        <button type="button" class="sequence-nav-menu-button" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#renameTaxonomy">Rename</button>
-        <button type="button" class="sequence-nav-menu-button sequence-nav-menu-button-danger" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#deleteTaxonomy">Delete</button>`
+  renderMainList() {
+    if (!this.hasListTarget) return
+    if (!this.taxonomies.length) {
+      this.listTarget.innerHTML =
+        '<p class="project-taxonomies-empty m-0 text-sm text-prompt-muted">No taxonomies yet.</p>'
+      return
+    }
+    const sorted = [...this.taxonomies].sort((a, b) => (a.position || 0) - (b.position || 0) || a.id - b.id)
+    this.listTarget.innerHTML = sorted
+      .map(
+        (t) => `
+<div class="project-taxonomy-card-wrap" draggable="true" data-taxonomy-id="${t.id}">
+  <div class="project-taxonomy-card project-taxonomy-card--row flex items-center gap-2 rounded-lg px-3 py-2.5">
+    <span class="taxonomy-drag-handle shrink-0 cursor-grab select-none rounded px-0.5 text-prompt-muted hover:bg-gray-100 dark:hover:bg-gray-700" title="Drag to reorder" aria-label="Drag to reorder"
+      data-action="mousedown->project-taxonomies#armTaxonomyDrag">⠿</span>
+    <span class="min-w-0 flex-1 truncate text-sm font-medium text-prompt-heading">${escapeHtml(t.name)}</span>
+    <button type="button" class="tool-button shrink-0" aria-label="Taxonomy settings" title="Taxonomy settings"
+      data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#openTaxonomySettings">${TAXONOMY_SETTINGS_GEAR_SVG}</button>
+  </div>
+</div>`
+      )
+      .join("")
   }
 
   sortedTaxonomyIds() {
@@ -566,58 +1002,6 @@ export default class extends Controller {
     this.renderDefaultProcessTaxonomySelect()
   }
 
-  renderMainList(openIds = null) {
-    if (!this.hasListTarget) return
-    const preserved = openIds ?? this.collectOpenTaxonomyIds()
-    if (!this.taxonomies.length) {
-      this.listTarget.innerHTML =
-        '<p class="project-taxonomies-empty m-0 text-sm text-prompt-muted">No taxonomies yet.</p>'
-      return
-    }
-    const sorted = [...this.taxonomies].sort((a, b) => (a.position || 0) - (b.position || 0) || a.id - b.id)
-    this.listTarget.innerHTML = sorted
-      .map((t) => {
-        const openAttr = preserved.has(t.id) ? " open" : ""
-        return `
-<div class="project-taxonomy-card-wrap" draggable="true" data-taxonomy-id="${t.id}">
-<details class="project-taxonomy-card"${openAttr} data-taxonomy-id="${t.id}" data-action="toggle->project-taxonomies#onTaxonomyDetailsToggle">
-  <summary class="project-taxonomy-card-summary flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2.5 outline-none ring-prompt-accent/40 hover:bg-gray-50 focus-visible:ring-2 dark:hover:bg-gray-800/80 [&::-webkit-details-marker]:hidden">
-    <span class="project-taxonomy-card-chevron shrink-0 text-prompt-muted" aria-hidden="true">▸</span>
-    <span class="taxonomy-drag-handle shrink-0 cursor-grab select-none rounded px-0.5 text-prompt-muted hover:bg-gray-100 dark:hover:bg-gray-700" title="Drag to reorder" aria-label="Drag to reorder"
-      data-action="mousedown->project-taxonomies#armTaxonomyDrag click->project-taxonomies#stopSummaryToggle">⠿</span>
-    <span class="min-w-0 flex-1 truncate text-sm font-medium text-prompt-heading">${escapeHtml(t.name)}</span>
-    <div class="sequence-nav-menu-wrap shrink-0 prompt-sequence-nav-host" data-controller="sequence-nav">
-      <button type="button" class="tool-button sequence-nav-menu-trigger" aria-label="Taxonomy actions" title="Taxonomy actions"
-        data-action="click->sequence-nav#toggleMenu">⋯</button>
-      <div class="sequence-nav-menu" hidden data-sequence-nav-target="menu">
-        ${this.taxonomyCardMenuHtml(t)}
-      </div>
-    </div>
-  </summary>
-  <div class="project-taxonomy-card-body border-t border-gray-100 px-3 pb-4 pt-3 dark:border-gray-700">
-    ${this.cardinalityFieldsetHtml(t)}
-    <p class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-prompt-muted">Values</p>
-    <ul class="taxonomy-values-term-list m-0 max-h-[min(40vh,280px)] list-none overflow-y-auto" data-taxonomy-term-list="${t.id}">${this.termsListInnerHtml(
-          t
-        )}</ul>
-    <div class="project-taxonomy-card-add-row mt-3 flex flex-wrap items-stretch gap-2">
-      <label class="visually-hidden" for="new-term-${t.id}">New value for ${escapeHtml(t.name)}</label>
-      <input id="new-term-${t.id}" type="text"
-        class="min-w-[10rem] flex-1 rounded-lg border border-prompt-field-border px-2 py-2 text-[0.9rem]"
-        placeholder="New value" autocomplete="off" data-taxonomy-id="${t.id}"
-        data-action="keydown->project-taxonomies#onNewTermKeydown" />
-      <button type="button" class="prompt-btn-primary shrink-0 px-3 py-2 text-[0.85rem]" data-taxonomy-id="${t.id}" data-action="click->project-taxonomies#addTerm">
-        Add value
-      </button>
-    </div>
-    ${this.defaultValueFieldsetHtml(t)}
-  </div>
-</details>
-</div>`
-      })
-      .join("")
-  }
-
   onNewTaxonomyKeydown(event) {
     if (event.key === "Enter") {
       event.preventDefault()
@@ -673,9 +1057,8 @@ export default class extends Controller {
     if (res.status === 201) {
       this.hideAddTaxonomyPanel()
       const created = await res.json()
-      const openIds = this.collectOpenTaxonomyIds()
-      openIds.add(created.id)
-      await this.loadTaxonomies(openIds)
+      await this.loadTaxonomies()
+      this.openTaxonomySettingsById(created.id)
     }
   }
 
@@ -769,9 +1152,8 @@ export default class extends Controller {
   }
 
   setBundlePipelineRadio(taxonomyId, applyToPipeline) {
-    if (!this.hasListTarget) return
     const value = applyToPipeline ? "true" : "false"
-    const input = this.listTarget.querySelector(
+    const input = this.element.querySelector(
       `input[name="taxonomy-${taxonomyId}-bundle-pipeline"][value="${value}"]`
     )
     if (input) input.checked = true
@@ -839,24 +1221,6 @@ export default class extends Controller {
     this.patchTaxonomy(id, { single_select_ui: val })
   }
 
-  async onDefaultValueEnabledChange(event) {
-    event.stopPropagation()
-    const input = event.currentTarget
-    const id = parseInt(input.getAttribute("data-taxonomy-id") || "", 10)
-    const tax = this.taxonomies.find((x) => x.id === id)
-    if (!tax) return
-
-    const desired = !!input.checked
-    const previous = tax.default_value_enabled === true
-    if (desired === previous) return
-
-    const attrs = desired
-      ? { default_value_enabled: true }
-      : { default_value_enabled: false, default_taxonomy_term_id: null }
-    const result = await this.patchTaxonomy(id, attrs)
-    if (!result.ok) input.checked = previous
-  }
-
   async onDefaultTaxonomyTermChange(event) {
     event.stopPropagation()
     const select = event.currentTarget
@@ -864,64 +1228,73 @@ export default class extends Controller {
     const tax = this.taxonomies.find((x) => x.id === id)
     if (!tax) return
 
-    const termId = parseInt(select.value || "", 10)
-    const previousId = tax.default_taxonomy_term_id ?? null
-    if (!termId) {
-      const result = await this.patchTaxonomy(id, { default_taxonomy_term_id: null })
-      if (!result.ok && previousId != null) select.value = String(previousId)
-      return
-    }
+    const termId = parseInt(select.value || "", 10) || null
+    const previousId = this.defaultValueSelectedTermId(tax)
+    if (termId === previousId) return
 
-    const result = await this.patchTaxonomy(id, {
-      default_value_enabled: true,
-      default_taxonomy_term_id: termId
-    })
+    const result = termId
+      ? await this.patchTaxonomy(id, { default_value_enabled: true, default_taxonomy_term_id: termId })
+      : await this.patchTaxonomy(id, { default_value_enabled: false, default_taxonomy_term_id: null })
+
     if (!result.ok) {
       select.value = previousId != null ? String(previousId) : ""
     }
   }
 
-  async applyDefaultValue(event) {
+  beginTaxonomyNameEdit(event) {
     event.preventDefault()
     event.stopPropagation()
     const id = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
     if (!id) return
-
-    const url = `${this.indexUrlValue}/${id}/apply_default_value`
-    const res = await fetch(url, {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        "X-CSRF-Token": this.csrfToken(),
-        "X-Requested-With": "XMLHttpRequest"
+    this.editingTaxonomyNameId = id
+    this.refreshActiveSettingsModal()
+    requestAnimationFrame(() => {
+      if (this.hasTaxonomyNameEditInputTarget) {
+        this.taxonomyNameEditInputTarget.focus()
+        this.taxonomyNameEditInputTarget.select()
       }
     })
-
-    if (!res.ok) return
-
-    const openIds = this.collectOpenTaxonomyIds()
-    openIds.add(id)
-    await this.loadTaxonomies(openIds)
   }
 
-  renameTaxonomy(event) {
+  cancelTaxonomyNameEdit(event) {
     event.preventDefault()
     event.stopPropagation()
-    const id = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
-    if (!id) return
-    const tax = this.taxonomies.find((x) => x.id === id)
-    if (!tax) return
-    const next = window.prompt("Rename taxonomy", tax.name)
-    if (next == null) return
-    const name = next.trim()
-    if (!name || name === tax.name) return
-    this.patchTaxonomy(id, { name })
+    this.editingTaxonomyNameId = null
+    this.refreshActiveSettingsModal()
   }
 
-  stopSummaryToggle(event) {
+  onTaxonomyNameEditKeydown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault()
+      this.saveTaxonomyNameEdit(event)
+    } else if (event.key === "Escape") {
+      event.preventDefault()
+      this.cancelTaxonomyNameEdit(event)
+    }
+  }
+
+  async saveTaxonomyNameEdit(event) {
+    event.preventDefault()
     event.stopPropagation()
+    const id =
+      parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10) ||
+      this.editingTaxonomyNameId
+    if (!id) return
+    const input = this.hasTaxonomyNameEditInputTarget ? this.taxonomyNameEditInputTarget : null
+    if (!input) return
+    const name = input.value.trim()
+    const tax = this.taxonomies.find((x) => x.id === id)
+    if (!name || !tax) return
+    if (name === tax.name) {
+      this.editingTaxonomyNameId = null
+      this.refreshActiveSettingsModal()
+      return
+    }
+    const result = await this.patchTaxonomy(id, { name })
+    if (result.ok) {
+      this.editingTaxonomyNameId = null
+      this.refreshActiveSettingsModal()
+    }
   }
 
   armTaxonomyDrag(event) {
@@ -932,32 +1305,6 @@ export default class extends Controller {
 
   disarmTaxonomyDrag() {
     if (!this.draggedTaxonomyEl) this._taxonomyDragArmed = false
-  }
-
-  moveTaxonomyUp(event) {
-    event.preventDefault()
-    event.stopPropagation()
-    const id = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
-    if (!id) return
-    const ids = this.sortedTaxonomyIds()
-    const idx = ids.indexOf(id)
-    if (idx <= 0) return
-    const next = [...ids]
-    ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-    void this.reorderTaxonomies(next)
-  }
-
-  moveTaxonomyDown(event) {
-    event.preventDefault()
-    event.stopPropagation()
-    const id = parseInt(event.currentTarget.getAttribute("data-taxonomy-id") || "", 10)
-    if (!id) return
-    const ids = this.sortedTaxonomyIds()
-    const idx = ids.indexOf(id)
-    if (idx < 0 || idx >= ids.length - 1) return
-    const next = [...ids]
-    ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-    void this.reorderTaxonomies(next)
   }
 
   async reorderTaxonomies(ids) {
@@ -977,7 +1324,6 @@ export default class extends Controller {
   }
 
   async patchTaxonomy(id, attrs, { confirmDeletions = false } = {}) {
-    const openIds = this.collectOpenTaxonomyIds()
     let url = `${this.indexUrlValue}/${id}`
     if (confirmDeletions) url += `${url.includes("?") ? "&" : "?"}confirm_deletions=1`
 
@@ -1024,14 +1370,15 @@ export default class extends Controller {
     try {
       const updated = await res.json()
       if (updated?.id && this.mergeTaxonomyFromServer(updated)) {
-        this.renderMainList(openIds)
+        this.renderMainList()
         this.renderDefaultProcessTaxonomySelect()
+        this.refreshActiveSettingsModal()
       }
     } catch (_) {
       /* ignore */
     }
 
-    await this.loadTaxonomies(openIds)
+    await this.loadTaxonomies()
     return { ok: true }
   }
 
@@ -1058,18 +1405,22 @@ export default class extends Controller {
     })
     if (res.status === 204) {
       this.editingTermId = null
+      if (this._activeSettingsTaxonomyId === id) {
+        this.closeTaxonomySettings()
+      }
       await this.loadTaxonomies()
     }
   }
 
   termListForTaxonomyId(taxonomyId) {
-    return this.listTarget?.querySelector(`ul[data-taxonomy-term-list="${taxonomyId}"]`)
+    return this.element.querySelector(`ul[data-taxonomy-term-list="${taxonomyId}"]`)
   }
 
   renderTermsListForTaxonomy(taxonomy) {
     const ul = this.termListForTaxonomyId(taxonomy.id)
     if (!ul) return
     ul.innerHTML = this.termsListInnerHtml(taxonomy)
+    this.refreshDefaultValueSelect(taxonomy)
   }
 
   termRowHtml(taxonomyId, term) {

@@ -534,7 +534,69 @@
     fill: theme("colors.gray.100");
   }
 
-  .workspace-shell--process {
+  /*
+   * Made workspace — vertical timeline of end-state assignments (oldest first).
+   */
+  main.workspace-made.prompt-made-main {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden bg-prompt-canvas p-4 pb-5;
+  }
+
+  main.workspace-made.prompt-made-main > turbo-frame#made_board {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+  }
+
+  .workspace-made-timeline.prompt-made-timeline {
+    @apply mx-auto flex min-h-0 w-full max-w-2xl flex-1 list-none flex-col gap-0 overflow-y-auto p-0;
+  }
+
+  .workspace-made-timeline-date-group.prompt-made-timeline-date-group {
+    @apply relative flex gap-3 pb-6;
+  }
+
+  .workspace-made-timeline-date-group:last-child {
+    @apply pb-2;
+  }
+
+  .workspace-made-timeline-marker {
+    @apply relative flex w-6 shrink-0 flex-col items-center;
+  }
+
+  .workspace-made-timeline-rail {
+    @apply absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-gray-300 dark:bg-gray-600;
+  }
+
+  .workspace-made-timeline-date-group:last-child .workspace-made-timeline-rail {
+    @apply bottom-1/2;
+  }
+
+  .workspace-made-timeline-dot {
+    @apply relative z-[1] mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-gray-400 bg-prompt-canvas dark:border-gray-500;
+  }
+
+  .workspace-made-timeline-content {
+    @apply min-w-0 flex-1 flex flex-col gap-3;
+  }
+
+  .workspace-made-timeline-date {
+    @apply text-base leading-snug;
+  }
+
+  .workspace-made-timeline-cards {
+    @apply flex flex-col gap-3;
+  }
+
+  .workspace-made-timeline-card {
+    @apply flex flex-col;
+  }
+
+  .workspace-made-task-card-end-state-pill {
+    @apply inline-flex max-w-[10rem] items-center truncate rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[0.6875rem] font-medium leading-tight text-prompt-muted
+           dark:border-gray-600 dark:bg-gray-900/60;
+  }
+
+  .workspace-shell--process,
+  .workspace-shell--making,
+  .workspace-shell--made {
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
@@ -543,7 +605,9 @@
     overflow: hidden;
   }
 
-  .workspace-shell--process > .workspace.workspace--one-pane {
+  .workspace-shell--process > .workspace.workspace--one-pane,
+  .workspace-shell--making > .workspace.workspace--one-pane,
+  .workspace-shell--made > .workspace.workspace--one-pane {
     flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
@@ -782,12 +846,56 @@
     width: min(28rem, calc(100vw - 2rem));
   }
 
+  .bundle-edit-dialog--taxonomy-settings {
+    width: min(56rem, calc(100vw - 2rem));
+  }
+
   .bundle-edit-dialog-panel {
     @apply relative box-border max-h-[min(90vh,760px)] max-w-[min(52rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10;
   }
 
   .bundle-edit-dialog-panel--project-settings-modal {
     @apply relative flex max-h-[min(90vh,560px)] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden;
+  }
+
+  .bundle-edit-dialog-panel--taxonomy-settings-modal {
+    @apply relative flex max-h-[min(90vh,780px)] max-w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden;
+  }
+
+  .taxonomy-settings-modal-body {
+    @apply min-h-0 flex-1 overflow-hidden px-5 pb-5 pt-4;
+  }
+
+  .taxonomy-settings-modal-content {
+    @apply min-h-0;
+  }
+
+  .taxonomy-settings-layout {
+    @apply flex min-h-0 flex-col gap-4;
+  }
+
+  .taxonomy-settings-top {
+    @apply grid min-h-0 grid-cols-1 gap-4 sm:grid-cols-2;
+  }
+
+  .taxonomy-settings-section {
+    @apply min-h-0 rounded-lg border border-gray-100 p-4 dark:border-gray-700;
+  }
+
+  .taxonomy-settings-section--values {
+    @apply flex flex-col;
+  }
+
+  .taxonomy-settings-section--values .taxonomy-settings-section-body {
+    @apply flex min-h-0 flex-1 flex-col;
+  }
+
+  .taxonomy-settings-section--values .taxonomy-values-term-list {
+    @apply min-h-[12rem] max-h-[min(50vh,360px)] flex-1;
+  }
+
+  .taxonomy-settings-section-title {
+    @apply m-0 mb-3 text-xs font-semibold uppercase tracking-wide text-prompt-muted;
   }
 
   .bundle-edit-dialog-close {
@@ -801,6 +909,15 @@
   body:has(.workspace-shell--three-pane) .bundle-edit-dialog-panel {
     max-width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
     max-height: min(calc(90vh * 1.6), calc(760px * 1.6), 96vh);
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog--taxonomy-settings {
+    width: min(calc(56rem * 1.6), calc((100vw - 2rem) * 1.6));
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog-panel--taxonomy-settings-modal {
+    max-width: min(calc(56rem * 1.6), calc((100vw - 2rem) * 1.6));
+    max-height: min(calc(90vh * 1.6), calc(780px * 1.6), 96vh);
   }
 
   .thread-panel-delete-thread-dialog {

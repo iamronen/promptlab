@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-# View model for Process workspace mode: kanban columns from the project's default process taxonomy.
+# View model for Making workspace mode: kanban columns from the project's default process taxonomy.
 class ProcessBoard
+  include ProcessWorkspaceArtifacts
   TaskCard = Struct.new(:sequence, keyword_init: true)
   Column = Struct.new(:term, :label, :cards, keyword_init: true)
 
@@ -31,6 +32,8 @@ class ProcessBoard
 
     applicable_artifacts.each do |sequence|
       assignment = assignments_by_sequence_id[sequence.id]
+      next if end_state_assignment?(assignment)
+
       term_id = assignment&.taxonomy_term_id
       cards_by_term_id[term_id] << TaskCard.new(sequence: sequence)
     end
@@ -43,7 +46,7 @@ class ProcessBoard
       )
 
     term_columns =
-      taxonomy.taxonomy_terms.map do |term|
+      taxonomy.taxonomy_terms.reject(&:process_end_state?).map do |term|
         Column.new(
           term: term,
           label: term.label,
@@ -55,34 +58,6 @@ class ProcessBoard
   end
 
   private
-
-  def applicable_artifacts
-    excluded_ids = excluded_sequence_ids.to_set
-    sequences = @project.sequences.generative_sequences.where(is_term: false).to_a
-    bundles = @project.sequences.bundles.to_a
-    (sequences + bundles)
-      .select { |artifact| applicable?(artifact) }
-      .reject { |artifact| excluded_ids.include?(artifact.id) }
-  end
-
-  def excluded_sequence_ids
-    return [] unless ready?
-
-    Taxonomies::Exclusion.excluded_sequence_ids_for(@project, process_taxonomy: taxonomy)
-  end
-
-  def applicable?(artifact)
-    return taxonomy.applicable_to_bundle? if artifact.bundle?
-
-    taxonomy.applicable_to_sequence?(artifact)
-  end
-
-  def load_assignments_by_sequence_id
-    TaxonomyAssignment
-      .where(project_id: @project.id, taxonomy_id: taxonomy.id)
-      .includes(:sequence, :taxonomy_term)
-      .index_by(&:sequence_id)
-  end
 
   def sort_cards(cards)
     cards.sort_by { |card| [card.sequence.position, card.sequence.id] }

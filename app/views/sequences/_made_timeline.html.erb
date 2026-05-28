@@ -1,0 +1,29 @@
+<%# locals: timeline (MadeTimeline) %>
+<% if timeline.entries.any? %>
+  <ol class="workspace-made-timeline prompt-made-timeline" aria-label="Made timeline">
+    <% timeline.date_groups.each do |group| %>
+      <li class="workspace-made-timeline-date-group prompt-made-timeline-date-group">
+        <div class="workspace-made-timeline-marker" aria-hidden="true">
+          <span class="workspace-made-timeline-rail"></span>
+          <span class="workspace-made-timeline-dot"></span>
+        </div>
+        <div class="workspace-made-timeline-content">
+          <p class="workspace-made-timeline-date m-0 font-semibold text-prompt-heading">
+            <time datetime="<%= group.date.iso8601 %>"><%= format_process_assigned_date(group.date) %></time>
+          </p>
+          <ul class="workspace-made-timeline-cards m-0 list-none p-0">
+            <% group.entries.each do |entry| %>
+              <li class="workspace-made-timeline-card">
+                <%= render "sequences/process_board_task_card",
+                           sequence: entry.sequence,
+                           end_state_label: (timeline.show_end_state_labels? ? entry.term.label : nil) %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </li>
+    <% end %>
+  </ol>
+<% else %>
+  <%= render "sequences/made_timeline_empty_state", timeline: timeline %>
+<% end %>

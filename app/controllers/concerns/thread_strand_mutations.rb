@@ -501,10 +501,6 @@ module ThreadStrandMutations
     dest_tid = target_tid
     err_msg = nil
     ActiveRecord::Base.transaction do
-      ThreadNode
-        .where(parent_thread_id: source_thread.id, parent_generative_sequence_id: gen_id)
-        .find_each(&:destroy!)
-
       if from_bundle_id.positive?
         err_msg = apply_move_sequence_off_bundle!(source_thread, from_bundle_id, gen)
       else
@@ -530,6 +526,16 @@ module ThreadStrandMutations
         new_target_pairs.map { |k, sid| k == :bundle ? { "bundle_id" => sid } : { "sequence_id" => sid } }
       unless target_thread.save
         err_msg = target_thread.errors.full_messages.to_sentence.presence || "Could not update target strand."
+        raise ActiveRecord::Rollback
+      end
+
+      err_msg = migrate_thread_nodes_for_anchor!(
+        source_thread: source_thread,
+        target_thread: target_thread,
+        anchor_sequence_id: gen_id,
+        anchor_bundle_id: nil
+      )
+      if err_msg.present?
         raise ActiveRecord::Rollback
       end
     end
@@ -599,12 +605,6 @@ module ThreadStrandMutations
     dest_tid = target_tid
     err_msg = nil
     ActiveRecord::Base.transaction do
-      pipeline_ids.each do |gen_id|
-        ThreadNode
-          .where(parent_thread_id: source_thread.id, parent_generative_sequence_id: gen_id)
-          .find_each(&:destroy!)
-      end
-
       source_pairs = pairs.reject { |k, sid| k == :bundle && sid == bundle_id }
       unless strand_pairs_referential_integrity?(source_pairs)
         err_msg = "Cannot update source strand."
@@ -640,6 +640,18 @@ module ThreadStrandMutations
       unless target_thread.save
         err_msg = target_thread.errors.full_messages.to_sentence.presence || "Could not update target strand."
         raise ActiveRecord::Rollback
+      end
+
+      pipeline_ids.each do |gen_id|
+        err_msg = migrate_thread_nodes_for_anchor!(
+          source_thread: source_thread,
+          target_thread: target_thread,
+          anchor_sequence_id: gen_id,
+          anchor_bundle_id: bundle_id
+        )
+        if err_msg.present?
+          raise ActiveRecord::Rollback
+        end
       end
     end
 
@@ -872,6 +884,42 @@ module ThreadStrandMutations
       cur = node&.parent_thread
     end
     false
+  end
+
+  # Re-parent branch threads anchored on +anchor_sequence_id+ from source to target when the anchor moves.
+  # Returns an error message on failure, nil on success.
+  def migrate_thread_nodes_for_anchor!(source_thread:, target_thread:, anchor_sequence_id:, anchor_bundle_id: nil)
+    bid = anchor_bundle_id.to_i
+    bid = nil unless bid.positive?
+
+    nodes = ThreadNode
+      .where(parent_thread_id: source_thread.id, parent_generative_sequence_id: anchor_sequence_id)
+      .order(:child_order, :id)
+      .to_a
+    return nil if nodes.empty?
+
+    sibling_max = ThreadNode
+      .where(parent_thread_id: target_thread.id, parent_generative_sequence_id: anchor_sequence_id)
+      .maximum(:child_order)
+      .to_i
+
+    nodes.each do |node|
+      if thread_branch_attach_would_cycle?(node.child_thread, target_thread)
+        return "Cannot move: would create a cycle with branch thread #{node.child_thread.title}."
+      end
+
+      sibling_max += 1
+      unless node.update(
+        parent_thread_id: target_thread.id,
+        parent_generative_sequence_id: anchor_sequence_id,
+        parent_bundle_id: bid,
+        child_order: sibling_max
+      )
+        return node.errors.full_messages.to_sentence.presence || "Could not migrate branch thread."
+      end
+    end
+
+    nil
   end
 
   def respond_move_sequence_failure(message)

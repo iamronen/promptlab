@@ -29,3 +29,7 @@
 
 en:
   hello: "Hello world"
+  time:
+    formats:
+      process_assigned_at: "%b %-d, %Y, %-l:%M %p"
+      process_assigned_date: "%b %-d, %Y"

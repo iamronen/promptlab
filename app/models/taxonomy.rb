@@ -55,7 +55,7 @@ class Taxonomy < ApplicationRecord
     default_value_enabled? && default_taxonomy_term_id.present?
   end
 
-  after_save :destroy_exclusion_rules_unless_process_tracking, if: :saved_change_to_process_tracking?
+  after_save :clear_process_tracking_settings_unless_enabled, if: :saved_change_to_process_tracking?
   after_commit :reconcile_project_default_process_taxonomy
 
   private
@@ -72,8 +72,11 @@ class Taxonomy < ApplicationRecord
     end
   end
 
-  def destroy_exclusion_rules_unless_process_tracking
-    exclusion_rules.destroy_all unless process_tracking?
+  def clear_process_tracking_settings_unless_enabled
+    return if process_tracking?
+
+    exclusion_rules.destroy_all
+    taxonomy_terms.update_all(process_end_state: false)
   end
 
   def reconcile_project_default_process_taxonomy

@@ -208,4 +208,26 @@ class ProcessBoardTest < ActiveSupport::TestCase
     doing_column = @board.columns.find { |c| c.label == "Doing" }
     assert_equal [@seq.id, beta.id], doing_column.cards.map { |c| c.sequence.id }
   end
+
+  test "excludes end-state term columns" do
+    @taxonomy.taxonomy_terms.create!(label: "Done", position: 3, process_end_state: true)
+
+    assert_equal [ProcessBoard::UNASSIGNED_LABEL, "Doing", "Todo"], @board.columns.map(&:label)
+  end
+
+  test "excludes sequences assigned to end-state terms from all columns" do
+    done = @taxonomy.taxonomy_terms.create!(label: "Done", position: 3, process_end_state: true)
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: @taxonomy,
+      taxonomy_term: done,
+      label_snapshot: done.label,
+      assigned_at: Time.current
+    )
+
+    all_ids = @board.columns.flat_map { |c| c.cards.map { |card| card.sequence.id } }
+    assert_empty all_ids
+    assert_nil @board.columns.find { |c| c.label == "Done" }
+  end
 end

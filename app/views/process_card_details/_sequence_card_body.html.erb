@@ -21,7 +21,8 @@
                sequence: @sequence,
                subject_context: "standalone",
                exclude_taxonomy_ids: [@project.default_process_taxonomy_id].compact,
-               process_board_url: project_process_board_path(@project) %>
+               process_board_url: project_process_board_path(@project),
+               made_board_url: project_made_board_path(@project) %>
   </section>
 
   <%= render layout: "process_card_details/readonly_thread_steps_shell" do %>

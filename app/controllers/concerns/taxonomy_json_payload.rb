@@ -23,9 +23,12 @@ module TaxonomyJsonPayload
       default_taxonomy_term_id: taxonomy.default_taxonomy_term_id,
       unassigned_applicable_count: unassigned_applicable_count_for(taxonomy),
       position: taxonomy.position,
-      terms: terms.map { |term| term_payload(term, counts: counts) }
+      terms: terms.map { |term| term_payload(term, counts: counts, process_tracking: taxonomy.process_tracking?) }
     }
-    payload[:exclusion_rules] = exclusion_rules_payload(taxonomy) if taxonomy.process_tracking?
+    if taxonomy.process_tracking?
+      payload[:exclusion_rules] = exclusion_rules_payload(taxonomy)
+      payload[:end_state_term_ids] = end_state_term_ids_payload(taxonomy)
+    end
     payload
   end
 
@@ -52,6 +55,10 @@ module TaxonomyJsonPayload
     Taxonomies::ApplyDefaultValue.unassigned_applicable_sequences_for(taxonomy).size
   end
 
+  def end_state_term_ids_payload(taxonomy)
+    taxonomy.taxonomy_terms.select(&:process_end_state?).map(&:id)
+  end
+
   def exclusion_rules_payload(taxonomy)
     taxonomy
       .exclusion_rules
@@ -71,20 +78,22 @@ module TaxonomyJsonPayload
     }
   end
 
-  def term_payload(term, counts: nil)
+  def term_payload(term, counts: nil, process_tracking: false)
     applied =
       if counts
         counts[term.id].to_i
       else
         term_applied_sequence_counts([term.id])[term.id].to_i
       end
-    {
+    payload = {
       id: term.id,
       taxonomy_id: term.taxonomy_id,
       label: term.label,
       position: term.position,
       applied_sequence_count: applied
     }
+    payload[:process_end_state] = term.process_end_state? if process_tracking
+    payload
   end
 
   def assignments_payload(sequence)

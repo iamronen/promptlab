@@ -1,6 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 import { getSequenceEditorReadonlyPreference } from "sequence_editor_mode_storage"
-import { fetchAutosaveForm } from "workspace_autosave"
+import {
+  fetchAutosaveForm,
+  fetchAutosavePipelineChildMeta,
+  fetchAutosaveSequenceMeta
+} from "workspace_autosave"
 import {
   buildBundlePipelineChildCopyTextFromPipelineRow,
   parseCopyTextDataset
@@ -63,6 +67,8 @@ export default class extends Controller {
 
     this.autosaveInFlight = false
     this.autosaveQueued = false
+    this.autosaveQueuedSaveSteps = true
+    this.autosaveQueuedMetaOnly = false
     this.dragCardSiblingsOrder = null
 
     if (this.nestedValue) {
@@ -1135,6 +1141,7 @@ export default class extends Controller {
 
     const cards = this.visibleCards()
     const prefix = this.nestedFieldPrefixValue
+    const fieldBase = prefix ? `${prefix}[steps_attributes]` : "sequence[steps_attributes]"
 
     cards.forEach((card, index) => {
       const label = card.querySelector('[data-sequence-editor-target="stepLabel"]')
@@ -1144,14 +1151,14 @@ export default class extends Controller {
       const upButton = card.querySelector('[data-step-control="up"]')
       const downButton = card.querySelector('[data-step-control="down"]')
 
+      const base = `${fieldBase}[${index}]`
       if (label) label.textContent = String(index + 1)
-      positionInput.value = String(index + 1)
-      if (prefix) {
-        const base = `${prefix}[steps_attributes][${index}]`
+      if (positionInput) {
+        positionInput.value = String(index + 1)
         positionInput.name = `${base}[position]`
-        destroyInput.name = `${base}[_destroy]`
-        if (contentInput) contentInput.name = `${base}[content]`
       }
+      if (destroyInput) destroyInput.name = `${base}[_destroy]`
+      if (contentInput) contentInput.name = `${base}[content]`
 
       if (upButton) upButton.disabled = index === 0
       if (downButton) downButton.disabled = index === cards.length - 1
@@ -1313,35 +1320,94 @@ export default class extends Controller {
     if (f) delete f.dataset.promptlabAutosaveDirty
   }
 
-  async autosaveFormAsync(form) {
+  async autosaveFormAsync(form, { saveSteps = true, trigger = "unknown" } = {}) {
     if (!form || this.readonlyBlocksStructure()) return
     if (this.autosaveInFlight) {
       this.autosaveQueued = true
+      this.autosaveQueuedSaveSteps = saveSteps
       return
     }
     this.syncEditorsBeforeSubmit()
     this.autosaveInFlight = true
     try {
-      const res = await fetchAutosaveForm(form)
-      if (res.ok) {
-        this.clearAutosaveDirty(form)
-        const ct = res.headers.get("Content-Type") || ""
-        if (ct.includes("application/json")) {
-          const data = await res.json().catch(() => null)
-          this.applyAutosaveResponseToThreadIndex(data)
-        }
-      } else if (res.status === 422) {
-        const data = await res.json().catch(() => ({}))
-        console.warn("Autosave failed", data.errors)
-      }
+      const res = await fetchAutosaveForm(form, { saveSteps })
+      await this.handleAutosaveResponse(res, form)
     } catch (err) {
       console.warn("Autosave request failed", err)
     } finally {
       this.autosaveInFlight = false
       if (this.autosaveQueued) {
+        const queuedSaveSteps = this.autosaveQueuedSaveSteps
         this.autosaveQueued = false
-        await this.autosaveFormAsync(form)
+        this.autosaveQueuedSaveSteps = true
+        await this.autosaveFormAsync(form, { saveSteps: queuedSaveSteps })
       }
+    }
+  }
+
+  async autosaveSequenceMetaAsync(form) {
+    if (!form || this.readonlyBlocksStructure()) return
+    if (this.autosaveInFlight) {
+      this.autosaveQueued = true
+      this.autosaveQueuedMetaOnly = true
+      return
+    }
+    this.syncTextInputsBeforeSubmit()
+    this.autosaveInFlight = true
+    try {
+      const res = await fetchAutosaveSequenceMeta(form)
+      await this.handleAutosaveResponse(res, form)
+    } catch (err) {
+      console.warn("Autosave request failed", err)
+    } finally {
+      this.autosaveInFlight = false
+      if (this.autosaveQueued) {
+        const metaOnly = this.autosaveQueuedMetaOnly
+        this.autosaveQueued = false
+        this.autosaveQueuedMetaOnly = false
+        if (metaOnly) await this.autosaveSequenceMetaAsync(form)
+        else await this.autosaveFormAsync(form, { saveSteps: this.autosaveQueuedSaveSteps ?? true })
+      }
+    }
+  }
+
+  async autosavePipelineChildMetaAsync(form, pipelineRow) {
+    if (!form || !pipelineRow || this.readonlyBlocksStructure()) return
+    if (this.autosaveInFlight) {
+      this.autosaveQueued = true
+      this.autosaveQueuedMetaOnly = true
+      return
+    }
+    this.syncTextInputsBeforeSubmit()
+    this.autosaveInFlight = true
+    try {
+      const res = await fetchAutosavePipelineChildMeta(form, pipelineRow)
+      await this.handleAutosaveResponse(res, form)
+    } catch (err) {
+      console.warn("Autosave request failed", err)
+    } finally {
+      this.autosaveInFlight = false
+      if (this.autosaveQueued) {
+        const metaOnly = this.autosaveQueuedMetaOnly
+        this.autosaveQueued = false
+        this.autosaveQueuedMetaOnly = false
+        if (metaOnly) await this.autosavePipelineChildMetaAsync(form, pipelineRow)
+        else await this.autosaveFormAsync(form, { saveSteps: this.autosaveQueuedSaveSteps ?? true })
+      }
+    }
+  }
+
+  async handleAutosaveResponse(res, form) {
+    if (res.ok) {
+      this.clearAutosaveDirty(form)
+      const ct = res.headers.get("Content-Type") || ""
+      if (ct.includes("application/json")) {
+        const data = await res.json().catch(() => null)
+        this.applyAutosaveResponseToThreadIndex(data)
+      }
+    } else if (res.status === 422) {
+      const data = await res.json().catch(() => ({}))
+      console.warn("Autosave failed", data.errors)
     }
   }
 
@@ -1349,7 +1415,7 @@ export default class extends Controller {
     if (this.readonlyValue) return
     const form = this.autosaveFormEl()
     if (!form || form.dataset.promptlabAutosaveDirty !== "1") return
-    void this.autosaveFormAsync(form)
+    void this.autosaveFormAsync(form, { saveSteps: true, trigger: "flush_dirty" })
   }
 
   onDocumentVisibilityChange() {
@@ -1362,7 +1428,7 @@ export default class extends Controller {
 
   autosaveOnMetaBlur() {
     if (this.readonlyValue || this.nestedValue) return
-    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+    requestAnimationFrame(() => void this.autosaveSequenceMetaAsync(this.autosaveFormEl()))
   }
 
   markAutosaveDirtyFromInput() {
@@ -1377,7 +1443,7 @@ export default class extends Controller {
     const area = t.closest(".step-content-area")
     const rel = event.relatedTarget
     if (rel && area?.contains(rel)) return
-    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl(), { saveSteps: true, trigger: "step_focus_out" }))
   }
 
   onPipelineMetaFocusOut(event) {
@@ -1390,7 +1456,10 @@ export default class extends Controller {
     ) {
       return
     }
-    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+    const pipelineRow = t.closest('[data-sequence-editor-target="pipelineStepRow"]')
+    requestAnimationFrame(() =>
+      void this.autosavePipelineChildMetaAsync(this.autosaveFormEl(), pipelineRow)
+    )
   }
 
   onPipelineChildInput(event) {
@@ -1413,13 +1482,13 @@ export default class extends Controller {
     const area = t.closest(".step-content-area")
     const rel = event.relatedTarget
     if (rel && area?.contains(rel)) return
-    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl()))
+    requestAnimationFrame(() => void this.autosaveFormAsync(this.autosaveFormEl(), { saveSteps: true }))
   }
 
   queueStructureAutosave() {
     if (this.readonlyBlocksStructure()) return
     this.markAutosaveDirty()
-    void this.autosaveFormAsync(this.autosaveFormEl())
+    void this.autosaveFormAsync(this.autosaveFormEl(), { saveSteps: true, trigger: "structure_autosave" })
   }
 
   /** @param {Record<string, unknown> | null} data */

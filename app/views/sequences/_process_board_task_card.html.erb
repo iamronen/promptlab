@@ -1,16 +1,23 @@
 <% title = sequence.title.presence || (sequence.bundle? ? Sequence::BUNDLE_DEFAULT_TITLE : Sequence::DEFAULT_TITLE) %>
 <% icon_label = sequence.bundle? ? "Bundle" : "Sequence" %>
+<% end_state_label = local_assigns[:end_state_label].presence %>
 <% document_sheet_path = "M8.5 1H1.5c-.55 0-1 .45-1 1v13c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1V5L8.5 1z M8.5 1v3h3" %>
+<% aria_label = end_state_label ? "#{icon_label}: #{title} (#{end_state_label})" : "#{icon_label}: #{title}" %>
 
 <button
   type="button"
-  class="workspace-process-task-card prompt-process-task-card group"
-  aria-label="<%= icon_label %>: <%= title %>"
+  class="workspace-process-task-card prompt-process-task-card group<%= " workspace-made-task-card--with-end-state" if end_state_label %>"
+  aria-label="<%= aria_label %>"
   data-action="click->process-card-modal#open"
   data-process-card-modal-url="<%= project_process_card_path(@project, sequence) %>"
 >
-  <span class="min-w-0 flex-1 truncate text-sm font-medium text-prompt-heading group-hover:text-prompt-accent">
-    <%= title %>
+  <span class="workspace-process-task-card-title min-w-0 flex-1 flex items-center gap-2">
+    <span class="min-w-0 truncate text-sm font-medium text-prompt-heading group-hover:text-prompt-accent">
+      <%= title %>
+    </span>
+    <% if end_state_label %>
+      <span class="workspace-made-task-card-end-state-pill shrink-0"><%= end_state_label %></span>
+    <% end %>
   </span>
   <span class="shrink-0 text-prompt-muted" aria-hidden="true">
     <% if sequence.bundle? %>

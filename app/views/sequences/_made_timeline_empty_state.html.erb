@@ -1,0 +1,15 @@
+<%# locals: timeline (MadeTimeline) %>
+<div class="workspace-made-empty flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center">
+  <% if timeline.end_state_terms_configured? %>
+    <p class="m-0 max-w-md text-sm/6 text-prompt-muted">
+      Nothing in an end state yet. Assign sequences or bundles to an end-state value in Making to see them here.
+    </p>
+  <% else %>
+    <p class="m-0 max-w-md text-sm/6 text-prompt-muted">
+      Configure end-state values for your process taxonomy in project settings, then assign artifacts to those values.
+    </p>
+    <%= link_to "Open project settings",
+                workspace_settings_return_path,
+                class: "prompt-btn-primary shrink-0 px-4 py-2 text-[0.875rem] font-semibold no-underline" %>
+  <% end %>
+</div>

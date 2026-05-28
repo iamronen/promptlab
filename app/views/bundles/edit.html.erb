@@ -14,11 +14,18 @@
         </div>
       </div>
     </div>
-  <% elsif workspace_process? %>
-    <div class="workspace-shell workspace-shell--three-pane workspace-shell--process">
+  <% elsif workspace_making? %>
+    <div class="workspace-shell workspace-shell--three-pane workspace-shell--making">
       <div class="workspace workspace--one-pane"
            data-workspace-font-size-target="scaleRoot">
         <%= render "sequences/process_workspace_main" %>
+      </div>
+    </div>
+  <% elsif workspace_made? %>
+    <div class="workspace-shell workspace-shell--three-pane workspace-shell--made">
+      <div class="workspace workspace--one-pane"
+           data-workspace-font-size-target="scaleRoot">
+        <%= render "sequences/made_workspace_main" %>
       </div>
     </div>
   <% else %>

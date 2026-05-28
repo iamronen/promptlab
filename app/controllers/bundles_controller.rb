@@ -14,7 +14,7 @@ class BundlesController < ApplicationController
   def edit
     ensure_steps_placeholder
     if legacy_workspace_mode_redirect? && !bundle_modal_request?
-      return redirect_to edit_project_bundle_path(@project, @sequence, **workspace_editor_redirect_options.except(:workspace_mode)),
+      return redirect_to edit_project_bundle_path(@project, @sequence, **legacy_workspace_mode_redirect_options),
                         status: :see_other
     end
     if bundle_modal_request?
@@ -46,6 +46,7 @@ class BundlesController < ApplicationController
     @sequence.title = attrs["title"] if attrs.key?("title")
     @sequence.intent = attrs["intent"] if attrs.key?("intent")
     return unless attrs["steps_attributes"].present?
+    return if workspace_autosave_request? && !autosave_includes_steps?
 
     @sequence.steps_data = steps_payload_from_params(attrs)
   end
@@ -280,17 +281,12 @@ class BundlesController < ApplicationController
   end
 
   def sequence_params
-    seq = params.require(:sequence)
-    permitted = seq.permit(:title, :intent, prerequisite_bundle_ids: [])
-    nested = {}
-    seq[:steps_attributes]&.each_pair do |key, attrs|
-      next unless attrs.respond_to?(:permit)
-
-      nested[key] = attrs.permit(:sequence_id, :content, :position, :_destroy)
-    end
-    permitted[:steps_attributes] = nested unless nested.empty?
-
-    permitted
+    params.require(:sequence).permit(
+      :title,
+      :intent,
+      prerequisite_bundle_ids: [],
+      steps_attributes: [:sequence_id, :content, :position, :_destroy]
+    )
   end
 
   def prerequisite_bundle_ids_from_params
@@ -306,17 +302,10 @@ class BundlesController < ApplicationController
     raw.each do |seq_id, attrs|
       next unless attrs.respond_to?(:permit)
 
-      top = attrs.permit(:title, :intent)
-      steps = attrs[:steps_attributes]
-      next unless steps.is_a?(ActionController::Parameters) || steps.is_a?(Hash)
+      permitted = attrs.permit(:title, :intent, steps_attributes: [:content, :position, :_destroy])
+      next if permitted[:title].blank? && permitted[:intent].blank? && permitted[:steps_attributes].blank?
 
-      permitted_steps = {}
-      steps.each_pair do |k, step|
-        next unless step.respond_to?(:permit)
-
-        permitted_steps[k.to_s] = step.permit(:content, :position, :_destroy)
-      end
-      out[seq_id.to_s] = top.to_h.merge("steps_attributes" => permitted_steps)
+      out[seq_id.to_s] = permitted.to_h
     end
     out
   end
@@ -331,7 +320,9 @@ class BundlesController < ApplicationController
       child.intent = child_attrs["intent"].to_s if child_attrs.key?("intent")
 
       steps_hash = child_attrs["steps_attributes"] || child_attrs[:steps_attributes]
-      child.steps_data = build_generative_steps_data(steps_hash)
+      if steps_hash.present? && (!workspace_autosave_request? || autosave_includes_steps?)
+        child.steps_data = build_generative_steps_data(steps_hash)
+      end
       next if child.save
 
       child.errors.full_messages.each { |m| @sequence.errors.add(:base, "#{child.title}: #{m}") }

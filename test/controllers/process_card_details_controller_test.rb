@@ -43,7 +43,8 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
       href = links.first["href"]
       assert_includes href, "weave_thread=#{@genesis.id}"
       assert_includes href, "focus_transformation_id=#{@seq.id}"
-      refute_includes href, "workspace_mode=process"
+      refute_includes href, "workspace_mode=making"
+      refute_includes href, "workspace_mode=made"
     end
     assert_select ".sequence-title-input", count: 0
     assert_select "h3.process-card-modal-sequence-block-title", count: 0

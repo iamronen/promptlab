@@ -611,7 +611,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select "[role='group'][aria-label='Project tool mode'] a[aria-current='page'][aria-label='Project settings']"
   end
 
-  test "process workspace mode renders kanban board with mode toggle" do
+  test "making workspace mode renders kanban board with mode toggle" do
     taxonomy =
       @project.taxonomies.create!(
         name: "Stage",
@@ -621,23 +621,24 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
         position: 1
       )
     todo = taxonomy.taxonomy_terms.create!(label: "Todo", position: 1)
-    taxonomy.taxonomy_terms.create!(label: "Done", position: 2)
+    taxonomy.taxonomy_terms.create!(label: "Done", position: 2, process_end_state: true)
 
-    get edit_project_sequence_path(@project, @seq, workspace_mode: "process")
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "making")
     assert_response :success
     assert_select ".workspace-process-board"
     assert_select "turbo-frame#process_board"
     assert_select "[data-controller='process-card-modal']"
     assert_select "dialog.process-card-modal-dialog"
     assert_select "turbo-frame#process_card_modal"
-    assert_select ".workspace-shell--process"
+    assert_select ".workspace-shell--making"
     assert_select "[role='group'][aria-label='Project tool mode'] a", text: "Fabric"
-    assert_select "[role='group'][aria-label='Project tool mode'] a", text: "Process"
-    assert_select "[role='group'][aria-label='Project tool mode'] a[aria-current='page']", text: "Process"
+    assert_select "[role='group'][aria-label='Project tool mode'] a", text: "Making"
+    assert_select "[role='group'][aria-label='Project tool mode'] a", text: "Made"
+    assert_select "[role='group'][aria-label='Project tool mode'] a[aria-current='page']", text: "Making"
     assert_select "[role='group'][aria-label='Editor mode']", count: 0
-    assert_select ".workspace-process-column", count: 3
+    assert_select ".workspace-process-column", count: 2
     assert_select ".tool-part-header", text: /Todo/
-    assert_select ".tool-part-header", text: /Done/
+    assert_select ".tool-part-header", text: /Done/, count: 0
     assert_select ".tool-part-header", text: /Unassigned/
     assert_select ".workspace-process-task-card", text: /Alpha/
     assert_select "button.workspace-process-task-card[data-process-card-modal-url]"
@@ -652,17 +653,56 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
       assigned_at: Time.current
     )
 
-    get edit_project_sequence_path(@project, @seq, workspace_mode: "process")
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "making")
     assert_response :success
     assert_select ".tool-part-header", text: /Todo/ do |headers|
       column = headers.first.ancestors(".workspace-process-column").first
       assert column.at_css(".workspace-process-task-card[aria-label*='Alpha']")
     end
-    assert_select ".workspace-process-column", count: 2
+    assert_select ".workspace-process-column", count: 1
     assert_select ".tool-part-header", text: /Unassigned/, count: 0
   end
 
-  test "process mode shows bundle card when taxonomy applies to bundles" do
+  test "legacy process workspace_mode redirects to making" do
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "process")
+    assert_redirected_to edit_project_sequence_path(@project, @seq, workspace_mode: "making")
+  end
+
+  test "made workspace mode renders vertical timeline" do
+    taxonomy =
+      @project.taxonomies.create!(
+        name: "Stage",
+        cardinality: :one,
+        process_tracking: true,
+        single_select_ui: "dropdown",
+        position: 1
+      )
+    done = taxonomy.taxonomy_terms.create!(label: "Done", position: 1, process_end_state: true)
+    assigned_at = Time.zone.parse("2026-04-01 09:15")
+    assigned_date = assigned_at.to_date
+    TaxonomyAssignment.create!(
+      project: @project,
+      sequence: @seq,
+      taxonomy: taxonomy,
+      taxonomy_term: done,
+      label_snapshot: done.label,
+      assigned_at: assigned_at
+    )
+
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "made")
+    assert_response :success
+    assert_select "main.workspace-made[aria-label='Made']"
+    assert_select "turbo-frame#made_board"
+    assert_select ".workspace-shell--made"
+    assert_select "[role='group'][aria-label='Project tool mode'] a[aria-current='page']", text: "Made"
+    assert_select ".workspace-made-timeline"
+    assert_select ".workspace-made-timeline-date-group", count: 1
+    assert_select "time[datetime='#{assigned_date.iso8601}']"
+    assert_select ".workspace-made-timeline-date", count: 1
+    assert_select ".workspace-process-board", count: 0
+  end
+
+  test "making mode shows bundle card when taxonomy applies to bundles" do
     taxonomy =
       @project.taxonomies.create!(
         name: "Stage",
@@ -700,7 +740,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
       assigned_at: Time.current
     )
 
-    get edit_project_bundle_path(@project, bundle, workspace_mode: "process")
+    get edit_project_bundle_path(@project, bundle, workspace_mode: "making")
     assert_response :success
     assert_select ".workspace-process-board"
     assert_select "button.workspace-process-task-card[data-process-card-modal-url*='#{bundle.id}']", text: /Ship bundle/
@@ -711,15 +751,15 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "process mode without taxonomy shows empty state" do
-    get edit_project_sequence_path(@project, @seq, workspace_mode: "process")
+  test "making mode without taxonomy shows empty state" do
+    get edit_project_sequence_path(@project, @seq, workspace_mode: "making")
     assert_response :success
     assert_select ".workspace-process-empty"
     assert_select ".workspace-process-board", count: 0
     assert_select "a.prompt-btn-primary", text: "Open project settings"
   end
 
-  test "default edit still renders fabric not process" do
+  test "default edit still renders fabric not making" do
     get edit_project_sequence_path(@project, @seq)
     assert_response :success
     assert_select ".workspace-fabric"
