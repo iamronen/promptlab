@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -47,9 +47,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.bigint "default_process_taxonomy_id"
     t.text "description"
     t.string "name", null: false
+    t.string "public_id", limit: 24, null: false
+    t.boolean "sharing_allowed", default: true, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["default_process_taxonomy_id"], name: "index_projects_on_default_process_taxonomy_id"
+    t.index ["public_id"], name: "index_projects_on_public_id", unique: true
     t.index ["user_id"], name: "index_projects_on_user_id"
   end
 
@@ -73,6 +76,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.index ["parent_id", "position"], name: "index_sequence_dependencies_unique_thread_step_sequence_positio", unique: true, where: "((kind)::text = 'thread_step_sequence'::text)"
   end
 
+  create_table "sequence_share_inclusions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "included_sequence_id", null: false
+    t.bigint "root_sequence_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["included_sequence_id"], name: "index_sequence_share_inclusions_on_included_sequence_id"
+    t.index ["root_sequence_id", "included_sequence_id"], name: "index_sequence_share_inclusions_on_root_and_included", unique: true
+    t.index ["root_sequence_id"], name: "index_sequence_share_inclusions_on_root_sequence_id"
+  end
+
   create_table "sequences", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "created_by_id", null: false
@@ -83,6 +96,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.string "kind", default: "sequence", null: false
     t.integer "position", null: false
     t.bigint "project_id", null: false
+    t.string "public_id", limit: 24, null: false
+    t.string "share_public_name"
+    t.string "share_scope", default: "everything", null: false
+    t.string "share_state", default: "none", null: false
+    t.boolean "share_tease", default: false, null: false
     t.jsonb "steps_data", default: [], null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
@@ -91,6 +109,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.index ["project_id"], name: "index_sequences_on_project_id"
     t.index ["project_id"], name: "index_sequences_unique_genesis_thread_per_project", unique: true, where: "(((kind)::text = 'thread'::text) AND (is_genesis IS TRUE))"
     t.index ["project_id"], name: "index_sequences_unique_orphans_thread_per_project", unique: true, where: "(((kind)::text = 'thread'::text) AND (is_orphans IS TRUE))"
+    t.index ["public_id"], name: "index_sequences_on_public_id", unique: true
+    t.index ["share_state"], name: "index_sequences_on_share_state_enabled", where: "((share_state)::text = 'enabled'::text)"
   end
 
   create_table "taxonomies", force: :cascade do |t|
@@ -200,11 +220,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.string "display_name"
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
+    t.string "public_id", limit: 24, null: false
     t.datetime "remember_created_at"
     t.datetime "reset_password_sent_at"
     t.string "reset_password_token"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["public_id"], name: "index_users_on_public_id", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
@@ -215,6 +237,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
   add_foreign_key "sequence_dependencies", "sequences", column: "anchor_sequence_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "child_id"
   add_foreign_key "sequence_dependencies", "sequences", column: "parent_id"
+  add_foreign_key "sequence_share_inclusions", "sequences", column: "included_sequence_id", on_delete: :cascade
+  add_foreign_key "sequence_share_inclusions", "sequences", column: "root_sequence_id", on_delete: :cascade
   add_foreign_key "sequences", "projects"
   add_foreign_key "sequences", "users", column: "created_by_id"
   add_foreign_key "taxonomies", "projects"

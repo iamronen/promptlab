@@ -53,7 +53,7 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
     assert data["id"]
     assert data["title"].present?
 
-    seq = Sequence.find(data["id"])
+    seq = Sequence.find_by_public_id!(data["id"])
     assert_predicate seq, :sequence?
     refute seq.is_term?
   end
@@ -193,8 +193,8 @@ class BundlesControllerTest < ActionDispatch::IntegrationTest
       @project,
       @bundle,
       modal: true,
-      weave_thread: child.id,
-      thread_partner: genesis.id
+      weave_thread: child.public_id,
+      thread_partner: genesis.public_id
     ), headers: { "Turbo-Frame" => "thread_editor_bundle_#{@bundle.id}" }
 
     assert_response :success

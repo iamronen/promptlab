@@ -147,6 +147,7 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     groups = @t1.move_to_thread_menu_destination_groups
     assert_empty groups.parents
     assert_empty groups.parallels
+    assert_empty groups.children
     assert_empty groups.cousins
     refute @t1.move_to_thread_menu_destinations_any?
   end
@@ -155,11 +156,12 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     groups = @genesis.move_to_thread_menu_destination_groups
     assert_empty groups.parents
     assert_empty groups.parallels
+    assert_empty groups.children
     assert_empty groups.cousins
     refute @genesis.move_to_thread_menu_destinations_any?
   end
 
-  test "move_to_thread_menu_destination_groups lists parents parallels and cousins" do
+  test "move_to_thread_menu_destination_groups lists parents parallels children and cousins" do
     g_root = @project.sequences.create!(
       kind: :sequence,
       title: "Root anchor",
@@ -200,6 +202,22 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
       steps_data: [{ "content" => "v" }],
       is_term: false
     )
+    g_child1 = @project.sequences.create!(
+      kind: :sequence,
+      title: "Child1 anchor",
+      intent: "f",
+      position: 8,
+      steps_data: [{ "content" => "u" }],
+      is_term: false
+    )
+    g_child2 = @project.sequences.create!(
+      kind: :sequence,
+      title: "Child2 anchor",
+      intent: "g",
+      position: 9,
+      steps_data: [{ "content" => "t" }],
+      is_term: false
+    )
 
     @genesis.update!(steps_data: [{ "sequence_id" => g_root.id }])
 
@@ -210,22 +228,30 @@ class SequenceThreadDependenciesTest < ActiveSupport::TestCase
     ])
 
     current = thread_branch!("Current", parent: parent_a, anchor: g_parent)
+    current.update!(steps_data: [
+      { "sequence_id" => g_child1.id },
+      { "sequence_id" => g_child2.id }
+    ])
     parallel1 = thread_branch!("Parallel 1", parent: parent_a, anchor: g_parallel1)
     parallel1.update!(steps_data: [
       { "sequence_id" => g_cousin1.id },
       { "sequence_id" => g_cousin2.id }
     ])
+    child1 = thread_branch!("Child 1", parent: current, anchor: g_child1)
+    child2 = thread_branch!("Child 2", parent: current, anchor: g_child2)
     cousin1 = thread_branch!("Cousin 1", parent: parallel1, anchor: g_cousin1)
     cousin2 = thread_branch!("Cousin 2", parent: parallel1, anchor: g_cousin2)
 
     groups = current.reload.move_to_thread_menu_destination_groups
     assert_equal [@genesis.id, parent_a.id], groups.parents.map(&:id)
     assert_equal [parallel1.id], groups.parallels.map(&:id)
+    assert_equal [child1.id, child2.id], groups.children.map(&:id)
     assert_equal [cousin1.id, cousin2.id], groups.cousins.map(&:id)
     assert current.move_to_thread_menu_destinations_any?
 
     groups.parents.each { |t| refute_equal current.id, t.id }
     groups.parallels.each { |t| refute_equal current.id, t.id }
+    groups.children.each { |t| refute_equal current.id, t.id }
     groups.cousins.each { |t| refute_equal current.id, t.id }
   end
 

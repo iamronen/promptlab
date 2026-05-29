@@ -41,8 +41,8 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".process-card-modal-controls a", text: "Open in Thread", count: 0
     assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
       href = links.first["href"]
-      assert_includes href, "weave_thread=#{@genesis.id}"
-      assert_includes href, "focus_transformation_id=#{@seq.id}"
+      assert_includes href, "weave_thread=#{@genesis.public_id}"
+      assert_includes href, "focus_transformation_id=#{@seq.public_id}"
       refute_includes href, "workspace_mode=making"
       refute_includes href, "workspace_mode=made"
     end
@@ -95,7 +95,7 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".process-card-modal-breadcrumb"
     assert_select ".process-card-modal-breadcrumb a.workspace-thread-panel-title-breadcrumb-ancestor", text: @genesis.title
     assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
-      assert_includes links.first["href"], "weave_thread=#{child.id}"
+      assert_includes links.first["href"], "weave_thread=#{child.public_id}"
     end
   end
 
@@ -129,8 +129,8 @@ class ProcessCardDetailsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".process-card-modal-intent--child", text: /Child intent/
     assert_select ".process-card-modal-footer a", text: "Open in Thread" do |links|
       href = links.first["href"]
-      assert_includes href, "weave_thread=#{@genesis.id}"
-      assert_includes href, "focus_bundle_id=#{bundle.id}"
+      assert_includes href, "weave_thread=#{@genesis.public_id}"
+      assert_includes href, "focus_bundle_id=#{bundle.public_id}"
     end
     assert_select ".bundle-modal-shell--thread-embed"
     assert_select ".prompt-thread-step-card"

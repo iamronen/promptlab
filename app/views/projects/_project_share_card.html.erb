@@ -1,0 +1,54 @@
+<%# locals: project:, thread: %>
+<% fabric_path = project_fabric_thread_path(project, thread) %>
+<% public_url = public_share_url_for(thread) %>
+<div
+  class="project-share-card-wrap"
+  data-thread-public-id="<%= thread.public_id %>"
+>
+  <div class="project-taxonomy-card project-share-card project-taxonomy-card--row flex items-start gap-2 rounded-lg px-3 py-2.5">
+    <div class="min-w-0 flex-1 space-y-1">
+      <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span class="min-w-0 truncate text-sm font-medium text-prompt-heading"><%= thread.share_public_title %></span>
+        <% if thread.share_state_disabled? %>
+          <span class="shrink-0 text-xs text-prompt-muted">Paused</span>
+        <% end %>
+      </div>
+      <%= render "projects/project_share_card_breadcrumb", thread: thread %>
+    </div>
+    <div class="flex shrink-0 items-center gap-1">
+      <% if public_url.present? %>
+        <%= link_to public_url,
+                    class: "tool-button shrink-0",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    title: "Open share",
+                    aria: { label: "Open share in new tab" } do %>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        <% end %>
+      <% else %>
+        <button
+          type="button"
+          class="tool-button shrink-0 opacity-40"
+          disabled
+          title="Share is paused"
+          aria-label="Open share (paused)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </button>
+      <% end %>
+      <%= render "projects/project_share_card_menu",
+                 project: project,
+                 thread: thread,
+                 fabric_path: fabric_path,
+                 public_url: public_url %>
+    </div>
+  </div>
+</div>

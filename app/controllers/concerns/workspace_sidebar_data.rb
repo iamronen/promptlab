@@ -3,6 +3,9 @@
 # Shared workspace collections for sequence + bundle editors (weave + library).
 module WorkspaceSidebarData
   extend ActiveSupport::Concern
+  include SequencePublicIdLookup
+
+  FABRIC_THREAD_PANEL_FRAME = "fabric_thread_panel"
 
   VALID_WORKSPACE_MODES = %w[fabric making made settings].freeze
   VALID_WORKSPACE_SHELLS = %w[v1 v2].freeze
@@ -14,36 +17,57 @@ module WorkspaceSidebarData
                   :workspace_shell_param, :workspace_shell_v2?,
                   :workspace_settings_return_path, :workspace_making_return_path, :workspace_made_return_path,
                   :workspace_board_refresh_path,
-                  :workspace_thread_scope_params, :fabric_thread_path,
+                  :workspace_thread_scope_params, :fabric_thread_path, :fabric_breadcrumb_thread_path,
                   :fabric_panel_thread, :fabric_selected_weave_thread_id,
+                  :fabric_thread_panel_turbo_frame_data,
                   :thread_workspace_open_threads_param if respond_to?(:helper_method)
+  end
+
+  def fabric_thread_panel_turbo_frame_data
+    { turbo_frame: FABRIC_THREAD_PANEL_FRAME }
+  end
+
+  def fabric_thread_panel_frame_request?
+    request.headers["Turbo-Frame"] == FABRIC_THREAD_PANEL_FRAME
+  end
+
+  def fabric_thread_panel_locals
+    q_keep = request.query_parameters.slice(
+      "weave_thread", "thread_partner", "open_threads", "sidebar",
+      "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell"
+    ).symbolize_keys
+    {
+      panel_thread: fabric_panel_thread,
+      embed_query: q_keep.except(:focus_bundle_id, :focus_transformation_id),
+      editor_return_path: request.fullpath,
+      selected_weave_thread_id: fabric_selected_weave_thread_id,
+      workspace_thread_scope_hash: workspace_thread_scope_params
+    }
   end
 
   def fabric_panel_thread
     return nil unless workspace_fabric?
 
-    tid = params[:weave_thread].to_i
-    return nil unless tid.positive?
-
-    @project.sequences.threads.find_by(id: tid)
+    @selected_weave_thread_record
   end
 
   def fabric_selected_weave_thread_id
-    return 0 unless workspace_fabric?
+    return nil unless workspace_fabric?
 
-    tid = params[:weave_thread].to_i
-    tid.positive? ? tid : 0
+    @selected_weave_thread_record&.public_id
   end
 
   def fabric_thread_path(thread)
     base =
-      workspace_editor_redirect_options.except(:workspace_mode, :thread_partner, :open_threads).merge(weave_thread: thread.id)
+      workspace_editor_redirect_options.except(:workspace_mode, :thread_partner, :open_threads).merge(weave_thread: thread.public_id)
     if @sequence.bundle?
       edit_project_bundle_path(@project, @sequence, **base)
     else
       edit_project_sequence_path(@project, @sequence, **base)
     end
   end
+
+  alias_method :fabric_breadcrumb_thread_path, :fabric_thread_path
 
   def workspace_settings_return_path
     base = workspace_editor_redirect_options.except(:workspace_mode).merge(workspace_mode: :settings)
@@ -84,18 +108,17 @@ module WorkspaceSidebarData
     @orphans_thread = @project.orphans_thread
     @weave_children_index = build_weave_children_index
     @weave_thread_roots = build_weave_thread_roots
+
+    preload_workspace_public_ids!
+
+    @selected_weave_thread_record = resolve_weave_thread_record_from_param
     @selected_weave_thread_id = resolve_selected_weave_thread_id
-    @workspace_thread =
-      if @selected_weave_thread_id
-        @project.sequences.threads.find_by(id: @selected_weave_thread_id)
-      end
+    @workspace_thread = workspace_thread_for_selected_id
     @thread_panel_partner_thread = resolve_thread_panel_partner_thread
 
     ids = resolve_thread_workspace_open_thread_ids
     @thread_workspace_open_thread_records =
-      ids.filter_map do |tid|
-        @project.sequences.threads.find_by(id: tid)
-      end
+      ids.filter_map { |public_id| find_project_thread_by_public_id(public_id) }
 
     @fabric_thread_tree_branches =
       if workspace_fabric?
@@ -111,6 +134,39 @@ module WorkspaceSidebarData
       if workspace_made?
         MadeTimeline.new(@project)
       end
+  end
+
+  def preload_workspace_public_ids!
+    ids = []
+    wt = parse_sequence_public_id(params[:weave_thread])
+    ids << wt if wt.present?
+    ids.concat(raw_open_thread_public_ids_from_param(params[:open_threads]))
+    tp = parse_sequence_public_id(params[:thread_partner])
+    ids << tp if tp.present?
+
+    preload_thread_public_ids!(ids.compact.uniq)
+
+    fb = parse_sequence_public_id(params[:focus_bundle_id])
+    preload_sequence_public_ids!(@project.sequences.bundles, [fb]) if fb.present?
+    ft = parse_sequence_public_id(params[:focus_transformation_id])
+    preload_sequence_public_ids!(@project.sequences.generative_sequences, [ft]) if ft.present?
+  end
+
+  def resolve_weave_thread_record_from_param
+    wt = parse_sequence_public_id(params[:weave_thread])
+    return nil unless wt.present?
+
+    find_project_thread_by_public_id(wt)
+  end
+
+  def workspace_thread_for_selected_id
+    return nil unless @selected_weave_thread_id
+
+    find_project_thread_by_public_id(@selected_weave_thread_id)
+  end
+
+  def raw_open_thread_public_ids_from_param(raw)
+    raw.to_s.strip.split(",").filter_map { |pid| parse_sequence_public_id(pid) }
   end
 
   def workspace_mode_param
@@ -177,26 +233,24 @@ module WorkspaceSidebarData
     ws = workspace_shell_param
     h[:workspace_shell] = ws if ws.present?
 
-    wt = params[:weave_thread].to_s
-    if wt.present? && wt.to_i.positive? && @project.sequences.threads.where(id: wt.to_i).exists?
-      h[:weave_thread] = wt
-    end
+    wt = parse_sequence_public_id(params[:weave_thread])
+    h[:weave_thread] = wt if wt.present? && thread_public_id_exists?(wt)
     open_list = parse_open_threads_param(params[:open_threads])
     h[:open_threads] = open_list.join(",") if open_list.any?
-    tp = params[:thread_partner].to_s
-    wt_int = wt.present? ? wt.to_i : 0
-    if tp.present? && tp.to_i.positive? && wt_int.positive? && thread_partner_link_valid?(tp.to_i, wt_int)
+    tp = parse_sequence_public_id(params[:thread_partner])
+    wt_selected = @selected_weave_thread_id || wt
+    if tp.present? && wt_selected.present? && thread_partner_link_valid?(tp, wt_selected)
       h[:thread_partner] = tp
     end
-    fb = params[:focus_bundle_id]
-    ft = params[:focus_transformation_id]
-    h[:focus_bundle_id] = fb if fb.to_s.match?(/\A\d+\z/)
-    h[:focus_transformation_id] = ft if ft.to_s.match?(/\A\d+\z/)
+    fb = parse_sequence_public_id(params[:focus_bundle_id])
+    ft = parse_sequence_public_id(params[:focus_transformation_id])
+    h[:focus_bundle_id] = fb if fb.present? && sequence_public_id_exists?(@project.sequences.bundles, fb)
+    h[:focus_transformation_id] = ft if ft.present? && sequence_public_id_exists?(@project.sequences.generative_sequences, ft)
     h
   end
 
   def thread_workspace_open_threads_param
-    @thread_workspace_open_thread_records&.map(&:id)&.join(",")
+    @thread_workspace_open_thread_records&.map(&:public_id)&.join(",")
   end
 
   def sidebar_redirect_options
@@ -209,11 +263,10 @@ module WorkspaceSidebarData
   end
 
   def resolve_selected_weave_thread_id
-    tid = params[:weave_thread].to_i
-    if tid.positive? && @project.sequences.threads.where(id: tid).exists?
-      tid
+    if @selected_weave_thread_record
+      @selected_weave_thread_record.public_id
     else
-      @genesis_thread&.id
+      @genesis_thread&.public_id
     end
   end
 
@@ -223,7 +276,7 @@ module WorkspaceSidebarData
 
     h = { weave_thread: @selected_weave_thread_id }
     if params[:open_threads].blank?
-      h[:thread_partner] = @thread_panel_partner_thread.id if @thread_panel_partner_thread
+      h[:thread_partner] = @thread_panel_partner_thread.public_id if @thread_panel_partner_thread
     elsif @thread_workspace_open_thread_records.present?
       h[:open_threads] = thread_workspace_open_threads_param
     end
@@ -232,12 +285,12 @@ module WorkspaceSidebarData
   end
 
   def resolve_thread_panel_partner_thread
-    partner_id = params[:thread_partner].to_i
-    child_id = @selected_weave_thread_id.to_i
-    return nil unless partner_id.positive? && child_id.positive?
-    return nil unless thread_partner_link_valid?(partner_id, child_id)
+    partner_public_id = parse_sequence_public_id(params[:thread_partner])
+    child_public_id = @selected_weave_thread_id
+    return nil unless partner_public_id.present? && child_public_id.present?
+    return nil unless thread_partner_link_valid?(partner_public_id, child_public_id)
 
-    @project.sequences.threads.find_by(id: partner_id)
+    find_project_thread_by_public_id(partner_public_id)
   end
 
   def resolve_thread_workspace_open_thread_ids
@@ -245,24 +298,24 @@ module WorkspaceSidebarData
     if otp.present?
       parse_open_threads_param(otp)
     elsif @thread_panel_partner_thread.present? && @selected_weave_thread_id.present?
-      [@thread_panel_partner_thread.id, @selected_weave_thread_id]
+      [@thread_panel_partner_thread.public_id, @selected_weave_thread_id]
     else
       [@selected_weave_thread_id].compact
     end
   end
 
   def parse_open_threads_param(raw)
-    raw.to_s.strip
-      .split(",")
-      .map { |x| x.to_i }
-      .select { |id| id.positive? && @project.sequences.threads.exists?(id) }
-      .uniq
+    ids = raw_open_thread_public_ids_from_param(raw).uniq
+    preload_thread_public_ids!(ids)
+    ids.select { |pid| thread_public_id_exists?(pid) }
   end
 
-  def thread_partner_link_valid?(parent_thread_id, child_thread_id)
-    return false unless parent_thread_id.positive? && child_thread_id.positive?
+  def thread_partner_link_valid?(parent_thread_public_id, child_thread_public_id)
+    parent = find_project_thread_by_public_id(parent_thread_public_id)
+    child = find_project_thread_by_public_id(child_thread_public_id)
+    return false unless parent && child
 
-    ThreadNode.exists?(parent_thread_id: parent_thread_id, child_thread_id: child_thread_id)
+    ThreadNode.exists?(parent_thread_id: parent.id, child_thread_id: child.id)
   end
 
   def build_weave_children_index

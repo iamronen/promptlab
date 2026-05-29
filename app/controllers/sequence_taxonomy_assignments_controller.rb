@@ -3,6 +3,7 @@
 class SequenceTaxonomyAssignmentsController < ApplicationController
   include TaxonomyJsonPayload
   include ProjectNested
+  include SequencePublicIdLookup
 
   before_action :set_project
   before_action :set_sequence
@@ -32,6 +33,6 @@ class SequenceTaxonomyAssignmentsController < ApplicationController
   private
 
   def set_sequence
-    @sequence = @project.sequences.where(kind: %i[sequence bundle]).find(params[:sequence_id])
+    @sequence = find_project_sequence_by_public_id!(@project.sequences.where(kind: %i[sequence bundle]), params[:sequence_id])
   end
 end

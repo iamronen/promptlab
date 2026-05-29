@@ -5,16 +5,14 @@
   <div class="step-menu-wrap thread-step-handle-wrap" data-sequence-editor-target="menuWrap">
     <button
       type="button"
+      draggable="false"
       class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle thread-embed-sequence-step-drag-handle"
       title="Step actions · drag to reorder"
-      aria-label="Step actions. Click for menu, or drag to reorder."
+      aria-label="Step actions. Click for menu."
       aria-haspopup="true"
       aria-expanded="false"
       data-action="
-        mousedown->sequence-editor#armDrag
-        mouseup->sequence-editor#disarmDrag
         keydown->sequence-editor#threadHandleMenuKeydown
-        contextmenu->sequence-editor#openThreadEmbedStepMenu
         click->sequence-editor#toggleThreadEmbedStepHandleMenu
       "
     >
@@ -57,7 +55,7 @@
                      destination_groups: @workspace_thread.move_to_thread_menu_destination_groups,
                      variant: :embed,
                      source_thread: @workspace_thread,
-                     generative_sequence_id: @sequence.id,
+                     generative_sequence_id: @sequence.public_id,
                      editor_return_path: request.fullpath,
                      scope_params: workspace_thread_scope_params %>
         <% end %>
@@ -65,11 +63,11 @@
           <%= render "sequences/attach_branch_thread_menu_destinations",
                      candidates:
                        @workspace_thread.attach_branch_thread_menu_candidates(
-                         anchor_sequence_id: @sequence.id
+                         anchor_sequence_id: @sequence.public_id
                        ),
                      variant: :embed,
                      target_parent_thread: @workspace_thread,
-                     anchor_sequence_id: @sequence.id,
+                     anchor_sequence_id: @sequence.public_id,
                      editor_return_path: request.fullpath,
                      scope_params: workspace_thread_scope_params %>
         <% end %>
@@ -81,7 +79,7 @@
           class="step-menu--thread-handle-submit"
           data-action="click->thread-fork-modal#open"
           data-fork-url="<%= thread_fork_strand_project_sequence_path(@project, @workspace_thread) %>"
-          data-parent-sequence-id="<%= @sequence.id %>"
+          data-parent-sequence-id="<%= @sequence.public_id %>"
           data-redirect-to="<%= request.fullpath %>"
           data-scope-params="<%= workspace_thread_scope_params.to_json %>"
         >

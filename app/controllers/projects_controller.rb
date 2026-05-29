@@ -25,8 +25,8 @@ class ProjectsController < ApplicationController
     redirect_to edit_project_sequence_path(
       @project,
       seq,
-      weave_thread: genesis.id,
-      focus_transformation_id: seq.id
+      weave_thread: genesis.public_id,
+      focus_transformation_id: seq.public_id
     ),
       status: :see_other,
       notice: "Project created."
@@ -51,7 +51,10 @@ class ProjectsController < ApplicationController
   def update
     if @project.update(project_params)
       if request.format.json?
-        render json: { default_process_taxonomy_id: @project.default_process_taxonomy_id }
+        render json: {
+          default_process_taxonomy_id: @project.default_process_taxonomy_id,
+          sharing_allowed: @project.sharing_allowed
+        }
       else
         redirect_to project_update_redirect_path, notice: "Project saved."
       end
@@ -100,7 +103,7 @@ class ProjectsController < ApplicationController
     redirect_to edit_project_sequence_path(
       @project,
       seq,
-      weave_thread: @project.genesis_thread.id
+      weave_thread: @project.genesis_thread.public_id
     )
   end
 
@@ -115,11 +118,11 @@ class ProjectsController < ApplicationController
   end
 
   def set_project
-    @project = current_user.projects.find(params[:id])
+    @project = current_user.projects.find_by!(public_id: params[:id].to_s.strip)
   end
 
   def project_params
-    params.require(:project).permit(:name, :default_process_taxonomy_id)
+    params.require(:project).permit(:name, :default_process_taxonomy_id, :sharing_allowed)
   end
 
   def project_update_redirect_path
@@ -134,6 +137,6 @@ class ProjectsController < ApplicationController
     return false if s.blank? || !s.start_with?("/") || s.include?("..")
     return false unless @project
 
-    s.match?(%r{\A/projects/#{Regexp.escape(@project.id.to_s)}(?:/|\z)})
+    s.match?(%r{\A/projects/#{Regexp.escape(@project.public_id)}(?:/|\z)})
   end
 end

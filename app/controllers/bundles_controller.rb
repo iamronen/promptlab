@@ -4,6 +4,7 @@ class BundlesController < ApplicationController
   include SequenceEditing
   include WorkspaceSidebarData
   include ProjectNested
+  include SequencePublicIdLookup
 
   before_action :set_project
   before_action :set_bundle, only: %i[edit update destroy duplicate create_pipeline_sequence]
@@ -20,6 +21,11 @@ class BundlesController < ApplicationController
     if bundle_modal_request?
       @bundle_modal_frame_id = modal_bundle_frame_id_from_request
       return render(:modal_body, layout: false)
+    end
+    if fabric_thread_panel_frame_request?
+      return render partial: "sequences/fabric_thread_panel",
+                    locals: fabric_thread_panel_locals,
+                    layout: false
     end
   end
 
@@ -100,10 +106,10 @@ class BundlesController < ApplicationController
       if workspace_autosave_request?
         refresh_pipeline_children_lookup
         children = @sequence.pipeline_generative_children_ordered.map do |c|
-          { id: c.id, title: c.title.to_s }
+          { id: c.public_id, title: c.title.to_s }
         end
         render json: {
-          bundle_id: @sequence.id,
+          bundle_id: @sequence.public_id,
           bundle_title: @sequence.title.to_s,
           pipeline_sequences: children
         }, status: :ok
@@ -154,7 +160,7 @@ class BundlesController < ApplicationController
     respond_to do |format|
       format.json do
         render json: {
-          id: sequence.id,
+          id: sequence.public_id,
           title: sequence.title.to_s.truncate(80)
         }, status: :created
       end
@@ -212,7 +218,7 @@ class BundlesController < ApplicationController
   end
 
   def set_bundle
-    @sequence = @project.sequences.bundles.find(params[:id])
+    @sequence = find_project_sequence_by_public_id!(@project.sequences.bundles, params[:id])
   end
 
   # 1-based index of this bundle on the thread strand that contains it (matches thread panel step badge).

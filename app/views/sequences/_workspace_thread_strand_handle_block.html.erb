@@ -1,15 +1,16 @@
-<%# locals: step_key:, is_bundle:, ref_id:, editor_return_path:, show_view_in_menu:, strand_thread:, strand_steps: (optional), row_index: (optional) %>
+<%# locals: step_key:, is_bundle:, ref_id:, ref_public_id:, editor_return_path:, show_view_in_menu:, strand_thread:, strand_steps: (optional), row_index: (optional) %>
 <% strand_thread = local_assigns.fetch(:strand_thread) %>
-<div class="thread-strand-child__handle workspace-thread-tf-order-rail prompt-thread-index-order-rail" aria-hidden="true">
+<div class="thread-strand-child__handle workspace-thread-tf-order-rail prompt-thread-index-order-rail">
   <div class="workspace-thread-tf-order-menu-wrap prompt-thread-index-order-menu-wrap">
     <button
       type="button"
+      draggable="false"
       class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle prompt-thread-index-drag-handle"
       title="Row actions and drag to reorder"
       aria-label="Row actions and drag to reorder"
       aria-haspopup="menu"
       aria-expanded="false"
-      data-action="mousedown->thread-strand-panel#armDrag mouseup->thread-strand-panel#disarmDrag mouseleave->thread-strand-panel#disarmDrag click->thread-strand-panel#toggleOrderMenu"
+      data-action="mousedown->thread-strand-panel#noteGripPress mouseup->thread-strand-panel#releaseGripPress click->thread-strand-panel#toggleOrderMenu"
       data-strand-step="<%= step_key %>"
     >
       <%# 4 rows × 2 dots, vertical grip %>
@@ -92,7 +93,7 @@
                         params: {
                           insert: "before",
                           relative_kind: (is_bundle ? "bundle" : "sequence"),
-                          relative_to_id: ref_id,
+                          relative_to_id: ref_public_id,
                           redirect_to: editor_return_path
                         }.merge(workspace_thread_scope_params).compact,
                         form: { class: "workspace-thread-tf-order-menu-form", data: { turbo_submits_with: "…" } },
@@ -103,7 +104,7 @@
                         params: {
                           insert: "after",
                           relative_kind: (is_bundle ? "bundle" : "sequence"),
-                          relative_to_id: ref_id,
+                          relative_to_id: ref_public_id,
                           redirect_to: editor_return_path
                         }.merge(workspace_thread_scope_params).compact,
                         form: { class: "workspace-thread-tf-order-menu-form" },
@@ -181,7 +182,7 @@
                    destination_groups: strand_thread.move_to_thread_menu_destination_groups,
                    variant: :workspace,
                    source_thread: strand_thread,
-                   **(is_bundle ? { bundle_id: ref_id } : { generative_sequence_id: ref_id }),
+                   **(is_bundle ? { bundle_id: ref_public_id } : { generative_sequence_id: ref_public_id }),
                    editor_return_path: editor_return_path,
                    scope_params: workspace_thread_scope_params %>
       <% end %>
@@ -194,7 +195,7 @@
                        ),
                      variant: :workspace,
                      target_parent_thread: strand_thread,
-                     anchor_sequence_id: ref_id,
+                     anchor_sequence_id: ref_public_id,
                      editor_return_path: editor_return_path,
                      scope_params: workspace_thread_scope_params %>
         <% end %>
@@ -204,7 +205,7 @@
           class="workspace-thread-tf-order-menu-item"
           data-action="click->thread-fork-modal#open"
           data-fork-url="<%= thread_fork_strand_project_sequence_path(@project, strand_thread) %>"
-          data-parent-sequence-id="<%= ref_id %>"
+          data-parent-sequence-id="<%= ref_public_id %>"
           data-redirect-to="<%= editor_return_path %>"
           data-scope-params="<%= workspace_thread_scope_params.to_json %>"
         >
@@ -227,7 +228,7 @@
                       thread_dissolve_strand_bundle_project_sequence_path(@project, strand_thread),
                       method: :post,
                       params: {
-                        bundle_id: ref_id,
+                        bundle_id: ref_public_id,
                         redirect_to: editor_return_path
                       }.merge(workspace_thread_scope_params).compact,
                       form: {
@@ -236,7 +237,7 @@
                       },
                       class: "workspace-thread-tf-order-menu-item" %>
         <%= button_to "Delete Bundle",
-                      project_bundle_path(@project, ref_id),
+                      project_bundle_path(@project, ref_public_id),
                       method: :delete,
                       params: { redirect_to: editor_return_path }.merge(workspace_thread_scope_params).compact,
                       form: {
@@ -259,13 +260,13 @@
                       thread_duplicate_strand_child_sequence_project_sequence_path(@project, strand_thread),
                       method: :post,
                       params: {
-                        source_sequence_id: ref_id,
+                        source_sequence_id: ref_public_id,
                         redirect_to: editor_return_path
                       }.merge(workspace_thread_scope_params).compact,
                       form: { class: "workspace-thread-tf-order-menu-form" },
                       class: "workspace-thread-tf-order-menu-item" %>
         <%= button_to "Delete",
-                      project_sequence_path(@project, ref_id),
+                      project_sequence_path(@project, ref_public_id),
                       method: :delete,
                       params: { redirect_to: editor_return_path, workspace_mode: workspace_mode_param }.merge(workspace_thread_scope_params).compact,
                       form: {

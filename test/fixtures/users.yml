@@ -2,8 +2,10 @@
 alice:
   email: alice@example.com
   display_name: Alice
+  public_id: fixture_alice_user01
   encrypted_password: $2a$04$EdcDMhQ7T.v0TnZQnjsy7OQwMeyemiYnX.eNkh04/YpZVrsqGVgdW
 
 bob:
   email: bob@example.com
+  public_id: fixture_bob_user01
   encrypted_password: $2a$04$EdcDMhQ7T.v0TnZQnjsy7OQwMeyemiYnX.eNkh04/YpZVrsqGVgdW

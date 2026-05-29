@@ -19,4 +19,17 @@ module ApplicationHelper
   rescue I18n::MissingTranslationData
     date.strftime("%b %-d, %Y")
   end
+
+  def public_share_url_for(thread)
+    return unless thread&.share_state_enabled?
+
+    public_share_url(thread.public_id)
+  end
+
+  def project_fabric_thread_path(project, thread)
+    seq = project.sequences.generative_sequences.order(:position).first
+    return unless seq
+
+    edit_project_sequence_path(project, seq, weave_thread: thread.public_id)
+  end
 end

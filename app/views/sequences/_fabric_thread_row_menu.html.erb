@@ -1,4 +1,5 @@
-<%# locals: thread (Sequence) %>
+<%# locals: thread (Sequence), project: (optional, falls back to @project) %>
+<% project = local_assigns.fetch(:project) { @project } %>
 <div
   class="fabric-tree-menu-wrap prompt-fabric-menu-wrap"
   data-controller="fabric-thread-menu"
@@ -36,6 +37,17 @@
     <%= link_to "Open",
                 fabric_thread_path(thread),
                 role: "menuitem",
-                class: "fabric-thread-menu-item fabric-thread-menu-open prompt-fabric-menu-item" %>
+                class: "fabric-thread-menu-item fabric-thread-menu-open prompt-fabric-menu-item",
+                data: fabric_thread_panel_turbo_frame_data %>
+    <% if project&.sharing_allowed? || thread.share_defined? %>
+      <button
+        type="button"
+        role="menuitem"
+        class="fabric-thread-menu-item prompt-fabric-menu-item"
+        data-thread-share-open="<%= thread.public_id %>"
+      >
+        Share
+      </button>
+    <% end %>
   </div>
 </div>

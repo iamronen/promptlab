@@ -3,6 +3,7 @@ class SequencesController < ApplicationController
   include WorkspaceSidebarData
   include ThreadStrandMutations
   include ProjectNested
+  include SequencePublicIdLookup
 
   before_action :set_project
   before_action :set_sidebar_sequences, only: %i[edit update duplicate add_to_terms remove_from_terms]
@@ -34,6 +35,11 @@ class SequencesController < ApplicationController
       @sequence_modal_frame_id = modal_sequence_frame_id_from_request
       return render(:modal_body, layout: false)
     end
+    if fabric_thread_panel_frame_request?
+      return render partial: "sequences/fabric_thread_panel",
+                    locals: fabric_thread_panel_locals,
+                    layout: false
+    end
   end
 
   def create
@@ -50,11 +56,11 @@ class SequencesController < ApplicationController
     )
 
     opts = { sidebar: (wants_term ? "terms" : "sequences") }
-    wt = params[:weave_thread].to_s
-    opts[:weave_thread] = wt if wt.present? && wt.to_i.positive? && @project.sequences.threads.where(id: wt.to_i).exists?
+    wt = parse_sequence_public_id(params[:weave_thread])
+    opts[:weave_thread] = wt if wt.present? && thread_public_id_exists?(wt)
     ot = params[:open_threads].to_s.strip
     if ot.present?
-      kept = ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
+      kept = resolve_thread_public_ids(ot)
       opts[:open_threads] = kept.join(",") if kept.any?
     end
     wm = workspace_mode_param
@@ -72,7 +78,7 @@ class SequencesController < ApplicationController
 
     if @sequence.save
       if workspace_autosave_request?
-        render json: { sequence_id: @sequence.id, title: @sequence.title.to_s }, status: :ok
+        render json: { sequence_id: @sequence.public_id, title: @sequence.title.to_s }, status: :ok
       elsif safe_workspace_editor_redirect?(params[:redirect_to])
         redirect_to params[:redirect_to].to_s, notice: "Sequence updated."
       else
@@ -92,13 +98,14 @@ class SequencesController < ApplicationController
 
   def destroy
     deleted_sequence_id = @sequence.id
+    deleted_sequence_public_id = @sequence.public_id
     was_thread = @sequence.thread?
 
     if @sequence.destroy
       if was_thread
-        redirect_after_thread_workspace_thread_destroy(deleted_sequence_id)
+        redirect_after_thread_workspace_thread_destroy(deleted_sequence_id, deleted_sequence_public_id)
       elsif safe_workspace_editor_redirect?(params[:redirect_to])
-        redirect_to redirect_url_after_generative_sequence_destroy(deleted_sequence_id),
+        redirect_to redirect_url_after_generative_sequence_destroy(deleted_sequence_public_id),
                     notice: "Sequence deleted."
       else
         redirect_after_generative_sequence_destroy(deleted_sequence_id)
@@ -179,12 +186,12 @@ class SequencesController < ApplicationController
   def set_sequence
     @sequence =
       if %w[edit update destroy].include?(action_name)
-        record = @project.sequences.includes(:created_by).find(params[:id])
+        record = find_project_sequence_by_public_id!(@project.sequences.includes(:created_by), params[:id])
         raise ActiveRecord::RecordNotFound unless record.sequence? || record.thread?
 
         record
       else
-        @project.sequences.generative_sequences.includes(:created_by).find(params[:id])
+        find_project_sequence_by_public_id!(@project.sequences.generative_sequences.includes(:created_by), params[:id])
       end
   end
 
@@ -197,27 +204,29 @@ class SequencesController < ApplicationController
                 notice: "Sequence deleted."
   end
 
-  def redirect_url_after_generative_sequence_destroy(deleted_sequence_id)
+  def redirect_url_after_generative_sequence_destroy(deleted_sequence_public_id)
     ref = params[:redirect_to].to_s
     base = "#{request.protocol}#{request.host_with_port}#{ref}"
     uri = URI.parse(base)
 
-    if uri.path == edit_project_sequence_path(@project, deleted_sequence_id)
-      return generative_sequence_destroy_fallback_url(deleted_sequence_id)
+    if uri.path == edit_project_sequence_path(@project, deleted_sequence_public_id)
+      return generative_sequence_destroy_fallback_url(deleted_sequence_public_id)
     end
 
     extras = {}
     q = Rack::Utils.parse_nested_query(uri.query.to_s)
-    focus_id = q["focus_transformation_id"].to_i
-    focus_id = params[:focus_transformation_id].to_i if focus_id.zero?
-    extras[:focus_transformation_id] = nil if focus_id == deleted_sequence_id
+    focus_id = parse_sequence_public_id(q["focus_transformation_id"])
+    focus_id = parse_sequence_public_id(params[:focus_transformation_id]) if focus_id.blank?
+    extras[:focus_transformation_id] = nil if focus_id == deleted_sequence_public_id
 
     merge_query_for_url(base, extras)
   end
 
-  def generative_sequence_destroy_fallback_url(deleted_sequence_id)
+  def generative_sequence_destroy_fallback_url(deleted_sequence_public_id)
     opts = workspace_editor_redirect_options
-    opts = opts.except(:focus_transformation_id) if opts[:focus_transformation_id].to_i == deleted_sequence_id
+    if parse_sequence_public_id(opts[:focus_transformation_id]) == deleted_sequence_public_id
+      opts = opts.except(:focus_transformation_id)
+    end
 
     next_seq = @project.sequences.generative_sequences.order(:position).first
     if next_seq
@@ -227,9 +236,9 @@ class SequencesController < ApplicationController
     end
   end
 
-  def redirect_after_thread_workspace_thread_destroy(deleted_thread_id)
+  def redirect_after_thread_workspace_thread_destroy(deleted_thread_id, deleted_thread_public_id = nil)
     base_url = thread_destroy_redirect_base_full_url
-    extras = thread_destroy_redirect_query_overrides(deleted_thread_id)
+    extras = thread_destroy_redirect_query_overrides(deleted_thread_id, deleted_thread_public_id)
     redirect_to merge_query_for_url(base_url, extras), notice: "Thread deleted."
   end
 
@@ -263,29 +272,26 @@ class SequencesController < ApplicationController
   end
 
   # Matches client closePanel / visitFabricAfterClosingLastPanel wiring for the workspace strip.
-  def thread_destroy_redirect_query_overrides(deleted_thread_id)
+  def thread_destroy_redirect_query_overrides(deleted_thread_id, deleted_thread_public_id = nil)
+    deleted_public_id =
+      parse_sequence_public_id(deleted_thread_public_id) ||
+      thread_public_id_for_id(deleted_thread_id)
     otp = params[:open_threads].to_s.strip
 
-    ordered =
+    ordered_public_ids =
       if otp.present?
-        otp.split(",").map(&:strip).map(&:to_i).select(&:positive?)
+        otp.split(",").map(&:strip).filter_map { |pid| parse_sequence_public_id(pid) }
       else
-        p = params[:thread_partner].to_i
-        w = params[:weave_thread].to_i
-        if p.positive? && w.positive?
-          [p, w].uniq
-        elsif w.positive?
-          [w]
-        else
-          []
-        end
+        partner = find_project_thread_by_public_id(params[:thread_partner])
+        weave = find_project_thread_by_public_id(params[:weave_thread])
+        [partner&.public_id, weave&.public_id].compact.uniq
       end
 
-    deleted_idx = ordered.index(deleted_thread_id)
+    deleted_idx = ordered_public_ids.index(deleted_public_id)
 
     remaining =
-      ordered.reject { |tid| tid == deleted_thread_id }.select do |tid|
-        @project.sequences.threads.exists?(id: tid)
+      ordered_public_ids.reject { |pid| pid == deleted_public_id }.select do |pid|
+        thread_public_id_exists?(pid)
       end
 
     if remaining.empty?
@@ -296,26 +302,26 @@ class SequencesController < ApplicationController
       }
     end
 
-    focus_was = params[:weave_thread].to_i
+    focus_was = parse_sequence_public_id(params[:weave_thread])
 
     next_focus =
-      if deleted_idx && focus_was == deleted_thread_id
-        prev_tid = deleted_idx.positive? ? ordered[deleted_idx - 1] : nil
-        if prev_tid&.positive? && remaining.include?(prev_tid)
-          prev_tid
+      if deleted_idx && focus_was == deleted_public_id
+        prev_pid = deleted_idx.positive? ? ordered_public_ids[deleted_idx - 1] : nil
+        if prev_pid.present? && remaining.include?(prev_pid)
+          prev_pid
         else
           remaining.first
         end
-      elsif focus_was.positive? && remaining.include?(focus_was)
+      elsif focus_was.present? && remaining.include?(focus_was)
         focus_was
       else
         remaining.first
       end
 
-    partner_id = params[:thread_partner].to_i
+    partner_public_id = parse_sequence_public_id(params[:thread_partner])
     partner_out =
-      if partner_id.positive? && partner_id != deleted_thread_id && thread_partner_link_valid?(partner_id, next_focus)
-        partner_id
+      if partner_public_id.present? && partner_public_id != deleted_public_id && thread_partner_link_valid?(partner_public_id, next_focus)
+        partner_public_id
       else
         nil
       end

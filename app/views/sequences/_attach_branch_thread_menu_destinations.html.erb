@@ -4,7 +4,7 @@
     variant: :workspace | :embed
     target_parent_thread: Sequence (thread) — POST member route
     anchor_sequence_id: Integer
-    anchor_bundle_id: (optional) Integer
+    anchor_bundle_id: (optional) String public_id
     editor_return_path: String
     scope_params: Hash — e.g. workspace_thread_scope_params
 %>
@@ -18,7 +18,7 @@
 <% scope_hash = local_assigns.fetch(:scope_params) { workspace_thread_scope_params } %>
 <% scope_h = scope_hash.respond_to?(:to_unsafe_h) ? scope_hash.to_unsafe_h : scope_hash.to_h %>
 <% attach_base = { anchor_sequence_id: anchor_sequence_id, redirect_to: editor_return_path } %>
-<% attach_base[:anchor_bundle_id] = anchor_bundle_id if anchor_bundle_id.to_i.positive? %>
+<% attach_base[:anchor_bundle_id] = anchor_bundle_id if anchor_bundle_id.present? %>
 <% if variant == :workspace %>
   <div class="workspace-thread-tf-order-menu-group">
     <button
@@ -40,7 +40,7 @@
       data-submenu-id="attach-branch-thread"
     >
       <% candidates.each do |th| %>
-        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.id).compact %>
+        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.public_id).compact %>
         <%= button_to th.title.to_s.truncate(80),
                       thread_attach_branch_thread_project_sequence_path(@project, target_parent_thread),
                       method: :post,
@@ -60,7 +60,7 @@
     </div>
     <div class="step-submenu step-submenu--scrollable" role="presentation">
       <% candidates.each do |th| %>
-        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.id).compact %>
+        <% mp = attach_base.merge(scope_h).merge(child_thread_id: th.public_id).compact %>
         <%= button_to th.title.to_s.truncate(80),
                       thread_attach_branch_thread_project_sequence_path(@project, target_parent_thread),
                       method: :post,

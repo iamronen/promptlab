@@ -5,7 +5,8 @@ import {
   loadThreadWorkspaceState,
   mergePanelsFromStorage,
   saveThreadWorkspaceState,
-  sanitizeOpenThreadIds
+  sanitizeOpenThreadIds,
+  normalizeThreadPublicId
 } from "thread_workspace_storage"
 import { buildReconcileWantOrder } from "thread_workspace_reconcile"
 
@@ -62,9 +63,9 @@ export default class extends Controller {
   static targets = ["strip", "stripNav", "carouselRoot"]
 
   static values = {
-    projectId: Number,
+    projectId: String,
     allowedIds: Array,
-    focusId: Number,
+    focusId: String,
     fabricMode: { type: Boolean, default: false }
   }
 
@@ -88,9 +89,12 @@ export default class extends Controller {
 
     this.boundAfterTurboLoad = () => {
       const tid = this.parseWeaveThreadFromUrl()
-      if (tid > 0 && this.hasStripTarget) this.scheduleScrollFocusedPanelIntoView(tid)
+      if (tid && this.hasStripTarget) this.scheduleScrollFocusedPanelIntoView(tid)
     }
     document.addEventListener("turbo:load", this.boundAfterTurboLoad)
+
+    this.boundShareTriggerClick = this.onShareTriggerClick.bind(this)
+    document.addEventListener("click", this.boundShareTriggerClick, true)
 
     this.boundStripScroll = () => this.updateStripNavVisibility()
     if (this.hasStripTarget) this.stripTarget.addEventListener("scroll", this.boundStripScroll, { passive: true })
@@ -129,7 +133,59 @@ export default class extends Controller {
     window.removeEventListener("thread-workspace:open", this.boundOpen)
     document.removeEventListener("thread-workspace:panel-expanded", this.boundPersistFromPanel)
     document.removeEventListener("turbo:load", this.boundAfterTurboLoad)
+    if (this.boundShareTriggerClick) {
+      document.removeEventListener("click", this.boundShareTriggerClick, true)
+    }
     if (this.persistTimer) window.clearTimeout(this.persistTimer)
+  }
+
+  onShareTriggerClick(event) {
+    if (event.__threadShareHandled) return
+
+    const trigger = event.target.closest("[data-thread-share-open]")
+    if (!trigger) return
+
+    event.__threadShareHandled = true
+    const publicId = trigger.getAttribute("data-thread-share-open")?.trim()
+    if (!publicId) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeShareMenus()
+
+    const mount = document.querySelector(".thread-share-mount")
+    const shareCtrl =
+      mount && window.Stimulus?.getControllerForElementAndIdentifier?.(mount, "thread-share")
+
+    if (shareCtrl?.openForPublicId) {
+      shareCtrl.openForPublicId(publicId)
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("thread-share:open", { detail: { threadPublicId: publicId } })
+    )
+  }
+
+  closeShareMenus() {
+    document.querySelectorAll(".fabric-thread-menu-panel").forEach((el) => {
+      el.hidden = true
+    })
+    document.querySelectorAll("[data-fabric-thread-menu-target='trigger']").forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false")
+    })
+    document.querySelectorAll(".workspace-thread-panel-title-menu-panel").forEach((el) => {
+      el.hidden = true
+    })
+    document.querySelectorAll('[data-workspace-thread-panel-title-target="menuTrigger"]').forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false")
+    })
+    document.querySelectorAll("[data-project-share-card-menu-target='panel']").forEach((el) => {
+      el.hidden = true
+    })
+    document.querySelectorAll("[data-project-share-card-menu-target='trigger']").forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false")
+    })
   }
 
   refreshAllowedSet() {
@@ -143,26 +199,23 @@ export default class extends Controller {
       }
     }
     if (!Array.isArray(raw)) raw = []
-    const fromServer = raw
-      .map((x) => parseInt(String(x), 10))
-      .filter((n) => Number.isFinite(n) && n > 0)
+    const fromServer = raw.map((x) => normalizeThreadPublicId(x)).filter(Boolean)
 
     const u = typeof window !== "undefined" ? new URL(window.location.href) : null
-    const weaveParam = u?.searchParams.get("weave_thread")
-    const fromWeave =
-      weaveParam && /^\d+$/.test(weaveParam.trim()) ? [parseInt(weaveParam.trim(), 10)] : []
+    const weaveParam = normalizeThreadPublicId(u?.searchParams.get("weave_thread"))
+    const fromWeave = weaveParam ? [weaveParam] : []
 
     const fromOpenParam = u?.searchParams.get("open_threads")
     const fromOpen =
       fromOpenParam
         ?.split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => Number.isFinite(n) && n > 0) ?? []
+        .map((s) => normalizeThreadPublicId(s))
+        .filter(Boolean) ?? []
 
     const fromDom = this.hasStripTarget
       ? [...this.stripTarget.querySelectorAll("[data-thread-panel-id]")]
-          .map((el) => parseInt(/** @type {HTMLElement} */ (el).dataset.threadPanelId || "0", 10))
-          .filter((n) => n > 0)
+          .map((el) => normalizeThreadPublicId(/** @type {HTMLElement} */ (el).dataset.threadPanelId))
+          .filter(Boolean)
       : []
 
     this.allowedSet = new Set([...fromServer, ...fromOpen, ...fromWeave, ...fromDom])
@@ -172,29 +225,29 @@ export default class extends Controller {
   primeAllowed(ids) {
     if (!this.allowedSet) this.refreshAllowedSet()
     for (const id of ids) {
-      const n = parseInt(String(id), 10)
-      if (n > 0) this.allowedSet.add(n)
+      const normalized = normalizeThreadPublicId(id)
+      if (normalized) this.allowedSet.add(normalized)
     }
   }
 
-  /** @returns {number[]} */
+  /** @returns {string[]} */
   domPanelOrder() {
     if (!this.hasStripTarget) return []
     return [...this.stripTarget.querySelectorAll("[data-thread-panel-id]")]
-      .map((el) => parseInt(/** @type {HTMLElement} */ (el).dataset.threadPanelId || "0", 10))
-      .filter((n) => n > 0)
+      .map((el) => normalizeThreadPublicId(/** @type {HTMLElement} */ (el).dataset.threadPanelId))
+      .filter(Boolean)
   }
 
   onOpenIntent(event) {
     const e = /** @type {CustomEvent} */ (event)
-    const id = parseInt(String(e.detail?.threadId || ""), 10)
-    if (!(id > 0)) return
+    const id = normalizeThreadPublicId(e.detail?.threadId)
+    if (!id) return
 
     this.refreshAllowedSet()
     this.primeAllowed([id])
 
     if (this.fabricModeValue) {
-      this.visitOpenThreads([id], id)
+      this.visitFabricThread(id)
       return
     }
 
@@ -206,14 +259,13 @@ export default class extends Controller {
       return
     }
 
-    const fromDetail = parseInt(String(e.detail?.insertAfterPanelThreadId ?? ""), 10)
+    const fromDetail = normalizeThreadPublicId(e.detail?.insertAfterPanelThreadId)
     const anchorFromUrl = this.parseWeaveThreadFromUrl()
-    /** @type {number} */
-    let anchor =
-      Number.isFinite(fromDetail) && fromDetail > 0 ? fromDetail : anchorFromUrl > 0 ? anchorFromUrl : 0
+    /** @type {string | null} */
+    let anchor = fromDetail || anchorFromUrl
 
     const ordered = [...this.domPanelOrder()]
-    const anchorIdx = anchor > 0 ? ordered.indexOf(anchor) : -1
+    const anchorIdx = anchor ? ordered.indexOf(anchor) : -1
     let next
 
     if (anchorIdx >= 0) {
@@ -230,8 +282,8 @@ export default class extends Controller {
   /** @param {Event} event */
   closePanel(event) {
     const e = /** @type {CustomEvent | Event & { params?: Record<string, string> }} */ (event)
-    const closeId = parseInt(String(e.params?.threadId ?? ""), 10)
-    if (!(closeId > 0)) return
+    const closeId = normalizeThreadPublicId(e.params?.threadId)
+    if (!closeId) return
 
     this.refreshAllowedSet()
     const order = this.domPanelOrder()
@@ -243,7 +295,7 @@ export default class extends Controller {
     )
 
     if (remaining.length === 0) {
-      this.persistStoredPanels([], 0)
+      this.persistStoredPanels([], null)
       this.visitFabricAfterClosingLastPanel()
       return
     }
@@ -252,12 +304,11 @@ export default class extends Controller {
     let nextFocus =
       focusWas === closeId
         ? remaining[order.indexOf(closeId) - 1] ?? remaining[0]
-        : remaining.includes(focusWas)
+        : focusWas && remaining.includes(focusWas)
           ? focusWas
           : remaining[0]
 
-    nextFocus = parseInt(String(nextFocus), 10)
-    if (!(nextFocus > 0)) nextFocus = remaining[0]
+    if (!nextFocus || !remaining.includes(nextFocus)) nextFocus = remaining[0]
 
     this.persistStoredPanels(remaining, nextFocus)
     this.visitOpenThreads(remaining, nextFocus)
@@ -284,11 +335,11 @@ export default class extends Controller {
     event.stopPropagation()
 
     const e = /** @type {Event & { params?: Record<string, string> }} */ (event)
-    const moveId = parseInt(String(e.params?.threadId ?? ""), 10)
-    if (!(moveId > 0)) return
+    const moveId = normalizeThreadPublicId(e.params?.threadId)
+    if (!moveId) return
 
     this.refreshAllowedSet()
-    /** @type {number[]} */
+    /** @type {string[]} */
     const order = [...this.domPanelOrder()]
     const i = order.indexOf(moveId)
     if (i < 0) return
@@ -297,7 +348,7 @@ export default class extends Controller {
     ;[order[i], order[j]] = [order[j], order[i]]
 
     const focusParsed = this.parseWeaveThreadFromUrl()
-    const focusPick = focusParsed > 0 ? focusParsed : moveId
+    const focusPick = focusParsed || moveId
 
     this.persistStoredPanels(order, focusPick)
     this.visitOpenThreads(order, focusPick)
@@ -305,8 +356,8 @@ export default class extends Controller {
 
   /** Re-align after Turbo-driven body replace (layout may not be final on first frame). */
   scheduleScrollFocusedPanelIntoView(threadId) {
-    const tid = parseInt(String(threadId), 10)
-    if (!(tid > 0) || !this.hasStripTarget) return
+    const tid = normalizeThreadPublicId(threadId)
+    if (!tid || !this.hasStripTarget) return
     const run = () => this.scrollPanelIntoView(tid)
     queueMicrotask(run)
     requestAnimationFrame(() => {
@@ -321,11 +372,11 @@ export default class extends Controller {
 
   applyClientPanelFocus(threadId) {
     if (!this.hasStripTarget) return
-    const tid = parseInt(String(threadId), 10)
-    if (!(tid > 0)) return
+    const tid = normalizeThreadPublicId(threadId)
+    if (!tid) return
     for (const el of this.stripTarget.querySelectorAll("[data-thread-panel-id]")) {
       const col = /** @type {HTMLElement} */ (el)
-      const id = parseInt(col.dataset.threadPanelId || "0", 10)
+      const id = normalizeThreadPublicId(col.dataset.threadPanelId)
       col.classList.toggle("workspace-thread-panel-column--focused", id === tid)
     }
   }
@@ -402,7 +453,28 @@ export default class extends Controller {
     })
   }
 
-  /** @param {number[]} order @param {number} focusThreadId */
+  /** Fabric explorer: switch thread panel via weave_thread only (no multi-panel strip). */
+  visitFabricThread(threadId) {
+    const id = normalizeThreadPublicId(threadId)
+    if (!id) return
+
+    this.refreshAllowedSet()
+    this.primeAllowed([id])
+
+    const url = new URL(window.location.href)
+    url.searchParams.set("weave_thread", id)
+    url.searchParams.delete("open_threads")
+    url.searchParams.delete("thread_partner")
+
+    const next = `${url.pathname}${url.search}`
+    const cur = `${window.location.pathname}${window.location.search}`
+    if (next === cur) return
+
+    recordThreadWorkspaceVisitForDev(next)
+    Turbo.visit(next, { action: "replace", frame: "fabric_thread_panel" })
+  }
+
+  /** @param {number[]} order @param {string} focusThreadId */
   visitOpenThreads(order, focusThreadId) {
     this.refreshAllowedSet()
     this.primeAllowed(order)
@@ -420,7 +492,7 @@ export default class extends Controller {
   }
 
   /** Persist open set before Turbo navigation so reconcile does not resurrect closed threads. */
-  /** @param {number[]} ids @param {number} focusThreadId */
+  /** @param {string[]} ids @param {string | null} focusThreadId */
   persistStoredPanels(ids, focusThreadId) {
     const saved = loadThreadWorkspaceState(this.projectIdValue)
     const merged = mergePanelsFromStorage(ids, saved?.panels)
@@ -428,7 +500,7 @@ export default class extends Controller {
     const payload = {
       version: THREAD_WORKSPACE_STORAGE_VERSION,
       panels: merged,
-      ...(focusThreadId > 0 ? { focusId: focusThreadId } : {})
+      ...(focusThreadId ? { focusId: focusThreadId } : {})
     }
     if (merged.length === 0) delete payload.focusId
     saveThreadWorkspaceState(this.projectIdValue, payload)
@@ -467,7 +539,7 @@ export default class extends Controller {
     this.primeAllowed(domIds)
 
     const focusUrl = this.parseWeaveThreadFromUrl()
-    this.primeAllowed([focusUrl])
+    if (focusUrl) this.primeAllowed([focusUrl])
 
     const urlOpen = this.parseOpenThreadsFromUrl()
     if (urlOpen.length) this.primeAllowed(urlOpen)
@@ -512,23 +584,23 @@ export default class extends Controller {
       /* ignore */
     }
 
-    const focusPick = focusUrl > 0 ? focusUrl : wantOrder[0]
+    const focusPick = focusUrl || wantOrder[0]
     this.visitOpenThreads(wantOrder, focusPick)
     return true
   }
 
-  /** @returns {number[]} thread ids encoded in URL ?open_threads= */
+  /** @returns {string[]} thread public ids encoded in URL ?open_threads= */
   parseOpenThreadsFromUrl() {
     const u = typeof window !== "undefined" ? new URL(window.location.href) : null
     const raw = u?.searchParams.get("open_threads")?.trim()
     if (!raw) return []
     return raw
       .split(",")
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => Number.isFinite(n) && n > 0)
+      .map((s) => normalizeThreadPublicId(s))
+      .filter(Boolean)
   }
 
-  /** @param {number[]} ids */
+  /** @param {string[]} ids */
   uniqOrder(ids) {
     const out = []
     const seen = new Set()
@@ -542,8 +614,7 @@ export default class extends Controller {
 
   /** Focus thread from URL; does not gate on allowedSet (allowedSet refreshed separately). */
   parseWeaveThreadFromUrl() {
-    const tid = parseInt(new URL(window.location.href).searchParams.get("weave_thread") || "0", 10)
-    return tid > 0 ? tid : 0
+    return normalizeThreadPublicId(new URL(window.location.href).searchParams.get("weave_thread"))
   }
 
   schedulePersist() {
@@ -561,7 +632,7 @@ export default class extends Controller {
     /** @type {import("thread_workspace_storage").ThreadWorkspacePanel[]} */
     const panels = []
     for (const col of this.stripTarget.querySelectorAll("[data-thread-panel-id]")) {
-      const id = parseInt(/** @type {HTMLElement} */ (col).dataset.threadPanelId || "0", 10)
+      const id = normalizeThreadPublicId(/** @type {HTMLElement} */ (col).dataset.threadPanelId)
       if (!id || !this.allowedSet.has(id)) continue
       const root = col.querySelector(".workspace-thread-panel-root")
       const rawMode = root?.dataset?.workspaceThreadPanelLayoutModeValue
@@ -571,13 +642,13 @@ export default class extends Controller {
     }
 
     const focusParsed = this.parseWeaveThreadFromUrl()
-    const focusId = focusParsed > 0 ? focusParsed : this.focusIdValue > 0 ? this.focusIdValue : 0
+    const focusId = focusParsed || normalizeThreadPublicId(this.focusIdValue) || null
 
     /** @type {import("thread_workspace_storage").ThreadWorkspaceState} */
     const payload = {
       version: THREAD_WORKSPACE_STORAGE_VERSION,
       panels,
-      ...(focusId > 0 ? { focusId } : {})
+      ...(focusId ? { focusId } : {})
     }
     saveThreadWorkspaceState(this.projectIdValue, payload)
   }
@@ -648,9 +719,10 @@ export default class extends Controller {
       return
     }
 
-    let defaultPosition = order.indexOf(this.parseWeaveThreadFromUrl())
-    if (defaultPosition < 0 && this.focusIdValue > 0) {
-      defaultPosition = order.indexOf(this.focusIdValue)
+    let defaultPosition = order.indexOf(this.parseWeaveThreadFromUrl() || "")
+    const focusPublicId = normalizeThreadPublicId(this.focusIdValue)
+    if (defaultPosition < 0 && focusPublicId) {
+      defaultPosition = order.indexOf(focusPublicId)
     }
     if (defaultPosition < 0) defaultPosition = 0
     if (defaultPosition > order.length - 1) defaultPosition = order.length - 1
@@ -683,8 +755,8 @@ export default class extends Controller {
    */
   activateThreadPanel(threadId) {
     if (!this.hasStripTarget) return
-    const tid = parseInt(String(threadId), 10)
-    if (!(tid > 0)) return
+    const tid = normalizeThreadPublicId(threadId)
+    if (!tid) return
 
     const order = this.domPanelOrder()
     const position = order.indexOf(tid)
@@ -708,12 +780,17 @@ export default class extends Controller {
     event.stopPropagation()
 
     const e = /** @type {Event & { params?: Record<string, string> }} */ (event)
-    const ancestorId = parseInt(String(e.params?.ancestorId ?? ""), 10)
-    const panelOwnerId = parseInt(String(e.params?.panelOwnerId ?? ""), 10)
-    if (!(ancestorId > 0)) return
+    const ancestorId = normalizeThreadPublicId(e.params?.ancestorId)
+    const panelOwnerId = normalizeThreadPublicId(e.params?.panelOwnerId)
+    if (!ancestorId) return
+
+    if (this.fabricModeValue) {
+      this.visitFabricThread(ancestorId)
+      return
+    }
 
     this.refreshAllowedSet()
-    this.primeAllowed([ancestorId, panelOwnerId])
+    this.primeAllowed([ancestorId, panelOwnerId].filter(Boolean))
 
     const order = [...this.domPanelOrder()]
     if (order.includes(ancestorId)) {
@@ -722,10 +799,10 @@ export default class extends Controller {
       return
     }
 
-    let idx = panelOwnerId > 0 ? order.indexOf(panelOwnerId) : -1
+    let idx = panelOwnerId ? order.indexOf(panelOwnerId) : -1
     if (idx < 0) {
       const focusFromUrl = this.parseWeaveThreadFromUrl()
-      idx = focusFromUrl > 0 ? order.indexOf(focusFromUrl) : -1
+      idx = focusFromUrl ? order.indexOf(focusFromUrl) : -1
     }
 
     const inserted =
@@ -754,8 +831,8 @@ export default class extends Controller {
     if (!(t instanceof Element)) return
     if (t.closest(".workspace-thread-panel-close-btn")) return
 
-    const threadId = parseInt(String(/** @type {any} */ (event).params?.threadId ?? ""), 10)
-    if (!(threadId > 0)) return
+    const threadId = normalizeThreadPublicId(/** @type {any} */ (event).params?.threadId)
+    if (!threadId) return
 
     this.activateThreadPanel(threadId)
   }
@@ -763,8 +840,8 @@ export default class extends Controller {
   /** Clicks handled here (runs before Flowbite’s bubble listener); stops duplicate slideTo / Turbo. */
   stripNavIndicatorClick(event) {
     if (!this.hasStripTarget || !this.hasCarouselRootTarget) return
-    const threadId = parseInt(String(event.params.threadId || ""), 10)
-    if (!(threadId > 0)) return
+    const threadId = normalizeThreadPublicId(event.params.threadId)
+    if (!threadId) return
 
     event.preventDefault()
     event.stopImmediatePropagation()
@@ -781,7 +858,7 @@ export default class extends Controller {
 
     const order = this.domPanelOrder()
     const id = order[pos]
-    if (!(id > 0)) return
+    if (!id) return
 
     const focus = this.parseWeaveThreadFromUrl()
     if (id === focus) return

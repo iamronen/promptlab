@@ -73,6 +73,52 @@
   </p>
 
   <section
+    class="project-settings-sharing-section mt-6 border-t border-gray-200 pt-5 dark:border-gray-700"
+    data-controller="project-sharing"
+    data-project-sharing-update-url-value="<%= project_path(@project) %>"
+  >
+    <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-prompt-muted">
+      Sharing
+    </h3>
+
+    <div class="mt-4 flex items-center gap-3">
+      <label class="project-sharing-switch">
+        <input
+          type="checkbox"
+          role="switch"
+          class="project-sharing-switch__input"
+          <%= "checked" if @project.sharing_allowed %>
+          aria-labelledby="project-sharing-toggle-label-<%= @project.id %>"
+          data-project-sharing-target="toggle"
+          data-action="change->project-sharing#onToggleChange"
+        />
+        <span class="project-sharing-switch__track" aria-hidden="true"></span>
+        <span
+          id="project-sharing-toggle-label-<%= @project.id %>"
+          class="project-sharing-switch__label"
+        >
+          Enable sharing
+        </span>
+      </label>
+    </div>
+
+    <div
+      class="mt-4"
+      <%= "hidden" unless @project.sharing_allowed %>
+      data-project-sharing-target="sharesList"
+    >
+      <h4 class="m-0 text-xs font-semibold uppercase tracking-wide text-prompt-muted">
+        Shares
+      </h4>
+      <div id="project_shares_list_content" class="project-shares-list-content">
+        <%= render "projects/project_shares_list", project: @project %>
+      </div>
+    </div>
+
+    <%= render "sequences/thread_share_mount", project: @project %>
+  </section>
+
+  <section
     class="project-settings-taxonomies-section mt-6 border-t border-gray-200 pt-5 dark:border-gray-700"
     data-controller="project-taxonomies"
     data-project-taxonomies-index-url-value="<%= project_taxonomies_path(@project) %>"

@@ -27,8 +27,8 @@
   >
     <% branches.each do |th| %>
       <% nav = qp.merge(
-            weave_thread: th.id,
-            open_threads: [strand_thread.id, th.id].uniq.join(",")
+            weave_thread: th.public_id,
+            open_threads: [strand_thread.public_id, th.public_id].uniq.join(",")
           ).compact %>
       <%= link_to th.title.to_s.truncate(100),
                   edit_project_sequence_path(@project, anchor_seq, **nav),

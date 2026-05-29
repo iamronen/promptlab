@@ -1,0 +1,9 @@
+<%# locals: project: %>
+<div
+  class="thread-share-mount"
+  data-controller="thread-share"
+  data-thread-share-share-url-template-value="<%= project_sequence_share_path(project, "__ID__") %>"
+  data-thread-share-public-share-url-template-value="<%= public_share_path("__ID__") %>"
+>
+  <%= render "sequences/thread_share_modal", project: project %>
+</div>

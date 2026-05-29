@@ -1,10 +1,10 @@
 /** @typedef {"index" | "split" | "editor"} ThreadPanelLayoutMode */
 
-/** @typedef {{ id: number, layoutMode: ThreadPanelLayoutMode }} ThreadWorkspacePanel */
+/** @typedef {{ id: string, layoutMode: ThreadPanelLayoutMode }} ThreadWorkspacePanel */
 
-/** @typedef {{ version: number, panels: ThreadWorkspacePanel[], focusId?: number }} ThreadWorkspaceState */
+/** @typedef {{ version: number, panels: ThreadWorkspacePanel[], focusId?: string }} ThreadWorkspaceState */
 
-export const THREAD_WORKSPACE_STORAGE_VERSION = 1
+export const THREAD_WORKSPACE_STORAGE_VERSION = 2
 
 export const VALID_LAYOUT_MODES = /** @type {const} */ (["index", "split", "editor"])
 
@@ -44,6 +44,15 @@ export function threadWorkspaceStorageKey(projectId) {
 }
 
 /**
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function normalizeThreadPublicId(raw) {
+  const s = String(raw ?? "").trim()
+  return s.length > 0 ? s : null
+}
+
+/**
  * @param {unknown} data
  * @returns {ThreadWorkspaceState | null}
  */
@@ -59,21 +68,24 @@ export function parseThreadWorkspaceState(data) {
   for (const row of panelsRaw) {
     if (!row || typeof row !== "object") continue
     const r = /** @type {Record<string, unknown>} */ (row)
-    const id = Number(r.id)
-    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue
+    const id = normalizeThreadPublicId(r.id)
+    if (!id || seen.has(id)) continue
     seen.add(id)
     panels.push({ id, layoutMode: parsePanelLayoutMode(r) })
   }
 
   /** @type {ThreadWorkspaceState} */
   const out = { version: THREAD_WORKSPACE_STORAGE_VERSION, panels }
-  const fid = o.focusId
-  if (typeof fid === "number" && Number.isInteger(fid) && fid > 0) out.focusId = fid
+  const fid = normalizeThreadPublicId(o.focusId)
+  if (fid) out.focusId = fid
 
   return out
 }
 
-/** @returns {ThreadWorkspaceState | null} */
+/**
+ * @param {string} projectId
+ * @returns {ThreadWorkspaceState | null}
+ */
 export function loadThreadWorkspaceState(projectId) {
   try {
     const raw = window.localStorage.getItem(threadWorkspaceStorageKey(projectId))
@@ -85,7 +97,7 @@ export function loadThreadWorkspaceState(projectId) {
 }
 
 /**
- * @param {number} projectId
+ * @param {string} projectId
  * @param {ThreadWorkspaceState} state
  */
 export function saveThreadWorkspaceState(projectId, state) {
@@ -97,31 +109,33 @@ export function saveThreadWorkspaceState(projectId, state) {
 }
 
 /**
- * @param {number[]} openIds authoritative order from URL/DOM
- * @param {{ id: number, layoutMode?: ThreadPanelLayoutMode, expanded?: boolean }[]} [fromSaved]
+ * @param {string[]} openIds authoritative order from URL/DOM
+ * @param {{ id: string, layoutMode?: ThreadPanelLayoutMode, expanded?: boolean }[]} [fromSaved]
  */
 export function mergePanelsFromStorage(openIds, fromSaved) {
   const savedList = Array.isArray(fromSaved) ? fromSaved : []
-  /** @type {Map<number, ThreadPanelLayoutMode>} */
+  /** @type {Map<string, ThreadPanelLayoutMode>} */
   const modes = new Map()
   for (const p of savedList) {
-    if (!p || typeof p.id !== "number" || p.id <= 0) continue
-    modes.set(p.id, parsePanelLayoutMode(p))
+    const id = normalizeThreadPublicId(p?.id)
+    if (!id) continue
+    modes.set(id, parsePanelLayoutMode(p))
   }
   /** @type {ThreadWorkspacePanel[]} */
   const panels = []
-  for (const id of openIds) {
-    if (!Number.isInteger(id) || id <= 0) continue
+  for (const rawId of openIds) {
+    const id = normalizeThreadPublicId(rawId)
+    if (!id) continue
     panels.push({ id, layoutMode: modes.has(id) ? modes.get(id) : "split" })
   }
   return panels
 }
 
 /**
- * Validates open thread ids belong to allowed set (from server).
- * @param {number[]} ids
- * @param {Set<number>} allowed
- * @returns {number[]}
+ * Validates open thread public ids belong to allowed set (from server).
+ * @param {string[]} ids
+ * @param {Set<string>} allowed
+ * @returns {string[]}
  */
 export function sanitizeOpenThreadIds(ids, allowed) {
   return ids.filter((id) => allowed.has(id))

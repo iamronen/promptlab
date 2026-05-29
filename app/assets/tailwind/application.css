@@ -360,6 +360,53 @@
     @apply flex min-h-0 min-w-0 flex-1 flex-col self-stretch overflow-hidden;
   }
 
+  /*
+   * Fabric thread panel turbo frame is the strip root — keep the full flex + scroll chain here
+   * (nested turbo-frame + height:100% broke editor-stack overflow-y).
+   */
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip,
+  .workspace-fabric-thread-panel.prompt-fabric-thread-panel > turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col self-stretch overflow-hidden;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip .workspace-thread-panel-split-column {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip .workspace-thread-panel-root--maximized {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip .workspace-thread-panel-layout {
+    @apply min-h-0 flex-1;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip
+    .workspace-thread-panel-root--maximized
+    .workspace-thread-panel-shell,
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip
+    .workspace-thread-panel-root--maximized
+    .workspace-thread-panel-split {
+    @apply min-h-0 flex-1;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip
+    .workspace-thread-panel-root--maximized
+    .workspace-thread-panel-editor-pane {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip .workspace-thread-panel-editor-stack {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   .workspace-fabric-assistant.prompt-fabric-assistant {
     @apply box-border flex min-h-0 shrink-0 flex-col self-stretch overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
     width: var(--fabric-assistant-px, 320px);
@@ -618,7 +665,7 @@
   }
 
   .workspace-fabric-thread-strip .workspace-thread-panel-split-column {
-    @apply min-h-0 w-full min-w-0 flex-1 basis-auto;
+    @apply flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden;
   }
 
   .workspace-fabric-thread-panel-empty.prompt-fabric-thread-panel-empty {
@@ -725,6 +772,10 @@
 
   a.fabric-thread-menu-item.prompt-fabric-menu-item {
     @apply box-border block max-w-full cursor-pointer whitespace-nowrap px-3.5 py-2 text-[0.88rem] font-semibold text-prompt-tab-text no-underline hover:bg-blue-500/10 hover:text-prompt-accent dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-blue-400;
+  }
+
+  .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer a.fabric-tree-thread-select {
+    @apply no-underline;
   }
 
   .fabric-thread-tree.fabric-thread-tree--explorer.prompt-fabric-explorer .fabric-tree-thread-select {
@@ -909,6 +960,15 @@
   body:has(.workspace-shell--three-pane) .bundle-edit-dialog-panel {
     max-width: min(calc(52rem * 1.6), calc((100vw - 2rem) * 1.6));
     max-height: min(calc(90vh * 1.6), calc(760px * 1.6), 96vh);
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog--project-settings {
+    width: min(calc(28rem * 1.6), calc((100vw - 2rem) * 1.6));
+  }
+
+  body:has(.workspace-shell--three-pane) .bundle-edit-dialog-panel--project-settings-modal {
+    max-width: min(calc(28rem * 1.6), calc((100vw - 2rem) * 1.6));
+    max-height: min(calc(90vh * 1.6), calc(560px * 1.6), 96vh);
   }
 
   body:has(.workspace-shell--three-pane) .bundle-edit-dialog--taxonomy-settings {
@@ -1634,6 +1694,23 @@
     > li.workspace-thread-strand-row
     > .thread-strand-child__handle.workspace-thread-tf-order-rail {
     opacity: 1;
+    pointer-events: auto;
+  }
+
+  .prompt-thread-panel-shell
+    .thread-strand-child__handle.workspace-thread-tf-order-rail {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  ol.workspace-thread-panel-strand
+    > li.workspace-thread-strand-row
+    > .thread-strand-child__handle.workspace-thread-tf-order-rail
+    .workspace-thread-tf-drag-handle,
+  .workspace-thread-panel-editor-stack
+    .workspace-thread-editor-child
+    .thread-strand-child__handle.workspace-thread-tf-order-rail
+    .workspace-thread-tf-drag-handle {
     pointer-events: auto;
   }
 
@@ -3200,6 +3277,51 @@
     z-index: 50;
   }
 
+  /*
+   * Strand index + embed step menus fly out horizontally; panel shell / index pane / editor
+   * stack use overflow:hidden|auto and would clip them unless released while open.
+   */
+  .workspace-thread-panel-shell:has(.workspace-thread-tf-order-menu:not([hidden])),
+  .workspace-thread-panel-shell:has(.workspace-thread-tf-order-submenu:not([hidden])),
+  .workspace-thread-panel-shell:has(.step-menu--thread-handle:not([hidden])) {
+    overflow: visible;
+  }
+
+  .workspace-thread-panel-root--maximized .workspace-thread-panel-index-pane:has(
+      .workspace-thread-tf-order-menu:not([hidden]),
+      .workspace-thread-tf-order-submenu:not([hidden])
+    ) {
+    overflow: visible;
+  }
+
+  .workspace-thread-panel-shell .workspace-thread-panel-body:has(
+      .workspace-thread-tf-order-menu:not([hidden]),
+      .workspace-thread-tf-order-submenu:not([hidden])
+    ) {
+    overflow-x: visible;
+  }
+
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip:has(
+      .workspace-thread-tf-order-menu:not([hidden]),
+      .step-menu--thread-handle:not([hidden])
+    ),
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip
+    .workspace-thread-panel-split-column:has(
+      .workspace-thread-tf-order-menu:not([hidden]),
+      .step-menu--thread-handle:not([hidden])
+    ),
+  turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip
+    .workspace-thread-panel-root--maximized:has(.step-menu--thread-handle:not([hidden])) {
+    overflow: visible;
+  }
+
+  .workspace-thread-panel-root--maximized .workspace-thread-panel-editor-pane:has(
+      .step-menu--thread-handle:not([hidden])
+    ),
+  .workspace-thread-panel-editor-stack:has(.step-menu--thread-handle:not([hidden])) {
+    overflow: visible;
+  }
+
   .workspace-thread-bundle-pipeline-item:has(.workspace-thread-branch-menu-panel:not([hidden])) {
     position: relative;
     z-index: 50;
@@ -4596,7 +4718,8 @@
     margin-inline-start: -0.08rem;
   }
 
-  button.workspace-thread-panel-title-breadcrumb-ancestor {
+  button.workspace-thread-panel-title-breadcrumb-ancestor,
+  a.workspace-thread-panel-title-breadcrumb-ancestor {
     margin: 0;
     padding: 0;
     border: none;
@@ -4612,12 +4735,14 @@
     white-space: nowrap;
   }
 
-  button.workspace-thread-panel-title-breadcrumb-ancestor:hover {
+  button.workspace-thread-panel-title-breadcrumb-ancestor:hover,
+  a.workspace-thread-panel-title-breadcrumb-ancestor:hover {
     color: #0f62fe;
     text-decoration: underline;
   }
 
-  button.workspace-thread-panel-title-breadcrumb-ancestor:focus-visible {
+  button.workspace-thread-panel-title-breadcrumb-ancestor:focus-visible,
+  a.workspace-thread-panel-title-breadcrumb-ancestor:focus-visible {
     outline: 2px solid #0f62fe;
     outline-offset: 1px;
     border-radius: 4px;
@@ -4744,6 +4869,300 @@
 
   .project-taxonomy-card--dragging {
     @apply opacity-55;
+  }
+
+  /* Public share reader (/s/:id) */
+  .public-share-reader {
+    @apply relative mx-auto box-border min-h-screen max-w-[960px] px-5 pb-16 pt-10;
+    font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    --public-share-reader-badge-min-width: 1.75rem;
+    --public-share-reader-title-gap: 0.5rem;
+    --public-share-reader-content-indent: calc(var(--public-share-reader-badge-min-width) + var(--public-share-reader-title-gap));
+  }
+
+  .public-share-reader-inner {
+    @apply flex min-h-[calc(100vh-6rem)] flex-col gap-4;
+  }
+
+  .public-share-reader-title {
+    @apply m-0 text-4xl font-extrabold tracking-tight text-prompt-heading;
+  }
+
+  .public-share-reader-top-nav {
+    @apply flex flex-wrap items-center gap-x-1 gap-y-1 text-lg;
+  }
+
+  .public-share-reader-top-nav[hidden] {
+    @apply !hidden;
+  }
+
+  .public-share-reader-top-nav button.workspace-thread-panel-title-breadcrumb-ancestor {
+    @apply text-lg;
+  }
+
+  .public-share-reader-breadcrumb-btn {
+    @apply cursor-pointer border-0 bg-transparent p-0 underline-offset-2 hover:underline;
+  }
+
+  .public-share-reader-content {
+    @apply flex max-h-[60vh] min-h-[12rem] flex-1 flex-col overflow-hidden rounded-lg border border-solid border-prompt-chrome-border bg-white;
+  }
+
+  .public-share-reader-toolbar {
+    @apply flex shrink-0 items-center justify-between gap-3 border-b border-solid border-prompt-chrome-border px-4 pb-2 pt-3;
+  }
+
+  .public-share-reader-toolbar-index[hidden] {
+    @apply !hidden;
+  }
+
+  .public-share-reader-index-btn {
+    @apply inline-flex cursor-pointer items-center justify-center rounded-md border border-solid border-prompt-btn-border bg-white p-2 text-prompt-muted shadow-sm hover:bg-prompt-row-hover;
+  }
+
+  .public-share-reader-font-size-group {
+    @apply ml-auto inline-flex rounded-lg shadow-sm ring-1 ring-gray-200;
+  }
+
+  .public-share-reader-font-size-btn {
+    @apply inline-flex min-w-[3rem] cursor-pointer items-center justify-center border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-prompt-heading hover:bg-prompt-row-hover focus:z-10 focus:outline-none focus:ring-2 focus:ring-gray-300;
+  }
+
+  .public-share-reader-font-size-btn--first {
+    @apply -mr-px rounded-l-lg;
+  }
+
+  .public-share-reader-font-size-btn--mid {
+    @apply -mr-px rounded-none;
+  }
+
+  .public-share-reader-font-size-btn--last {
+    @apply rounded-r-lg;
+  }
+
+  .public-share-reader-font-size-btn[aria-pressed="true"] {
+    @apply z-10 bg-gray-100 text-prompt-accent ring-1 ring-inset ring-prompt-accent/25;
+  }
+
+  .public-share-reader-content-shell {
+    @apply relative flex min-h-0 flex-1 flex-col;
+    --public-share-reader-content-font-scale: 1;
+  }
+
+  .public-share-reader-viewport,
+  .public-share-reader-drawer-panel {
+    zoom: var(--public-share-reader-content-font-scale);
+  }
+
+  .public-share-reader-viewport {
+    @apply relative flex min-h-0 flex-1 flex-col overflow-hidden;
+  }
+
+  .public-share-reader-panel {
+    @apply box-border min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden;
+  }
+
+  .public-share-reader-panel-inner {
+    @apply box-border min-h-full p-4;
+  }
+
+  .public-share-reader-panel[hidden] {
+    display: none;
+  }
+
+  .public-share-reader-viewport .public-share-reader-panel--outgoing,
+  .public-share-reader-viewport .public-share-reader-panel--incoming {
+    @apply absolute inset-x-0 top-0 max-h-full w-full overflow-y-auto overflow-x-hidden;
+    transition: transform 300ms ease-in-out;
+    will-change: transform;
+  }
+
+  .public-share-reader-panel--enter-from-right {
+    transform: translateX(100%);
+  }
+
+  .public-share-reader-panel--enter-from-left {
+    transform: translateX(-100%);
+  }
+
+  .public-share-reader-panel--enter-active {
+    transform: translateX(0);
+  }
+
+  .public-share-reader-panel--exit-left {
+    transform: translateX(-100%);
+  }
+
+  .public-share-reader-panel--exit-right {
+    transform: translateX(100%);
+  }
+
+  .public-share-reader-body {
+    @apply flex flex-col gap-8;
+  }
+
+  .public-share-reader-content-shell .public-share-reader-strand-title,
+  .public-share-reader-content-shell .public-share-reader-bundle-sequence-title {
+    @apply m-0 mb-3 flex min-w-0 items-baseline gap-2 text-xl font-bold text-prompt-heading;
+  }
+
+  .public-share-reader-content-shell .public-share-reader-position-badge {
+    @apply inline-flex min-h-[var(--public-share-reader-badge-min-width)] min-w-[var(--public-share-reader-badge-min-width)] shrink-0 items-center justify-center rounded bg-gray-700 px-1.5 py-1.5 text-base font-semibold leading-none text-white;
+  }
+
+  .public-share-reader-item-title-text {
+    @apply min-w-0 flex-1;
+  }
+
+  .public-share-reader-bundle-sequences {
+    @apply flex flex-col gap-6;
+    padding-left: var(--public-share-reader-content-indent);
+  }
+
+  .public-share-reader-steps {
+    @apply m-0 list-none space-y-3;
+    padding-left: var(--public-share-reader-content-indent);
+    counter-reset: public-share-step;
+  }
+
+  .public-share-reader-step {
+    @apply flex items-start gap-2 bg-transparent;
+    counter-increment: public-share-step;
+  }
+
+  .public-share-reader-content-shell .public-share-reader-step::before {
+    content: counter(public-share-step) ".";
+    @apply shrink-0 text-base/6 tabular-nums text-prompt-heading;
+    min-width: 1.25rem;
+  }
+
+  .public-share-reader-content-shell .public-share-reader-step-content {
+    @apply min-w-0 flex-1 text-base/6 text-prompt-heading;
+  }
+
+  .public-share-reader-step-content.rich-editor {
+    @apply min-h-0 border-0 bg-transparent p-0 shadow-none;
+  }
+
+  .public-share-reader-step-content :is(strong, b, em, i) {
+    font-weight: inherit;
+    color: inherit;
+    background: linear-gradient(
+      102deg,
+      rgb(255 228 160 / 0) 0.8%,
+      rgb(255 210 120 / 0.42) 4%,
+      rgb(255 193 88 / 0.58) 18%,
+      rgb(255 178 62 / 0.62) 52%,
+      rgb(255 186 72 / 0.58) 86%,
+      rgb(255 205 110 / 0.4) 96%,
+      rgb(255 228 160 / 0) 99.2%
+    );
+    padding: 0.06em 0.18em 0.04em;
+    margin-inline: -0.1em;
+    border-radius: 0.14em 0.2em 0.16em 0.1em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .public-share-reader-step-content :is(em, i) {
+    font-style: italic;
+  }
+
+  .public-share-reader-step-content u {
+    text-decoration: underline;
+  }
+
+  .public-share-reader-content-shell .public-share-reader-empty {
+    @apply m-0 text-base text-prompt-muted;
+  }
+
+  .public-share-reader-drawer {
+    @apply pointer-events-none absolute inset-0 z-20;
+  }
+
+  .public-share-reader-drawer[hidden] {
+    @apply !hidden;
+  }
+
+  .public-share-reader-drawer--open {
+    @apply pointer-events-auto;
+  }
+
+  .public-share-reader-drawer-backdrop {
+    @apply absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-300;
+  }
+
+  .public-share-reader-drawer--open .public-share-reader-drawer-backdrop {
+    @apply opacity-100;
+  }
+
+  .public-share-reader-drawer-panel {
+    @apply absolute bottom-0 left-0 top-0 flex w-[min(18rem,85%)] -translate-x-full flex-col border-r border-solid border-prompt-chrome-border bg-white shadow-lg transition-transform duration-300;
+  }
+
+  .public-share-reader-drawer--open .public-share-reader-drawer-panel {
+    @apply translate-x-0;
+  }
+
+  .public-share-reader-drawer-header {
+    @apply flex items-center justify-between gap-2 border-b border-solid border-prompt-chrome-border px-4 py-3;
+  }
+
+  .public-share-reader-drawer-title {
+    @apply m-0 text-base font-semibold text-prompt-heading;
+  }
+
+  .public-share-reader-drawer-close {
+    @apply inline-flex cursor-pointer items-center justify-center rounded border-0 bg-transparent p-1 text-prompt-muted hover:bg-prompt-row-hover;
+  }
+
+  .public-share-reader-drawer-list {
+    @apply m-0 list-none overflow-y-auto p-2;
+  }
+
+  .public-share-reader-drawer-item {
+    @apply block w-full cursor-pointer rounded-md border-0 bg-transparent px-3 py-2 text-left text-base text-prompt-heading hover:bg-prompt-row-hover;
+  }
+
+  .public-share-reader-bottom-nav {
+    margin-top: 2em;
+  }
+
+  .public-share-reader-bottom-nav[hidden] {
+    @apply !hidden;
+  }
+
+  .public-share-reader-read-more-stack {
+    @apply grid w-full justify-items-end gap-2;
+  }
+
+  .public-share-reader-read-more {
+    @apply inline-flex w-full max-w-md cursor-pointer items-center justify-between gap-3 rounded-lg border border-solid border-prompt-btn-border bg-white px-4 py-3 text-left text-sm font-medium text-prompt-heading shadow-sm hover:bg-prompt-row-hover;
+  }
+
+  .public-share-reader-read-more--disabled {
+    @apply cursor-not-allowed opacity-55 hover:bg-white;
+  }
+
+  .public-share-reader-read-more-icon {
+    @apply inline-flex shrink-0 text-prompt-muted;
+  }
+
+  .public-share-reader-footer {
+    @apply pointer-events-none fixed bottom-4 left-5;
+  }
+
+  .public-share-reader-attribution {
+    @apply text-xs text-prompt-muted;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .public-share-reader-viewport .public-share-reader-panel--outgoing,
+    .public-share-reader-viewport .public-share-reader-panel--incoming,
+    .public-share-reader-drawer-panel,
+    .public-share-reader-drawer-backdrop {
+      transition: none;
+    }
   }
 }
 

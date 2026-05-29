@@ -3,9 +3,10 @@
 # Member actions on `Sequence` when kind is `thread`: reorder strand steps, insert bundle/sequence, fork child strand.
 module ThreadStrandMutations
   extend ActiveSupport::Concern
+  include SequencePublicIdLookup
 
   def thread_update_steps
-    pairs = parse_strand_step_pairs_param
+    pairs = parse_strand_step_pairs_from_public_id_param
     current = @sequence.strand_step_pairs
 
     unless reorder_pairs_valid?(current, pairs)
@@ -35,7 +36,7 @@ module ThreadStrandMutations
 
   def thread_insert_bundle
     insert = params[:insert].to_s
-    anchor_id = params[:relative_to_bundle_id].to_i
+    anchor_id = resolve_bundle_id_from_param(params[:relative_to_bundle_id])
     new_bundle = nil
 
     ActiveRecord::Base.transaction do
@@ -73,7 +74,7 @@ module ThreadStrandMutations
     end
 
     if new_bundle&.persisted?
-      redirect_to thread_redirect_url(focus_bundle_id: new_bundle.id), notice: "Bundle added."
+      redirect_to thread_redirect_url(focus_bundle_id: new_bundle.public_id), notice: "Bundle added."
     else
       redirect_to thread_redirect_url,
                   alert: new_bundle&.errors&.full_messages&.to_sentence.presence || "Could not add bundle."
@@ -103,7 +104,12 @@ module ThreadStrandMutations
         pairs << [:sequence, new_seq.id]
       when "before", "after"
         kind = params[:relative_kind].to_s == "bundle" ? :bundle : :sequence
-        anchor_id = params[:relative_to_id].to_i
+        anchor_id =
+          if kind == :bundle
+            resolve_bundle_id_from_param(params[:relative_to_id])
+          else
+            resolve_generative_sequence_id_from_param(params[:relative_to_id])
+          end
         token = [kind, anchor_id]
         idx = pairs.index(token)
         raise ActiveRecord::Rollback unless idx
@@ -122,7 +128,7 @@ module ThreadStrandMutations
     end
 
     if new_seq&.persisted?
-      redirect_to thread_redirect_url(focus_transformation_id: new_seq.id), notice: "Sequence added."
+      redirect_to thread_redirect_url(focus_transformation_id: new_seq.public_id), notice: "Sequence added."
     else
       redirect_to thread_redirect_url,
                   alert: new_seq&.errors&.full_messages&.to_sentence.presence || "Could not add sequence."
@@ -130,7 +136,7 @@ module ThreadStrandMutations
   end
 
   def thread_duplicate_strand_child_sequence
-    source_id = params[:source_sequence_id].to_i
+    source_id = resolve_generative_sequence_id_from_param(params[:source_sequence_id])
     pairs = @sequence.strand_step_pairs
     idx = pairs.index([:sequence, source_id])
     unless idx
@@ -165,7 +171,7 @@ module ThreadStrandMutations
     end
 
     if copy&.persisted?
-      redirect_to thread_redirect_url(focus_transformation_id: copy.id), notice: "Sequence duplicated."
+      redirect_to thread_redirect_url(focus_transformation_id: copy.public_id), notice: "Sequence duplicated."
     else
       redirect_to thread_redirect_url,
                   alert: copy&.errors&.full_messages&.to_sentence.presence || "Could not duplicate sequence."
@@ -179,9 +185,9 @@ module ThreadStrandMutations
       return
     end
 
-    anchor_seq_id = params[:parent_generative_sequence_id].to_i
+    anchor_seq_id = resolve_generative_sequence_id_from_param(params[:parent_generative_sequence_id])
     flat = @sequence.flattened_generative_sequence_ids_on_strand
-    unless flat.include?(anchor_seq_id)
+    unless anchor_seq_id && flat.include?(anchor_seq_id)
       redirect_to thread_redirect_url, alert: "Sequence is not on this strand."
       return
     end
@@ -233,8 +239,8 @@ module ThreadStrandMutations
     if child_thread&.persisted? && new_seq&.persisted?
       redirect_to thread_redirect_url(
         open_threads: fork_open_threads_param(@sequence.id, child_thread.id),
-        weave_thread: child_thread.id,
-        focus_transformation_id: new_seq.id,
+        weave_thread: child_thread.public_id,
+        focus_transformation_id: new_seq.public_id,
         thread_partner: nil
       ),
                   notice: "New strand created."
@@ -247,9 +253,9 @@ module ThreadStrandMutations
   end
 
   def thread_unbundle_pipeline_sequence
-    bundle_id = params[:bundle_id].to_i
-    sequence_id = params[:sequence_id].to_i
-    if bundle_id <= 0 || sequence_id <= 0
+    bundle_id = resolve_bundle_id_from_param(params[:bundle_id])
+    sequence_id = resolve_generative_sequence_id_from_param(params[:sequence_id])
+    if bundle_id.blank? || sequence_id.blank?
       respond_unbundle_failure("Invalid request.")
       return
     end
@@ -336,12 +342,18 @@ module ThreadStrandMutations
 
     if ok
       bundle_destroyed = remaining_ids.size < 2
-      extras = { focus_transformation_id: gen.id }
-      extras[:focus_bundle_id] = bundle_id unless bundle_destroyed
+      bundle_public_id = bundle.public_id
+      extras = { focus_transformation_id: gen.public_id }
+      extras[:focus_bundle_id] = bundle.public_id unless bundle_destroyed
       if workspace_autosave_request?
         head :no_content
       else
-        redirect_to unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed: bundle_destroyed),
+        redirect_to unbundle_success_redirect_url(
+          bundle_id,
+          extras,
+          bundle_destroyed: bundle_destroyed,
+          bundle_public_id: bundle_public_id
+        ),
                     notice: "Sequence removed from bundle."
       end
     else
@@ -350,8 +362,8 @@ module ThreadStrandMutations
   end
 
   def thread_dissolve_strand_bundle
-    bundle_id = params[:bundle_id].to_i
-    if bundle_id <= 0
+    bundle_id = resolve_bundle_id_from_param(params[:bundle_id])
+    if bundle_id.blank?
       respond_unbundle_failure("Invalid request.")
       return
     end
@@ -395,12 +407,17 @@ module ThreadStrandMutations
 
     if ok
       extras = {}
-      extras[:focus_transformation_id] = pipeline_ids.first if pipeline_ids.any?
+      extras[:focus_transformation_id] = @project.sequences.generative_sequences.find_by(id: pipeline_ids.first)&.public_id if pipeline_ids.any?
       extras[:focus_bundle_id] = nil
       if workspace_autosave_request?
         head :no_content
       else
-        redirect_to unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed: true),
+        redirect_to unbundle_success_redirect_url(
+          bundle_id,
+          extras,
+          bundle_destroyed: true,
+          bundle_public_id: bundle.public_id
+        ),
                     notice: "Bundle unbundled onto strand."
       end
     else
@@ -409,7 +426,7 @@ module ThreadStrandMutations
   end
 
   def thread_merge_adjacent_strand_steps
-    token_pair = parse_strand_step_token_from_param
+    token_pair = parse_strand_step_token_from_public_id_param
     unless token_pair
       respond_merge_failure("Invalid strand step.")
       return
@@ -459,7 +476,8 @@ module ThreadStrandMutations
       if workspace_autosave_request?
         head :no_content
       else
-        redirect_to thread_redirect_url(focus_bundle_id: surviving_bundle_id), notice: "Bundled."
+        surviving_bundle = @project.sequences.bundles.find_by(id: surviving_bundle_id)
+        redirect_to thread_redirect_url(focus_bundle_id: surviving_bundle.public_id), notice: "Bundled."
       end
     else
       respond_merge_failure(err_msg || "Could not bundle.")
@@ -468,11 +486,11 @@ module ThreadStrandMutations
 
   def thread_move_sequence_to_thread
     source_thread = @sequence
-    gen_id = params[:sequence_id].to_i
-    target_tid = params[:target_thread_id].to_i
-    from_bundle_id = params[:from_bundle_id].to_i
+    gen_id = resolve_generative_sequence_id_from_param(params[:sequence_id])
+    target_tid = resolve_thread_id_from_param(params[:target_thread_id])
+    from_bundle_id = resolve_bundle_id_from_param(params[:from_bundle_id])
 
-    if gen_id <= 0 || target_tid <= 0
+    if gen_id.blank? || target_tid.blank?
       respond_move_sequence_failure("Invalid request.")
       return
     end
@@ -501,7 +519,7 @@ module ThreadStrandMutations
     dest_tid = target_tid
     err_msg = nil
     ActiveRecord::Base.transaction do
-      if from_bundle_id.positive?
+      if from_bundle_id.present?
         err_msg = apply_move_sequence_off_bundle!(source_thread, from_bundle_id, gen)
       else
         err_msg = apply_move_sequence_off_strand_step!(source_thread, gen_id)
@@ -541,11 +559,13 @@ module ThreadStrandMutations
     end
 
     if err_msg.blank?
+      dest_thread = target_thread
+      gen = @project.sequences.generative_sequences.find(gen_id)
       merged_opts =
         workspace_editor_redirect_options.stringify_keys.merge(
-          "weave_thread" => dest_tid.to_s,
-          "focus_transformation_id" => gen_id.to_s,
-          "open_threads" => move_sequence_redirect_open_threads(dest_tid),
+          "weave_thread" => dest_thread.public_id,
+          "focus_transformation_id" => gen.public_id,
+          "open_threads" => move_sequence_redirect_open_threads(dest_thread.public_id),
           "focus_bundle_id" => ""
         )
       ref = params[:redirect_to].to_s
@@ -563,10 +583,10 @@ module ThreadStrandMutations
 
   def thread_move_bundle_to_thread
     source_thread = @sequence
-    bundle_id = params[:bundle_id].to_i
-    target_tid = params[:target_thread_id].to_i
+    bundle_id = resolve_bundle_id_from_param(params[:bundle_id])
+    target_tid = resolve_thread_id_from_param(params[:target_thread_id])
 
-    if bundle_id <= 0 || target_tid <= 0
+    if bundle_id.blank? || target_tid.blank?
       respond_move_sequence_failure("Invalid request.")
       return
     end
@@ -656,12 +676,14 @@ module ThreadStrandMutations
     end
 
     if err_msg.blank?
+      dest_thread = target_thread
+      bundle = @project.sequences.bundles.find(bundle_id)
       merged_opts =
         workspace_editor_redirect_options.stringify_keys.merge(
-          "weave_thread" => dest_tid.to_s,
-          "focus_bundle_id" => bundle_id.to_s,
+          "weave_thread" => dest_thread.public_id,
+          "focus_bundle_id" => bundle.public_id,
           "focus_transformation_id" => "",
-          "open_threads" => move_sequence_redirect_open_threads(dest_tid)
+          "open_threads" => move_sequence_redirect_open_threads(dest_thread.public_id)
         )
       ref = params[:redirect_to].to_s
       next_url =
@@ -677,12 +699,11 @@ module ThreadStrandMutations
   end
 
   def thread_attach_branch_thread
-    child_tid = params[:child_thread_id].to_i
-    anchor_sid = params[:anchor_sequence_id].to_i
-    anchor_bid = params[:anchor_bundle_id].to_i
-    anchor_bid = nil unless anchor_bid.positive?
+    child_tid = resolve_thread_id_from_param(params[:child_thread_id])
+    anchor_sid = resolve_generative_sequence_id_from_param(params[:anchor_sequence_id])
+    anchor_bid = resolve_bundle_id_from_param(params[:anchor_bundle_id])
 
-    if child_tid <= 0 || anchor_sid <= 0
+    if child_tid.blank? || anchor_sid.blank?
       respond_move_sequence_failure("Invalid request.")
       return
     end
@@ -757,10 +778,11 @@ module ThreadStrandMutations
     end
 
     if err_msg.blank?
+      child_thread = @project.sequences.threads.find(child_tid)
       merged_opts =
         workspace_editor_redirect_options.stringify_keys.merge(
-          "weave_thread" => @sequence.id.to_s,
-          "open_threads" => attach_branch_redirect_open_threads(@sequence.id, old_parent_id, child_tid)
+          "weave_thread" => @sequence.public_id,
+          "open_threads" => attach_branch_redirect_open_threads(@sequence.public_id, thread_public_id_for_id(old_parent_id), child_thread.public_id)
         )
       ref = params[:redirect_to].to_s
       next_url =
@@ -850,24 +872,25 @@ module ThreadStrandMutations
     nil
   end
 
-  def move_sequence_redirect_open_threads(include_thread_id)
-    ot = params[:open_threads].to_s.strip
-    ids =
-      ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
-    ids << include_thread_id.to_i unless ids.include?(include_thread_id.to_i)
+  def move_sequence_redirect_open_threads(include_thread_public_id)
+    ids = filter_valid_thread_public_ids(
+      params[:open_threads].to_s.split(",").filter_map { |pid| parse_sequence_public_id(pid) }
+    )
+    include_pid = parse_sequence_public_id(include_thread_public_id)
+    ids << include_pid if include_pid.present? && ids.exclude?(include_pid)
     ids.join(",")
   end
 
   # After reattaching a branch, keep strip panels for old parent, new parent, and the child thread open when possible.
-  def attach_branch_redirect_open_threads(new_parent_id, old_parent_id, child_thread_id)
-    ot = params[:open_threads].to_s.strip
-    ids =
-      ot.split(",").map(&:to_i).select { |tid| tid.positive? && @project.sequences.threads.exists?(tid) }.uniq
-    [new_parent_id, old_parent_id, child_thread_id].each do |tid|
-      tid = tid.to_i
-      next if tid <= 0
+  def attach_branch_redirect_open_threads(new_parent_public_id, old_parent_public_id, child_thread_public_id)
+    ids = filter_valid_thread_public_ids(
+      params[:open_threads].to_s.split(",").filter_map { |pid| parse_sequence_public_id(pid) }
+    )
+    [new_parent_public_id, old_parent_public_id, child_thread_public_id].each do |pid|
+      pid = parse_sequence_public_id(pid)
+      next if pid.blank?
 
-      ids << tid unless ids.include?(tid)
+      ids << pid unless ids.include?(pid)
     end
     ids.join(",")
   end
@@ -1046,15 +1069,7 @@ module ThreadStrandMutations
   end
 
   def parse_strand_step_token_from_param
-    token = params[:strand_step_token].to_s
-    m = token.match(/\A([bs]):(\d+)\z/)
-    return nil unless m
-
-    kind = m[1] == "s" ? :sequence : :bundle
-    id = m[2].to_i
-    return nil if id <= 0
-
-    [kind, id]
+    parse_strand_step_token_from_public_id_param
   end
 
   def respond_merge_failure(message)
@@ -1066,48 +1081,16 @@ module ThreadStrandMutations
   end
 
   def set_thread_sequence
-    @sequence = @project.sequences.threads.find_by(id: params[:id])
+    @sequence = find_project_thread_by_public_id(params[:id])
     return if @sequence
 
     redirect_to open_project_path(@project), alert: "Thread not found."
     nil
   end
 
-  # Accepts strand_step_tokens[] as "b:1" / "s:2", or strand_steps as JSON pairs, or legacy bundle_ids.
+  # Accepts strand_step_tokens[] as "b:public_id" / "s:public_id", or strand_steps as JSON pairs, or legacy bundle_ids.
   def parse_strand_step_pairs_param
-    raw = params[:strand_step_tokens]
-    if raw.is_a?(Array) && raw.any?
-      return raw.filter_map do |token|
-        m = token.to_s.match(/\A([bs]):(\d+)\z/)
-        next unless m
-
-        kind = m[1] == "s" ? :sequence : :bundle
-        id = m[2].to_i
-        next if id <= 0
-
-        [kind, id]
-      end
-    end
-
-    raw = params[:strand_steps]
-    if raw.is_a?(Array) && raw.any?
-      return raw.filter_map do |row|
-        next unless row.is_a?(Array) && row.size == 2
-
-        kind = row[0].to_s == "sequence" ? :sequence : :bundle
-        id = row[1].to_i
-        next if id <= 0
-
-        [kind, id]
-      end
-    end
-
-    parse_legacy_bundle_ids_param
-  end
-
-  def parse_legacy_bundle_ids_param
-    raw = params[:bundle_ids] || params[:transformation_ids]
-    Array(raw).map(&:to_i).reject { |n| n <= 0 }.map { |id| [:bundle, id] }
+    parse_strand_step_pairs_from_public_id_param
   end
 
   def reorder_pairs_valid?(current, next_pairs)
@@ -1117,14 +1100,15 @@ module ThreadStrandMutations
     current.sort_by { |k, id| [k.to_s, id] } == next_pairs.sort_by { |k, id| [k.to_s, id] }
   end
 
-  def unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed:)
+  def unbundle_success_redirect_url(bundle_id, extras, bundle_destroyed:, bundle_public_id: nil)
     extras_sym = extras.compact.symbolize_keys
     extras_sym[:focus_bundle_id] = nil if bundle_destroyed
 
     ref = params[:redirect_to].to_s
-    if bundle_destroyed && ref.start_with?("/") && !ref.include?("..")
+    bundle_public_id ||= parse_sequence_public_id(params[:bundle_id])
+    if bundle_destroyed && bundle_public_id.present? && ref.start_with?("/") && !ref.include?("..")
       uri = URI.parse("#{request.protocol}#{request.host_with_port}#{ref}")
-      if uri.path == edit_project_bundle_path(@project, bundle_id)
+      if uri.path == edit_project_bundle_path(@project, bundle_public_id)
         ref_q = Rack::Utils.parse_nested_query(uri.query.to_s).symbolize_keys
         merged = workspace_editor_redirect_options.merge(ref_q).merge(extras_sym)
         return merge_query_for_url(open_project_path(@project), merged)
@@ -1189,18 +1173,21 @@ module ThreadStrandMutations
   def fork_open_threads_param(parent_thread_id, child_thread_id)
     ids = parse_open_threads_param(params[:open_threads].to_s)
     if ids.empty?
-      partner_id = params[:thread_partner].to_i
-      weave_id = params[:weave_thread].to_i
-      ids = [partner_id, weave_id].select(&:positive?).uniq
+      partner = find_project_thread_by_public_id(params[:thread_partner])
+      weave = find_project_thread_by_public_id(params[:weave_thread])
+      ids = [partner&.public_id, weave&.public_id].compact.uniq
     end
 
-    ids << parent_thread_id unless ids.include?(parent_thread_id)
-    ids.reject! { |id| id == child_thread_id }
+    parent_public_id = @project.sequences.threads.find(parent_thread_id).public_id
+    child_public_id = @project.sequences.threads.find(child_thread_id).public_id
 
-    if (idx = ids.index(parent_thread_id))
-      ids.insert(idx + 1, child_thread_id)
+    ids << parent_public_id unless ids.include?(parent_public_id)
+    ids.reject! { |pid| pid == child_public_id }
+
+    if (idx = ids.index(parent_public_id))
+      ids.insert(idx + 1, child_public_id)
     else
-      ids << child_thread_id
+      ids << child_public_id
     end
 
     ids.join(",")

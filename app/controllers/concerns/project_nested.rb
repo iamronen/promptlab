@@ -6,6 +6,6 @@ module ProjectNested
   private
 
   def set_project
-    @project = current_user.projects.find(params[:project_id])
+    @project = current_user.projects.find_by!(public_id: params[:project_id].to_s.strip)
   end
 end

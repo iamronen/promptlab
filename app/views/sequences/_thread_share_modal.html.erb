@@ -1,0 +1,96 @@
+<%# locals: project:, dialog_id: (optional unique id suffix) %>
+<% dialog_suffix = local_assigns.fetch(:dialog_id, project.id) %>
+<dialog
+  class="bundle-edit-dialog bundle-edit-dialog--taxonomy-settings thread-share-modal"
+  aria-labelledby="thread-share-heading-<%= dialog_suffix %>"
+  data-thread-share-target="dialog"
+  data-action="click->thread-share#onDialogBackdrop"
+>
+  <div class="bundle-edit-dialog-panel bundle-edit-dialog-panel--taxonomy-settings-modal">
+    <button
+      type="button"
+      class="bundle-edit-dialog-close"
+      data-action="click->thread-share#close"
+      aria-label="Close"
+    >
+      ×
+    </button>
+    <div class="project-settings-modal-body taxonomy-settings-modal-body flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div class="taxonomy-settings-modal-header">
+        <h2
+          id="thread-share-heading-<%= dialog_suffix %>"
+          class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading"
+        >
+          Share Thread
+        </h2>
+      </div>
+      <div
+        class="taxonomy-settings-modal-content mt-4 min-h-0 flex-1 overflow-y-auto"
+        data-thread-share-target="body"
+      ></div>
+      <div class="taxonomy-settings-modal-footer mt-6 flex flex-wrap gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+        <button
+          type="button"
+          class="prompt-btn-primary px-3 py-2 text-[0.85rem]"
+          data-thread-share-target="saveButton"
+          data-action="click->thread-share#save"
+        >
+          Create
+        </button>
+        <button
+          type="button"
+          class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+          data-thread-share-target="openShareButton"
+          data-action="click->thread-share#openShare"
+          hidden
+        >
+          Open Share
+        </button>
+        <button
+          type="button"
+          class="prompt-btn-secondary border-red-200 px-3 py-2 text-[0.85rem] text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+          data-thread-share-target="deleteButton"
+          data-action="click->thread-share#openDeleteConfirm"
+          hidden
+        >
+          Delete
+        </button>
+        <button
+          type="button"
+          class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+          data-action="click->thread-share#close"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog
+  class="project-delete-confirm-dialog rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+  aria-labelledby="thread-share-delete-heading-<%= dialog_suffix %>"
+  data-thread-share-target="deleteConfirmDialog"
+  data-action="click->thread-share#onDeleteConfirmBackdrop"
+>
+  <h3 id="thread-share-delete-heading-<%= dialog_suffix %>" class="m-0 mb-2 text-base font-semibold text-prompt-heading">
+    Delete this share?
+  </h3>
+  <p class="m-0 mb-4 text-sm text-prompt-heading" data-thread-share-target="deleteConfirmMessage"></p>
+  <div class="flex flex-wrap gap-2">
+    <button
+      type="button"
+      class="prompt-btn-secondary border-red-200 bg-red-600 px-3 py-2 text-[0.85rem] text-white hover:bg-red-700 dark:border-red-900 dark:bg-red-700 dark:hover:bg-red-600"
+      data-action="click->thread-share#confirmDelete"
+    >
+      Delete
+    </button>
+    <button
+      type="button"
+      class="prompt-btn-secondary px-3 py-2 text-[0.85rem]"
+      data-action="click->thread-share#cancelDeleteConfirm"
+    >
+      Cancel
+    </button>
+  </div>
+</dialog>

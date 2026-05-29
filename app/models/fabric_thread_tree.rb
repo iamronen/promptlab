@@ -37,6 +37,55 @@ class FabricThreadTree
 
       out
     end
+
+    # Thread ids of all descendants under root (excludes root), depth-first order.
+    def descendant_thread_ids_for(root)
+      new(root.project).descendant_thread_ids_for(root)
+    end
+
+    def build_thread_branch(root, ancestor_ids = [])
+      new(root.project).build_thread_branch(root, ancestor_ids)
+    end
+
+    # Direct parent thread id of child, or nil.
+    def parent_thread_id_of(child)
+      return nil unless child&.thread?
+
+      ThreadNode.find_by(child_thread_id: child.id)&.parent_thread_id
+    end
+
+    # Thread ids from root's child down to descendant (includes descendant, excludes root).
+    def thread_path_from_root(root, descendant)
+      new(root.project).thread_path_from_root(root, descendant)
+    end
+  end
+
+  def descendant_thread_ids_for(root)
+    branch = build_thread_branch(root, [])
+    return [] unless branch
+
+    self.class.depth_first_branches(branch).drop(1).map { |b| b.thread.id }
+  end
+
+  def parent_thread_id_of(child)
+    self.class.parent_thread_id_of(child)
+  end
+
+  def thread_path_from_root(root, descendant)
+    return [] unless descendant&.thread? && root&.thread?
+    return [] if descendant.id == root.id
+    return [] unless descendant_thread_ids_for(root).include?(descendant.id)
+
+    path = []
+    current = descendant
+    while current && current.id != root.id
+      path.unshift(current.id)
+      parent_id = parent_thread_id_of(current)
+      break unless parent_id
+
+      current = @project.sequences.threads.find_by(id: parent_id)
+    end
+    path
   end
 
   def initialize(project)

@@ -12,13 +12,14 @@
     >
       ×
     </button>
-    <div class="project-settings-modal-body">
-      <h2 id="thread-fork-modal-heading" class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading">
-        New thread
-      </h2>
-      <p class="m-0 mt-2 text-sm/6 text-prompt-muted">Choose a name for the new thread.</p>
+    <div class="project-settings-modal-frame">
+      <div class="project-settings-modal-body">
+        <h2 id="thread-fork-modal-heading" class="m-0 text-xl font-extrabold tracking-tight text-prompt-heading">
+          New thread
+        </h2>
+        <p class="m-0 mt-2 text-sm/6 text-prompt-muted">Choose a name for the new thread.</p>
 
-      <%= form_with url: "#",
+        <%= form_with url: "#",
                     method: :post,
                     html: {
                       class: "mt-5 flex flex-col gap-4",
@@ -52,6 +53,7 @@
           </button>
         </div>
       <% end %>
+      </div>
     </div>
   </div>
 </dialog>

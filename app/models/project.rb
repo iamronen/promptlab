@@ -10,7 +10,11 @@ class Project < ApplicationRecord
   has_many :taxonomy_assignment_histories, dependent: :destroy
 
   validates :name, presence: true
+  validates :public_id, presence: true, uniqueness: true
+  validates :sharing_allowed, inclusion: { in: [true, false] }
   validate :default_process_taxonomy_belongs_to_project
+
+  before_validation :assign_public_id, on: :create
 
   # Association `dependent: :destroy` registers `before_destroy` procs; without `prepend`,
   # they run before user `around_destroy` begins, so root threads abort first.
@@ -18,12 +22,35 @@ class Project < ApplicationRecord
 
   after_create :ensure_genesis_thread
 
+  def self.generate_public_id
+    loop do
+      candidate = SecureRandom.urlsafe_base64(16)
+      break candidate unless exists?(public_id: candidate)
+    end
+  end
+
+  def self.find_by_public_id!(public_id)
+    find_by!(public_id: public_id.to_s.strip)
+  end
+
+  def to_param
+    public_id
+  end
+
   def genesis_thread
     sequences.genesis_threads.first
   end
 
   def orphans_thread
     sequences.orphans_threads.first
+  end
+
+  def shared_threads
+    sequences.merge(Sequence.with_share_enabled)
+  end
+
+  def share_defined_threads
+    sequences.merge(Sequence.share_defined).order(:title, :id)
   end
 
   # Invoked after ProjectsController#create saves the project (not in after_create) so tests and
@@ -80,6 +107,10 @@ class Project < ApplicationRecord
   end
 
   private
+
+  def assign_public_id
+    self.public_id = self.class.generate_public_id if public_id.blank?
+  end
 
   def default_process_taxonomy_belongs_to_project
     return if default_process_taxonomy_id.blank?

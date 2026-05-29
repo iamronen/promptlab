@@ -1,0 +1,93 @@
+<%# locals: project:, thread:, fabric_path:, public_url: %>
+<div
+  class="fabric-tree-menu-wrap prompt-fabric-menu-wrap"
+  data-controller="project-share-card-menu"
+>
+  <button
+    type="button"
+    class="fabric-tree-menu-trigger prompt-fabric-menu-trigger tool-button shrink-0"
+    data-project-share-card-menu-target="trigger"
+    data-action="project-share-card-menu#toggle"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-label="Share options"
+  >
+    <svg
+      class="fabric-tree-menu-icon prompt-fabric-menu-icon"
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  </button>
+  <div
+    role="menu"
+    class="fabric-thread-menu-panel prompt-fabric-thread-menu"
+    hidden
+    data-project-share-card-menu-target="panel"
+    data-action="click->project-share-card-menu#stopPanelBubble"
+  >
+    <% if fabric_path.present? %>
+      <%= link_to "View Thread in Fabric",
+                  fabric_path,
+                  role: "menuitem",
+                  class: "fabric-thread-menu-item fabric-thread-menu-open prompt-fabric-menu-item",
+                  data: { turbo_frame: "_top", action: "click->project-share-card-menu#close" } %>
+    <% end %>
+    <% if public_url.present? %>
+      <%= link_to "Open Share",
+                  public_url,
+                  role: "menuitem",
+                  class: "fabric-thread-menu-item prompt-fabric-menu-item",
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                  data: { action: "click->project-share-card-menu#close" } %>
+    <% end %>
+    <button
+      type="button"
+      role="menuitem"
+      class="fabric-thread-menu-item prompt-fabric-menu-item"
+      data-thread-share-open="<%= thread.public_id %>"
+    >
+      Edit share
+    </button>
+    <% if thread.share_state_enabled? %>
+      <button
+        type="button"
+        role="menuitem"
+        class="fabric-thread-menu-item prompt-fabric-menu-item"
+        data-action="click->project-share-card-menu#close click->thread-share#disableShare"
+        data-thread-public-id="<%= thread.public_id %>"
+      >
+        Disable share
+      </button>
+    <% elsif project.sharing_allowed? %>
+      <button
+        type="button"
+        role="menuitem"
+        class="fabric-thread-menu-item prompt-fabric-menu-item"
+        data-action="click->project-share-card-menu#close click->thread-share#enableShare"
+        data-thread-public-id="<%= thread.public_id %>"
+      >
+        Enable share
+      </button>
+    <% end %>
+    <button
+      type="button"
+      role="menuitem"
+      class="fabric-thread-menu-item prompt-fabric-menu-item workspace-thread-panel-title-menu-item--danger"
+      data-action="click->project-share-card-menu#close click->thread-share#openDeleteConfirmFromMenu"
+      data-thread-public-id="<%= thread.public_id %>"
+      data-share-title="<%= thread.share_public_title %>"
+    >
+      Delete Share
+    </button>
+  </div>
+</div>

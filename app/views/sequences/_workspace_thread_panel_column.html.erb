@@ -13,12 +13,12 @@
 <% scope_h = local_assigns.fetch(:workspace_thread_scope_hash) { workspace_thread_scope_params } %>
 <% strand_steps = panel_thread.ordered_steps %>
 <% has_strand_steps = strand_steps.any? %>
-<% thread_column_focused = panel_thread.id == selected_weave_thread_id.to_i %>
+<% thread_column_focused = panel_thread.public_id == selected_weave_thread_id %>
 <div
   class="workspace-thread-panel-split-column workspace-thread-workspace-column h-full min-h-0 min-w-0 flex-shrink-0 basis-full sm:basis-auto box-border<%= thread_column_focused ? " workspace-thread-panel-column--focused" : "" %>"
-  data-thread-panel-id="<%= panel_thread.id %>"
+  data-thread-panel-id="<%= panel_thread.public_id %>"
   data-action="click->thread-workspace#focusPanelColumn"
-  data-thread-workspace-thread-id-param="<%= panel_thread.id %>"
+  data-thread-workspace-thread-id-param="<%= panel_thread.public_id %>"
 >
   <div
     class="workspace-work-inner workspace-work-inner--panel workspace-thread-panel-root workspace-thread-panel-root--maximized h-full min-h-0"
@@ -46,7 +46,7 @@
                 type="button"
                 class="workspace-thread-panel-close-btn prompt-thread-panel-icon-btn"
                 data-action="click->thread-workspace#closePanel"
-                data-thread-workspace-thread-id-param="<%= panel_thread.id %>"
+                data-thread-workspace-thread-id-param="<%= panel_thread.public_id %>"
                 title="Close strand panel"
                 aria-label="Close strand panel"
               >

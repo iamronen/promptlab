@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
-import { loadThreadWorkspaceState, parsePanelLayoutMode, parseStandaloneLayoutMode } from "thread_workspace_storage"
-import { THREAD_PANEL_INDEX_DRAG_ACTIVE_CLASS } from "thread_panel_index_drag"
+import { loadThreadWorkspaceState, parsePanelLayoutMode, parseStandaloneLayoutMode, normalizeThreadPublicId } from "thread_workspace_storage"
+import { THREAD_PANEL_INDEX_DRAG_ACTIVE_CLASS, scrollIntoEditorStack, resolveEditorFrame } from "thread_panel_index_drag"
 
 const DEFAULT_KEY = "promptlab.workspaceThreadPanelMaximized"
 
@@ -64,7 +64,7 @@ export default class extends Controller {
   /** Managed strip: layout mode comes from thread-workspace localStorage synchronously — avoids SSR vs deferred sync toggling the UI repeatedly. */
   hydrateManagedLayoutFromThreadWorkspace() {
     const col = this.element.closest("[data-thread-panel-id]")
-    const id = parseInt(col?.dataset?.threadPanelId || "0", 10)
+    const id = normalizeThreadPublicId(col?.dataset?.threadPanelId)
     const mgrEl = closestThreadWorkspaceRoot(this.element)
     const proj = parseInt(mgrEl?.dataset?.threadWorkspaceProjectIdValue || "0", 10)
     if (!id || !proj) return
@@ -93,14 +93,22 @@ export default class extends Controller {
     this.layoutModeValue = "split"
     const scroll = () => {
       const frame =
-        (typeof frameId === "string" && this.element.querySelector(`#${CSS.escape(frameId)}`)) ||
+        resolveEditorFrame(this.element, { frameId }) ??
         (typeof frameId === "string" ? document.getElementById(frameId) : null)
       const scrollOuter = frame?.closest(".workspace-thread-editor-child") || frame
-      scrollOuter?.scrollIntoView({ behavior: "smooth", block: "start" })
+      const inner =
+        scrollWithinFrameId && frame
+          ? frame.querySelector(`#${CSS.escape(scrollWithinFrameId)}`)
+          : null
+      const target = inner || scrollOuter
+      if (!target) return
+
+      scrollIntoEditorStack(target)
+
       if (!scrollWithinFrameId || !frame) return
       const scrollInner = () => {
-        const inner = frame.querySelector(`#${CSS.escape(scrollWithinFrameId)}`)
-        inner?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+        const el = frame.querySelector(`#${CSS.escape(scrollWithinFrameId)}`)
+        if (el) scrollIntoEditorStack(el)
       }
       scrollInner()
       frame.addEventListener("turbo:frame-load", scrollInner, { once: true })
@@ -108,7 +116,9 @@ export default class extends Controller {
       window.setTimeout(scrollInner, 1100)
     }
     requestAnimationFrame(() => {
-      requestAnimationFrame(scroll)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scroll)
+      })
     })
   }
 
@@ -175,8 +185,8 @@ export default class extends Controller {
     const skipEmit = !this.managedValue || this.suppressHydrationEmit === true
     if (!skipEmit) {
       const col = this.element.closest("[data-thread-panel-id]")
-      const id = parseInt(col?.dataset?.threadPanelId || "0", 10)
-      if (id > 0) {
+      const id = normalizeThreadPublicId(col?.dataset?.threadPanelId)
+      if (id) {
         this.element.dispatchEvent(
           new CustomEvent("thread-workspace:panel-expanded", {
             bubbles: true,

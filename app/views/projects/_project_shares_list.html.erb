@@ -1,0 +1,13 @@
+<%# locals: project: %>
+<% share_threads = project.share_defined_threads.to_a %>
+<% if share_threads.empty? %>
+  <p class="m-0 mt-2 text-sm text-prompt-muted">No shares yet</p>
+<% else %>
+  <ul class="project-shares-list m-0 mt-2 list-none space-y-2 p-0">
+    <% share_threads.each do |thread| %>
+      <li>
+        <%= render "projects/project_share_card", project: project, thread: thread %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

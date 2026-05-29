@@ -27,7 +27,7 @@
           <%= hidden_field_tag :weave_thread, @selected_weave_thread_id %>
         <% end %>
         <% if @thread_panel_partner_thread.present? %>
-          <%= hidden_field_tag :thread_partner, @thread_panel_partner_thread.id %>
+          <%= hidden_field_tag :thread_partner, @thread_panel_partner_thread.public_id %>
         <% end %>
         <% if modal_mode && params[:redirect_to].present? %>
           <%= hidden_field_tag :redirect_to, params[:redirect_to] %>

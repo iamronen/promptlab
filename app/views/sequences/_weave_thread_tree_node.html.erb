@@ -2,11 +2,11 @@
 <li class="weave-thread-node-wrap prompt-weave-node-wrap" role="none">
   <button
     type="button"
-    class="weave-thread-select prompt-weave-thread-select<%= " is-selected" if selected_id == thread.id %>"
-    data-thread-id="<%= thread.id %>"
+    class="weave-thread-select prompt-weave-thread-select<%= " is-selected" if selected_id == thread.public_id %>"
+    data-thread-id="<%= thread.public_id %>"
     data-action="weave-panel#select"
     role="treeitem"
-    aria-pressed="<%= selected_id == thread.id %>"
+    aria-pressed="<%= selected_id == thread.public_id %>"
   >
     <span class="weave-thread-select-label prompt-weave-thread-label"><%= thread.title.to_s.truncate(52) %></span>
   </button>

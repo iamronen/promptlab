@@ -1,0 +1,25 @@
+<%# locals: thread: %>
+<% crumb_payload = thread.thread_workspace_breadcrumb_payload %>
+<nav
+  class="project-share-card-breadcrumb workspace-thread-panel-title-breadcrumb"
+  aria-label="<%= h("Thread: #{thread.title}") %>"
+>
+  <% if crumb_payload %>
+    <% if crumb_payload.ellipsis %>
+      <span class="workspace-thread-panel-title-breadcrumb-ellipsis" aria-hidden="true">…</span>
+      <span class="workspace-thread-panel-title-breadcrumb-sep workspace-thread-panel-title-breadcrumb-sep--ellipsis" aria-hidden="true">/</span>
+    <% end %>
+    <% crumb_payload.visible_segments.each_with_index do |seg, idx| %>
+      <% unless idx.zero? %>
+        <span class="workspace-thread-panel-title-breadcrumb-sep" aria-hidden="true">/</span>
+      <% end %>
+      <% if seg.id == thread.id %>
+        <span class="workspace-thread-panel-title-breadcrumb-current text-prompt-muted"><%= seg.title %></span>
+      <% else %>
+        <span class="workspace-thread-panel-title-breadcrumb-ancestor text-prompt-muted"><%= seg.title %></span>
+      <% end %>
+    <% end %>
+  <% else %>
+    <span class="workspace-thread-panel-title-breadcrumb-current text-prompt-muted"><%= thread.title %></span>
+  <% end %>
+</nav>

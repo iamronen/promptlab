@@ -40,61 +40,61 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     patch thread_update_steps_project_sequence_path(@project, @genesis),
           params: {
             autosave: "1",
-            strand_step_tokens: ["b:#{@t2.id}", "b:#{@t1.id}"]
+            strand_step_tokens: ["b:#{@t2.public_id}", "b:#{@t1.public_id}"]
           }
     assert_response :no_content
     assert_equal [@t2.id, @t1.id], @genesis.reload.thread_bundle_ids
   end
 
   test "thread_update_steps reorders strand bundles" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     patch thread_update_steps_project_sequence_path(@project, @genesis),
-          params: { bundle_ids: [@t2.id, @t1.id], redirect_to: dest }
+          params: { bundle_ids: [@t2.public_id, @t1.public_id], redirect_to: dest }
     assert_redirected_to %r{\Ahttp://www.example.com#{Regexp.escape(dest)}}
     assert_equal [@t2.id, @t1.id], @genesis.reload.thread_bundle_ids
   end
 
   test "thread_insert_bundle appends a new bundle" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.bundles.count }, +1 do
       post thread_insert_bundle_project_sequence_path(@project, @genesis),
            params: { insert: "end", redirect_to: dest }
     end
-    assert_redirected_to %r{focus_bundle_id=\d+}
+    assert_redirected_to %r{focus_bundle_id=[A-Za-z0-9_-]+}
     bundle = Sequence.bundles.order(:id).last
     assert_equal @genesis.reload.thread_bundle_ids.last, bundle.id
   end
 
   test "thread_insert_sequence appends to strand end" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.generative_sequences.count }, +1 do
       post thread_insert_sequence_project_sequence_path(@project, @genesis),
            params: { insert: "end", redirect_to: dest }
     end
-    assert_redirected_to %r{focus_transformation_id=\d+}
+    assert_redirected_to %r{focus_transformation_id=[A-Za-z0-9_-]+}
     pairs = @genesis.reload.strand_step_pairs
     assert_equal :sequence, pairs.last[0]
   end
 
   test "thread_insert_sequence inserts before a bundle step" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.generative_sequences.count }, +1 do
       post thread_insert_sequence_project_sequence_path(@project, @genesis),
            params: {
              insert: "before",
              relative_kind: "bundle",
-             relative_to_id: @t1.id,
+             relative_to_id: @t1.public_id,
              redirect_to: dest
            }
     end
-    assert_redirected_to %r{focus_transformation_id=\d+}
+    assert_redirected_to %r{focus_transformation_id=[A-Za-z0-9_-]+}
     pairs = @genesis.reload.strand_step_pairs
     assert_equal :sequence, pairs[0][0]
     assert_equal @t1.id, pairs[1][1]
   end
 
   test "thread_duplicate_strand_child_sequence duplicates sequence step and inserts after source on strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -112,7 +112,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     assert_difference -> { @project.sequences.generative_sequences.count }, +1 do
       post thread_duplicate_strand_child_sequence_project_sequence_path(@project, @genesis),
-           params: { source_sequence_id: solo.id, redirect_to: dest }
+           params: { source_sequence_id: solo.public_id, redirect_to: dest }
     end
     assert_response :redirect
     pairs = @genesis.reload.strand_step_pairs
@@ -125,11 +125,11 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_fork_strand creates child thread and thread node" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.threads.count }, +1 do
       assert_difference -> { @project.sequences.generative_sequences.count }, +1 do
         post thread_fork_strand_project_sequence_path(@project, @genesis),
-             params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "My branch" }
+             params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "My branch" }
       end
     end
     assert_response :redirect
@@ -142,31 +142,31 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     new_seq = @project.sequences.generative_sequences.find(seq_ids.first)
     assert_equal Sequence::DEFAULT_TITLE, new_seq.title
     loc = response.headers["Location"]
-    assert_match(/weave_thread=#{child.id}/, loc)
-    assert_match(/open_threads=.*#{@genesis.id}.*#{child.id}|open_threads=.*#{child.id}.*#{@genesis.id}/, loc)
-    assert_match(/focus_transformation_id=#{new_seq.id}/, loc)
+    assert_match(/weave_thread=#{child.public_id}/, loc)
+    assert_match(/open_threads=.*#{@genesis.public_id}.*#{child.public_id}|open_threads=.*#{child.public_id}.*#{@genesis.public_id}/, loc)
+    assert_match(/focus_transformation_id=#{new_seq.public_id}/, loc)
     assert_no_match(/editor_mode=/, loc)
     assert_no_match(/thread_partner=/, loc)
   end
 
   test "thread_fork_strand rejects blank thread title" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_no_difference -> { @project.sequences.threads.count } do
       post thread_fork_strand_project_sequence_path(@project, @genesis),
-           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "   " }
+           params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "   " }
     end
     assert_redirected_to dest
     assert_equal "Thread name is required.", flash[:alert]
   end
 
   test "thread_fork_strand twice from same generative sequence works" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     post thread_fork_strand_project_sequence_path(@project, @genesis),
-         params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Branch one" }
+         params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "Branch one" }
     assert_response :redirect
 
     post thread_fork_strand_project_sequence_path(@project, @genesis),
-         params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Branch two" }
+         params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "Branch two" }
     assert_response :redirect
 
     nodes = ThreadNode.where(parent_thread_id: @genesis.id, parent_generative_sequence_id: @g.id).order(:child_order)
@@ -178,7 +178,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_unbundle_pipeline_sequence places first pipeline sequence before bundle on strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -198,7 +198,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     @t1.update!(steps_data: [{ "sequence_id" => @g.id }, { "sequence_id" => g2.id }, { "sequence_id" => g3.id }])
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: @t1.id, sequence_id: @g.id, redirect_to: dest }
+         params: { bundle_id: @t1.public_id, sequence_id: @g.public_id, redirect_to: dest }
 
     assert_response :redirect
     pairs = @genesis.reload.strand_step_pairs
@@ -208,7 +208,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_unbundle_pipeline_sequence places non-first pipeline sequence after bundle on strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -228,7 +228,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     @t1.update!(steps_data: [{ "sequence_id" => @g.id }, { "sequence_id" => g2.id }, { "sequence_id" => g3.id }])
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: @t1.id, sequence_id: g2.id, redirect_to: dest }
+         params: { bundle_id: @t1.public_id, sequence_id: g2.public_id, redirect_to: dest }
 
     assert_response :redirect
     pairs = @genesis.reload.strand_step_pairs
@@ -238,7 +238,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_unbundle_pipeline_sequence dissolves bundle when one sequence remains" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -252,7 +252,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     @genesis.update!(steps_data: [{ "bundle_id" => bundle_id }])
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: bundle_id, sequence_id: @g.id, redirect_to: dest }
+         params: { bundle_id: @t1.public_id, sequence_id: @g.public_id, redirect_to: dest }
 
     assert_response :redirect
     assert_nil @project.sequences.bundles.find_by(id: bundle_id)
@@ -261,12 +261,12 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_unbundle_pipeline_sequence removes lone bundle when unbundling only child" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     @genesis.update!(steps_data: [{ "bundle_id" => @t1.id }])
     bundle_id = @t1.id
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: bundle_id, sequence_id: @g.id, redirect_to: dest }
+         params: { bundle_id: @t1.public_id, sequence_id: @g.public_id, redirect_to: dest }
 
     assert_response :redirect
     assert_nil @project.sequences.bundles.find_by(id: bundle_id)
@@ -276,28 +276,28 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   test "thread_unbundle_pipeline_sequence redirects to workspace when bundle editor was open" do
     @genesis.update!(steps_data: [{ "bundle_id" => @t1.id }])
     bundle_id = @t1.id
-    dest = edit_project_bundle_path(@project, @t1, weave_thread: @genesis.id, workspace_mode: "fabric")
+    dest = edit_project_bundle_path(@project, @t1, weave_thread: @genesis.public_id, workspace_mode: "fabric")
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: bundle_id,
-           sequence_id: @g.id,
+           bundle_id: @t1.public_id,
+           sequence_id: @g.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id,
+           weave_thread: @genesis.public_id,
            workspace_mode: "fabric"
          }
 
     assert_response :redirect
     assert_nil @project.sequences.bundles.find_by(id: bundle_id)
     loc = @response.redirect_url
-    assert_match(%r{/projects/#{@project.id}/open}, loc)
-    refute_match(%r{/bundles/#{bundle_id}/edit}, loc)
-    assert_match(/focus_transformation_id=#{@g.id}/, loc)
-    refute_match(/focus_bundle_id=#{bundle_id}/, loc)
+    assert_match(%r{/projects/#{@project.public_id}/open}, loc)
+    refute_match(%r{/bundles/#{@t1.public_id}/edit}, loc)
+    assert_match(/focus_transformation_id=#{@g.public_id}/, loc)
+    refute_match(/focus_bundle_id=#{@t1.public_id}/, loc)
   end
 
   test "thread_unbundle_pipeline_sequence nullifies parent_bundle_id on thread nodes when bundle destroyed" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -330,7 +330,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     bundle_id = @t1.id
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: bundle_id, sequence_id: @g.id, redirect_to: dest }
+         params: { bundle_id: @t1.public_id, sequence_id: @g.public_id, redirect_to: dest }
 
     assert_response :redirect
     assert_nil @project.sequences.bundles.find_by(id: bundle_id)
@@ -358,13 +358,13 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     @t1.update!(steps_data: [{ "sequence_id" => @g.id }, { "sequence_id" => g2.id }, { "sequence_id" => g3.id }])
 
     post thread_unbundle_pipeline_sequence_project_sequence_path(@project, @genesis),
-         params: { bundle_id: @t1.id, sequence_id: @g.id, autosave: "1" }
+         params: { bundle_id: @t1.public_id, sequence_id: @g.public_id, autosave: "1" }
 
     assert_response :no_content
   end
 
   test "thread_merge_adjacent_strand_steps merges two sequences into a new bundle" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     h1 = @project.sequences.create!(
       kind: :sequence,
       title: "H1",
@@ -386,7 +386,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_difference -> { @project.sequences.bundles.count }, +1 do
       post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
            params: {
-             strand_step_token: "s:#{h2.id}",
+             strand_step_token: "s:#{h2.public_id}",
              merge_direction: "previous",
              redirect_to: dest
            }
@@ -400,7 +400,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps merge next joins sequences in thread order" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     h1 = @project.sequences.create!(
       kind: :sequence,
       title: "H1",
@@ -421,7 +421,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "s:#{h1.id}",
+           strand_step_token: "s:#{h1.public_id}",
            merge_direction: "next",
            redirect_to: dest
          }
@@ -433,7 +433,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps prepends loose sequence to bundle below" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -447,7 +447,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_no_difference -> { @project.sequences.bundles.count } do
       post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
            params: {
-             strand_step_token: "s:#{solo.id}",
+             strand_step_token: "s:#{solo.public_id}",
              merge_direction: "next",
              redirect_to: dest
            }
@@ -458,7 +458,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps appends loose sequence after bundle" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -471,7 +471,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "b:#{@t1.id}",
+           strand_step_token: "b:#{@t1.public_id}",
            merge_direction: "next",
            redirect_to: dest
          }
@@ -481,7 +481,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps merges two bundles into one" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -497,7 +497,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     assert_difference -> { @project.sequences.bundles.count }, -1 do
       post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
            params: {
-             strand_step_token: "b:#{@t2.id}",
+             strand_step_token: "b:#{@t2.public_id}",
              merge_direction: "previous",
              redirect_to: dest
            }
@@ -509,7 +509,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps reparents thread nodes from absorbed bundle" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -542,7 +542,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "b:#{@t2.id}",
+           strand_step_token: "b:#{@t2.public_id}",
            merge_direction: "previous",
            redirect_to: dest
          }
@@ -551,11 +551,11 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps rejects merge previous on first row" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     @genesis.update!(steps_data: [{ "sequence_id" => @g.id }, { "bundle_id" => @t1.id }])
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "s:#{@g.id}",
+           strand_step_token: "s:#{@g.public_id}",
            merge_direction: "previous",
            redirect_to: dest
          }
@@ -564,11 +564,11 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_merge_adjacent_strand_steps rejects merge next on last row" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     @genesis.update!(steps_data: [{ "sequence_id" => @g.id }, { "bundle_id" => @t1.id }])
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "b:#{@t1.id}",
+           strand_step_token: "b:#{@t1.public_id}",
            merge_direction: "next",
            redirect_to: dest
          }
@@ -597,7 +597,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_merge_adjacent_strand_steps_project_sequence_path(@project, @genesis),
          params: {
-           strand_step_token: "s:#{h2.id}",
+           strand_step_token: "s:#{h2.public_id}",
            merge_direction: "previous",
            autosave: "1"
          }
@@ -607,7 +607,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_dissolve_strand_bundle expands bundle to sequences at strand position" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -644,7 +644,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     assert_difference -> { @project.sequences.bundles.count }, -1 do
       post thread_dissolve_strand_bundle_project_sequence_path(@project, @genesis),
-           params: { bundle_id: bundle_id, redirect_to: dest }
+           params: { bundle_id: @t1.public_id, redirect_to: dest }
     end
     assert_response :redirect
     assert_nil @project.sequences.bundles.find_by(id: bundle_id)
@@ -661,21 +661,21 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_dissolve_strand_bundle removes empty bundle step from strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     @t1.update!(steps_data: [])
     @genesis.update!(steps_data: [{ "bundle_id" => @t1.id }])
     bundle_id = @t1.id
 
     assert_difference -> { @project.sequences.bundles.count }, -1 do
       post thread_dissolve_strand_bundle_project_sequence_path(@project, @genesis),
-           params: { bundle_id: bundle_id, redirect_to: dest }
+           params: { bundle_id: @t1.public_id, redirect_to: dest }
     end
     assert_response :redirect
     assert_empty @genesis.reload.strand_step_pairs
   end
 
   test "thread_dissolve_strand_bundle rejects bundle not on strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     lone = @project.sequences.create!(
       kind: :bundle,
       title: "Lonely",
@@ -686,7 +686,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     )
 
     post thread_dissolve_strand_bundle_project_sequence_path(@project, @genesis),
-         params: { bundle_id: lone.id, redirect_to: dest }
+         params: { bundle_id: lone.public_id, redirect_to: dest }
     assert_response :redirect
     assert lone.reload
     assert_includes @genesis.reload.strand_step_pairs, [:bundle, @t1.id]
@@ -705,7 +705,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     @genesis.update!(steps_data: [{ "bundle_id" => @t1.id }])
 
     post thread_dissolve_strand_bundle_project_sequence_path(@project, @genesis),
-         params: { bundle_id: @t1.id, autosave: "1" }
+         params: { bundle_id: @t1.public_id, autosave: "1" }
     assert_response :no_content
     assert_nil @project.sequences.bundles.find_by(id: @t1.id)
     pairs = @genesis.reload.strand_step_pairs
@@ -715,10 +715,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "sequences update autosave renames a branch thread title" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.threads.count }, +1 do
       post thread_fork_strand_project_sequence_path(@project, @genesis),
-           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Fork for rename test" }
+           params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "Fork for rename test" }
     end
     child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
 
@@ -733,10 +733,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_fork_strand trims trailing whitespace from thread title" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     assert_difference -> { @project.sequences.threads.count }, +1 do
       post thread_fork_strand_project_sequence_path(@project, @genesis),
-           params: { parent_generative_sequence_id: @g.id, redirect_to: dest, thread_title: "Fork name  " }
+           params: { parent_generative_sequence_id: @g.public_id, redirect_to: dest, thread_title: "Fork name  " }
     end
     child = @project.sequences.threads.where(is_genesis: false, is_orphans: false).order(:id).last
     assert_equal "Fork name", child.title
@@ -761,7 +761,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_sequence_to_thread moves direct strand sequence to end of target" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -796,22 +796,22 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           sequence_id: solo.id,
-           target_thread_id: other.id,
+           sequence_id: solo.public_id,
+           target_thread_id: other.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id,
-           open_threads: "#{@genesis.id},#{other.id}"
+           weave_thread: @genesis.public_id,
+           open_threads: "#{@genesis.public_id}"#{@genesis.public_id},#{other.public_id}"
          }
 
     assert_response :redirect
-    assert_match(/weave_thread=#{other.id}/, @response.redirect_url)
-    assert_match(/focus_transformation_id=#{solo.id}/, @response.redirect_url)
+    assert_match(/weave_thread=#{other.public_id}/, @response.redirect_url)
+    assert_match(/focus_transformation_id=#{solo.public_id}/, @response.redirect_url)
     refute_includes @genesis.reload.strand_step_pairs, [:sequence, solo.id]
     assert_equal [:sequence, solo.id], other.reload.strand_step_pairs.last
   end
 
   test "thread_move_sequence_to_thread moves sequence from bundle to target strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g_only = @project.sequences.create!(
       kind: :sequence,
       title: "OnlyInBundle",
@@ -857,11 +857,11 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           sequence_id: g_only.id,
-           target_thread_id: other.id,
-           from_bundle_id: bundle_only.id,
+           sequence_id: g_only.public_id,
+           target_thread_id: other.public_id,
+           from_bundle_id: bundle_only.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id
+           weave_thread: @genesis.public_id
          }
 
     assert_response :redirect
@@ -872,7 +872,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_sequence_to_thread rejects moving to same thread" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -885,8 +885,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           sequence_id: solo.id,
-           target_thread_id: @genesis.id,
+           sequence_id: solo.public_id,
+           target_thread_id: @genesis.public_id,
            redirect_to: dest
          }
 
@@ -896,7 +896,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_sequence_to_thread rejects moving into thread branched from that sequence" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -926,10 +926,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           sequence_id: solo.id,
-           target_thread_id: other.id,
+           sequence_id: solo.public_id,
+           target_thread_id: other.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id
+           weave_thread: @genesis.public_id
          }
 
     assert_response :redirect
@@ -940,7 +940,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_sequence_to_thread migrates branch threads to target" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Solo",
@@ -989,10 +989,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_sequence_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           sequence_id: solo.id,
-           target_thread_id: target.id,
+           sequence_id: solo.public_id,
+           target_thread_id: target.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id
+           weave_thread: @genesis.public_id
          }
 
     assert_response :redirect
@@ -1016,7 +1016,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_bundle_to_thread appends bundle to end of target strand" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     anchor = @project.sequences.create!(
       kind: :sequence,
       title: "Anchor",
@@ -1051,22 +1051,22 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: @t1.id,
-           target_thread_id: other.id,
+           bundle_id: @t1.public_id,
+           target_thread_id: other.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id
+           weave_thread: @genesis.public_id
          }
 
     assert_response :redirect
     assert_equal "Bundle moved to thread.", flash[:notice]
     assert_equal [[:bundle, @t2.id], [:sequence, anchor.id]], @genesis.reload.strand_step_pairs
     assert_equal [[:bundle, @t1.id]], other.reload.strand_step_pairs
-    assert_match(/focus_bundle_id=#{@t1.id}/, @response.redirect_url)
-    assert_match(/weave_thread=#{other.id}/, @response.redirect_url)
+    assert_match(/focus_bundle_id=#{@t1.public_id}/, @response.redirect_url)
+    assert_match(/weave_thread=#{other.public_id}/, @response.redirect_url)
   end
 
   test "thread_move_bundle_to_thread migrates branch threads for pipeline sequences" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Pipe",
@@ -1131,10 +1131,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: bundle_only.id,
-           target_thread_id: target.id,
+           bundle_id: bundle_only.public_id,
+           target_thread_id: target.public_id,
            redirect_to: dest,
-           weave_thread: @genesis.id
+           weave_thread: @genesis.public_id
          }
 
     assert_response :redirect
@@ -1158,11 +1158,11 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_bundle_to_thread rejects moving to same thread" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: @t1.id,
-           target_thread_id: @genesis.id,
+           bundle_id: @t1.public_id,
+           target_thread_id: @genesis.public_id,
            redirect_to: dest
          }
 
@@ -1172,7 +1172,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_bundle_to_thread rejects moving into thread branched from pipeline sequence" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Pipe",
@@ -1210,8 +1210,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: bundle_only.id,
-           target_thread_id: other.id,
+           bundle_id: bundle_only.public_id,
+           target_thread_id: other.public_id,
            redirect_to: dest
          }
 
@@ -1222,7 +1222,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_move_bundle_to_thread rejects when target strand already includes a pipeline sequence" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "Dup",
@@ -1268,8 +1268,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_move_bundle_to_thread_project_sequence_path(@project, @genesis),
          params: {
-           bundle_id: bundle_moving.id,
-           target_thread_id: other.id,
+           bundle_id: bundle_moving.public_id,
+           target_thread_id: other.public_id,
            redirect_to: dest
          }
 
@@ -1280,7 +1280,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_attach_branch_thread reanchors within same parent thread" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -1311,8 +1311,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
          params: {
-           child_thread_id: branch.id,
-           anchor_sequence_id: g2.id,
+           child_thread_id: branch.public_id,
+           anchor_sequence_id: g2.public_id,
            redirect_to: dest
          }
 
@@ -1325,7 +1325,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_attach_branch_thread moves branch to another parent thread and resyncs deps" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g2 = @project.sequences.create!(
       kind: :sequence,
       title: "G2",
@@ -1381,10 +1381,10 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_attach_branch_thread_project_sequence_path(@project, branch_b),
          params: {
-           child_thread_id: branch_a.id,
-           anchor_sequence_id: h.id,
+           child_thread_id: branch_a.public_id,
+           anchor_sequence_id: h.public_id,
            redirect_to: dest,
-           open_threads: "#{@genesis.id},#{branch_a.id},#{branch_b.id}"
+           open_threads: "#{@genesis.public_id}"#{@genesis.public_id},#{branch_a.public_id},#{branch_b.public_id}"
          }
 
     assert_response :redirect
@@ -1402,7 +1402,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_attach_branch_thread updates bundle anchor" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     g1 = @project.sequences.create!(
       kind: :sequence,
       title: "GP1",
@@ -1457,9 +1457,9 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
          params: {
-           child_thread_id: branch.id,
-           anchor_sequence_id: g2.id,
-           anchor_bundle_id: b2.id,
+           child_thread_id: branch.public_id,
+           anchor_sequence_id: g2.public_id,
+           anchor_bundle_id: b2.public_id,
            redirect_to: dest
          }
 
@@ -1470,7 +1470,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_attach_branch_thread rejects no-op and invalid anchor" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     solo = @project.sequences.create!(
       kind: :sequence,
       title: "SoloAnchor",
@@ -1499,8 +1499,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
          params: {
-           child_thread_id: branch.id,
-           anchor_sequence_id: solo.id,
+           child_thread_id: branch.public_id,
+           anchor_sequence_id: solo.public_id,
            redirect_to: dest
          }
 
@@ -1517,8 +1517,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
     )
     post thread_attach_branch_thread_project_sequence_path(@project, @genesis),
          params: {
-           child_thread_id: branch.id,
-           anchor_sequence_id: orphan.id,
+           child_thread_id: branch.public_id,
+           anchor_sequence_id: orphan.public_id,
            redirect_to: dest
          }
     assert_response :redirect
@@ -1526,7 +1526,7 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
   end
 
   test "thread_attach_branch_thread rejects cycle when child is ancestor of target parent" do
-    dest = "/projects/#{@project.id}/open"
+    dest = open_project_path(@project)
     inner = @project.sequences.create!(
       kind: :sequence,
       title: "Inner",
@@ -1590,8 +1590,8 @@ class ThreadStrandMutationsTest < ActionDispatch::IntegrationTest
 
     post thread_attach_branch_thread_project_sequence_path(@project, leaf),
          params: {
-           child_thread_id: mid.id,
-           anchor_sequence_id: k.id,
+           child_thread_id: mid.public_id,
+           anchor_sequence_id: k.public_id,
            redirect_to: dest
          }
 

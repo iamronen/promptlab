@@ -1,4 +1,4 @@
-import { sanitizeOpenThreadIds } from "thread_workspace_storage"
+import { sanitizeOpenThreadIds, normalizeThreadPublicId } from "thread_workspace_storage"
 
 /** Node contract mirror: test/javascript/thread_workspace_reconcile_contract_test.mjs */
 
@@ -18,11 +18,11 @@ function uniqOrder(ids) {
  * When `open_threads` is present in the URL, its order wins (matches SSR strip order); localStorage
  * only adds ids missing from the URL (cold sessions). `focusUrl` (`weave_thread`) is always included.
  *
- * @param {{ id: number }[]} savedPanels from localStorage
- * @param {number[]} urlOpenIds from `?open_threads=`
- * @param {number} focusUrl from `?weave_thread=`
- * @param {Set<number>} allowedSet
- * @returns {number[]}
+ * @param {{ id: string }[]} savedPanels from localStorage
+ * @param {string[]} urlOpenIds from `?open_threads=`
+ * @param {string | null} focusUrl from `?weave_thread=`
+ * @param {Set<string>} allowedSet
+ * @returns {string[]}
  */
 export function buildReconcileWantOrder(savedPanels, urlOpenIds, focusUrl, allowedSet) {
   let wantRaw = sanitizeOpenThreadIds(
@@ -32,7 +32,7 @@ export function buildReconcileWantOrder(savedPanels, urlOpenIds, focusUrl, allow
   let wantOrder = [...wantRaw]
   if (!wantOrder.length) return []
 
-  if (focusUrl > 0 && !wantOrder.includes(focusUrl)) wantOrder.push(focusUrl)
+  if (focusUrl && !wantOrder.includes(focusUrl)) wantOrder.push(focusUrl)
 
   wantOrder = sanitizeOpenThreadIds(wantOrder, allowedSet)
   wantOrder = uniqOrder(wantOrder)

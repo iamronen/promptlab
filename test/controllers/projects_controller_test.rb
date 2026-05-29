@@ -39,6 +39,8 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/sequences/i, response.body)
     assert_match(/Taxonomies/i, response.body)
     assert_match(/Default process taxonomy/i, response.body)
+    assert_match(/Sharing/i, response.body)
+    assert_select "input[role='switch'].project-sharing-switch__input[data-project-sharing-target='toggle']"
     assert_select "select[data-project-taxonomies-target='defaultProcessTaxonomySelect'][disabled]"
   end
 
@@ -69,8 +71,10 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     genesis = project.genesis_thread
     seq = project.sequences.generative_sequences.order(:position).first
     assert_equal edit_project_sequence_path(project, seq), URI.parse(response.location).path
-    assert_match(/weave_thread=#{genesis.id}/, response.location)
-    assert_match(/focus_transformation_id=#{seq.id}/, response.location)
+    assert_match(%r{/projects/#{project.public_id}/}, response.location)
+    assert_no_match(%r{/projects/#{project.id}(?:/|\?|\z)}, response.location)
+    assert_match(/weave_thread=#{genesis.public_id}/, response.location)
+    assert_match(/focus_transformation_id=#{seq.public_id}/, response.location)
   end
 
   test "create renders modal partial with errors when turbo frame request and invalid" do
@@ -162,6 +166,73 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_nil @project.reload.default_process_taxonomy_id
   end
 
+  test "update sharing_allowed via json" do
+    assert @project.sharing_allowed?
+
+    patch project_path(@project),
+          params: { project: { sharing_allowed: false } },
+          as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal false, body["sharing_allowed"]
+    assert_not @project.reload.sharing_allowed?
+  end
+
+  test "disabling sharing_allowed does not delete thread share config" do
+    genesis = @project.genesis_thread
+    genesis.activate_share!(share_public_name: "Public Genesis")
+
+    patch project_path(@project),
+          params: { project: { sharing_allowed: false } },
+          as: :json
+
+    assert_response :success
+    assert_not @project.reload.sharing_allowed?
+
+    genesis.reload
+    assert genesis.share_defined?
+    assert genesis.share_state_enabled?
+    assert_equal "Public Genesis", genesis.share_public_name
+  end
+
+  test "settings lists share_defined threads when sharing enabled" do
+    genesis = @project.genesis_thread
+    genesis.activate_share!(share_public_name: "Public Genesis")
+
+    get settings_project_path(@project), headers: { "Turbo-Frame" => "project_settings_modal" }
+    assert_response :success
+    assert_select ".project-settings-sharing-section"
+    assert_select "[data-project-sharing-target='sharesList']:not([hidden])"
+    assert_select ".project-share-card", count: 1
+    assert_select "[data-controller='project-share-card-menu']"
+    assert_select "a[aria-label='Open share in new tab']"
+    assert_match(/Public Genesis/, response.body)
+  end
+
+  test "settings share card shows thread breadcrumb for branched share" do
+    genesis = @project.genesis_thread
+    child = create_settings_child_thread(parent: genesis, title: "Branch Share")
+    child.activate_share!(share_public_name: "Public Branch")
+
+    get settings_project_path(@project), headers: { "Turbo-Frame" => "project_settings_modal" }
+    assert_response :success
+    assert_select ".project-share-card-breadcrumb"
+    assert_match(/Branch Share/, response.body)
+    assert_match(/Public Branch/, response.body)
+  end
+
+  test "settings hides shares list when sharing disabled" do
+    genesis = @project.genesis_thread
+    genesis.activate_share!(share_public_name: "Public Genesis")
+    @project.update!(sharing_allowed: false)
+
+    get settings_project_path(@project), headers: { "Turbo-Frame" => "project_settings_modal" }
+    assert_response :success
+    assert_select "[data-project-sharing-target='sharesList'][hidden]"
+    assert_match(/Public Genesis/, response.body)
+  end
+
   test "destroy removes project with taxonomy terms and sequence assignments" do
     taxonomy = @project.taxonomies.create!(name: "Status", cardinality: :one, position: 1)
     term = taxonomy.taxonomy_terms.create!(label: "Open", position: 1)
@@ -189,5 +260,48 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_redirected_to projects_path
+  end
+
+  private
+
+  def create_settings_child_thread(parent:, title: "Branch")
+    anchor = @project.sequences.create!(
+      kind: :sequence,
+      title: "Anchor #{title}",
+      intent: "g",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "x" }],
+      is_term: false
+    )
+    parent.update!(steps_data: [{ "sequence_id" => anchor.id }])
+
+    child_strand_seq = @project.sequences.create!(
+      kind: :sequence,
+      title: "Strand #{title}",
+      intent: "s",
+      position: @project.sequences.generative_sequences.maximum(:position).to_i + 1,
+      steps_data: [{ "content" => "y" }],
+      is_term: false
+    )
+
+    child = @project.sequences.create!(
+      kind: :thread,
+      title: title,
+      intent: "branch",
+      position: @project.sequences.threads.maximum(:position).to_i + 1,
+      steps_data: [{ "sequence_id" => child_strand_seq.id }],
+      is_term: false,
+      is_genesis: false,
+      is_orphans: false
+    )
+
+    ThreadNode.create!(
+      parent_thread_id: parent.id,
+      parent_generative_sequence_id: anchor.id,
+      child_thread_id: child.id,
+      child_order: 1
+    )
+
+    child
   end
 end

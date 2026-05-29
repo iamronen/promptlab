@@ -66,7 +66,7 @@
             role="menuitem"
             class="workspace-thread-panel-title-menu-item"
             data-action="workspace-thread-panel-title#menuItemActivate click->thread-workspace#movePanelLeft"
-            data-thread-workspace-thread-id-param="<%= thread.id %>"
+            data-thread-workspace-thread-id-param="<%= thread.public_id %>"
           >
             Left
           </button>
@@ -75,12 +75,23 @@
             role="menuitem"
             class="workspace-thread-panel-title-menu-item"
             data-action="workspace-thread-panel-title#menuItemActivate click->thread-workspace#movePanelRight"
-            data-thread-workspace-thread-id-param="<%= thread.id %>"
+            data-thread-workspace-thread-id-param="<%= thread.public_id %>"
           >
             Right
           </button>
         </div>
       </div>
+      <% if project.sharing_allowed? || thread.share_defined? %>
+        <hr class="workspace-thread-panel-title-menu-sep" role="separator" aria-hidden="true" />
+        <button
+          type="button"
+          role="menuitem"
+          class="workspace-thread-panel-title-menu-item"
+          data-thread-share-open="<%= thread.public_id %>"
+        >
+          Share
+        </button>
+      <% end %>
       <% unless thread.is_genesis? || thread.is_orphans? %>
         <hr class="workspace-thread-panel-title-menu-sep" role="separator" aria-hidden="true" />
         <% if has_strand_content %>
@@ -151,7 +162,7 @@
                  thread: thread,
                  project: project,
                  panel_owner_thread: panel_owner_thread,
-                 nav_mode: :stimulus %>
+                 nav_mode: (workspace_fabric? ? :fabric_link : :stimulus) %>
     </h2>
   <% else %>
     <h2

@@ -3,6 +3,7 @@
 class ProcessCardDetailsController < ApplicationController
   include ProjectNested
   include WorkspaceSidebarData
+  include SequencePublicIdLookup
 
   before_action :set_project
   before_action :set_artifact
@@ -27,7 +28,7 @@ class ProcessCardDetailsController < ApplicationController
   private
 
   def set_artifact
-    record = @project.sequences.find(params[:id])
+    record = find_project_sequence_by_public_id!(@project.sequences, params[:id])
     raise ActiveRecord::RecordNotFound unless record.sequence? || record.bundle?
 
     @artifact = record
@@ -51,7 +52,7 @@ class ProcessCardDetailsController < ApplicationController
   end
 
   def fabric_breadcrumb_thread_path(thread)
-    base = { weave_thread: thread.id }
+    base = { weave_thread: thread.public_id }
     if @artifact.bundle?
       edit_project_bundle_path(@project, @artifact, **base)
     else
@@ -60,11 +61,11 @@ class ProcessCardDetailsController < ApplicationController
   end
 
   def fabric_open_artifact_path(artifact, host_thread)
-    base = { weave_thread: host_thread.id }
+    base = { weave_thread: host_thread.public_id }
     if artifact.bundle?
-      edit_project_bundle_path(@project, artifact, **base, focus_bundle_id: artifact.id)
+      edit_project_bundle_path(@project, artifact, **base, focus_bundle_id: artifact.public_id)
     else
-      edit_project_sequence_path(@project, artifact, **base, focus_transformation_id: artifact.id)
+      edit_project_sequence_path(@project, artifact, **base, focus_transformation_id: artifact.public_id)
     end
   end
 end

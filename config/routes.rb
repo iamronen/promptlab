@@ -10,6 +10,8 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  get "s/:id", to: "public_shares#show", as: :public_share
+
   resources :projects, only: %i[index new create update destroy] do
     member do
       get :open
@@ -17,6 +19,7 @@ Rails.application.routes.draw do
       get :export_pdf
     end
     resources :sequences, only: %i[edit update create destroy] do
+      resource :share, only: %i[show update destroy], controller: "sequence_shares"
       resource :taxonomy_assignments, only: %i[show update], controller: "sequence_taxonomy_assignments"
       member do
         post :duplicate

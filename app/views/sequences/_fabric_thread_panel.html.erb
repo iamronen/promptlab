@@ -1,0 +1,18 @@
+<%# locals: panel_thread:, embed_query:, editor_return_path:, selected_weave_thread_id:, workspace_thread_scope_hash: (optional) %>
+<%= turbo_frame_tag "fabric_thread_panel",
+                      class: "workspace-fabric-thread-strip flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                      data: { thread_workspace_target: "strip" } do %>
+  <% if panel_thread %>
+    <% scope_h = local_assigns.fetch(:workspace_thread_scope_hash) { workspace_thread_scope_params } %>
+    <%= render "sequences/workspace_thread_panel_column",
+               panel_thread: panel_thread,
+               embed_query: embed_query,
+               editor_return_path: editor_return_path,
+               selected_weave_thread_id: selected_weave_thread_id,
+               workspace_thread_scope_hash: scope_h %>
+  <% else %>
+    <div class="workspace-fabric-thread-panel-empty prompt-fabric-thread-panel-empty">
+      <p>Select a thread to view its strand</p>
+    </div>
+  <% end %>
+<% end %>

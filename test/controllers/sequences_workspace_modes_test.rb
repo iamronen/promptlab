@@ -77,9 +77,9 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select ".fabric-thread-tree.fabric-thread-tree--explorer"
     assert_select "details.fabric-tree-node-thread[open]", count: 1
     assert_select "details.fabric-tree-node-thread:not([open])", count: 0
-    assert_select "button.fabric-tree-thread-select[data-action*='weave-panel#select']", minimum: 2
-    assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{genesis.id}']", text: "Open"
-    assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{child.id}']", text: "Open"
+    assert_select "a.fabric-tree-thread-select[href*='weave_thread=']", minimum: 2
+    assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{genesis.public_id}']", text: "Open"
+    assert_select "a.fabric-thread-menu-open[href*='weave_thread=#{child.public_id}']", text: "Open"
     assert_select ".fabric-thread-tree[data-controller='weave-panel']", count: 1
     assert_select "*[data-controller~='thread-workspace'][data-thread-workspace-fabric-mode-value='true']"
     assert_select "[data-thread-panel-id]", count: 0
@@ -109,13 +109,54 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
       child_order: 1
     )
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
-    assert_select "[data-thread-panel-id='#{genesis.id}']", count: 1
+    assert_select "[data-thread-panel-id='#{genesis.public_id}']", count: 1
     assert_select ".workspace-thread-panel-index-pane"
     assert_select ".workspace-thread-panel-editor-pane"
-    assert_select "button.fabric-tree-thread-select.is-selected[data-thread-id='#{genesis.id}']", count: 1
+    assert_select "a.fabric-tree-thread-select.is-selected[data-thread-id='#{genesis.public_id}']", count: 1
     assert_select ".workspace-fabric-thread-panel-empty", count: 0
+  end
+
+  test "fabric thread panel turbo frame request returns panel only" do
+    genesis = @project.genesis_thread
+    genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
+
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id),
+        headers: { "Turbo-Frame" => "fabric_thread_panel" }
+    assert_response :success
+    assert_select "turbo-frame#fabric_thread_panel.workspace-fabric-thread-strip", count: 1
+    assert_select "[data-thread-panel-id='#{genesis.public_id}']", count: 1
+    assert_select ".workspace-fabric-hierarchy", count: 0
+    assert_select ".workspace-fabric-layout", count: 0
+  end
+
+  test "fabric hierarchy links target fabric thread panel turbo frame" do
+    genesis = @project.genesis_thread
+    genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
+
+    child = @project.sequences.create!(
+      kind: :thread,
+      title: "Branch strand",
+      intent: Sequence::THREAD_DEFAULT_INTENT,
+      position: @project.sequences.maximum(:position).to_i + 1,
+      steps_data: [],
+      is_genesis: false,
+      is_orphans: false,
+      is_term: false
+    )
+    ThreadNode.create!(
+      parent_thread_id: genesis.id,
+      parent_bundle_id: nil,
+      parent_generative_sequence_id: @seq.id,
+      child_thread_id: child.id,
+      child_order: 1
+    )
+
+    get edit_project_sequence_path(@project, @seq)
+    assert_response :success
+    assert_select "a.fabric-tree-thread-select[data-turbo-frame='fabric_thread_panel']", minimum: 2
+    assert_select "a.fabric-thread-menu-open[data-turbo-frame='fabric_thread_panel']", minimum: 2
   end
 
   test "bundle edit renders fabric layout" do
@@ -151,7 +192,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     )
     genesis.update!(steps_data: [{ "bundle_id" => bundle.id }])
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
     assert_select ".workspace-thread-panel-toolbar"
     assert_select ".workspace-thread-panel-header .workspace-thread-panel-browse-controls", count: 0
@@ -185,7 +226,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
       child_order: 1
     )
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
     assert_select ".thread-branch-strand-bridge-band", count: 1
     assert_select ".thread-branch-strand-bridge-band .sequence-thread-indicator", count: 1
@@ -208,7 +249,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     )
     genesis.update!(steps_data: [{ "bundle_id" => bundle.id }])
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
     assert_select ".workspace-thread-panel-editor-stack turbo-frame#thread_editor_bundle_#{bundle.id}"
   end
@@ -225,7 +266,7 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     )
     genesis.update!(steps_data: [{ "bundle_id" => bundle.id }])
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
     assert_select ".workspace-thread-bundle-pipeline-index[data-controller*='bundle-pipeline-index']"
     assert_select "li.workspace-thread-bundle-pipeline-item[data-pipeline-sequence-id='#{@seq.id}']"
@@ -284,14 +325,14 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     )
 
     frame_id = "thread_editor_bundle_#{bundle.id}"
-    get edit_project_bundle_path(@project, bundle, weave_thread: genesis.id),
+    get edit_project_bundle_path(@project, bundle, weave_thread: genesis.public_id),
         headers: { "Turbo-Frame" => frame_id }
 
     assert_response :success
     assert_select ".workspace-thread-editor-step-badge.bundle-pipeline-thread-child-strand-badge", text: "3.1"
     assert_select "span.bundle-thread-child-sequence-index", count: 0
     assert_select ".step-order-rail--thread-handle.prompt-thread-bundle-order-rail"
-    assert_select ".thread-embed-sequence-step-drag-handle[data-action*='openThreadEmbedStepMenu']"
+    assert_select ".thread-embed-sequence-step-drag-handle[data-action*='toggleThreadEmbedStepHandleMenu']"
     assert_select ".nested-sequence-editor .step-order-rail--thread-handle.prompt-thread-step-handle-rail"
     assert_select "button[data-action='sequence-editor#copyPipelineChildAsText']", text: "Copy as text"
   end
@@ -454,9 +495,9 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     genesis = @project.genesis_thread
     genesis.update!(steps_data: [{ "sequence_id" => @seq.id }])
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     assert_response :success
-    assert_select "[data-thread-panel-id='#{genesis.id}'] .workspace-thread-panel-title-breadcrumb", count: 0
+    assert_select "[data-thread-panel-id='#{genesis.public_id}'] .workspace-thread-panel-title-breadcrumb", count: 0
   end
 
   test "non-genesis workspace panel renders lineage breadcrumb with thread-workspace ancestor actions" do
@@ -499,20 +540,19 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     )
     child.update!(steps_data: [{ "sequence_id" => branch_seq.id }])
 
-    get edit_project_sequence_path(@project, @seq, weave_thread: child.id)
+    get edit_project_sequence_path(@project, @seq, weave_thread: child.public_id)
     assert_response :success
 
-    assert_select "[data-thread-panel-id='#{child.id}'] nav.workspace-thread-panel-title-breadcrumb", count: 1
-    assert_select "[data-thread-panel-id='#{child.id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 0
+    assert_select "[data-thread-panel-id='#{child.public_id}'] nav.workspace-thread-panel-title-breadcrumb", count: 1
+    assert_select "[data-thread-panel-id='#{child.public_id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 0
 
     assert_select(
-      "[data-thread-panel-id='#{child.id}'] button[data-action*='thread-workspace#focusOrOpenAncestorFromBreadcrumb']" \
-      "[data-thread-workspace-ancestor-id-param='#{genesis.id}'][data-thread-workspace-panel-owner-id-param='#{child.id}']",
+      "[data-thread-panel-id='#{child.public_id}'] a.workspace-thread-panel-title-breadcrumb-ancestor[href*='weave_thread=#{genesis.public_id}']",
       text: genesis.title,
       count: 1
     )
 
-    assert_select "[data-thread-panel-id='#{child.id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
+    assert_select "[data-thread-panel-id='#{child.public_id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
                   text: child.title,
                   count: 1
   end
@@ -530,14 +570,14 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     get edit_project_sequence_path(
       @project,
       @seq,
-      weave_thread: leaf.id
+      weave_thread: leaf.public_id
     )
     assert_response :success
 
-    assert_select "[data-thread-panel-id='#{leaf.id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 0
-    assert_select "[data-thread-panel-id='#{leaf.id}'] button[data-action*='thread-workspace#focusOrOpenAncestorFromBreadcrumb']",
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 0
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] a.workspace-thread-panel-title-breadcrumb-ancestor[href*='weave_thread=']",
                   count: 3
-    assert_select "[data-thread-panel-id='#{leaf.id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
                   text: leaf.title,
                   count: 1
   end
@@ -559,14 +599,14 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     get edit_project_sequence_path(
       @project,
       @seq,
-      weave_thread: leaf.id
+      weave_thread: leaf.public_id
     )
     assert_response :success
 
-    assert_select "[data-thread-panel-id='#{leaf.id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 1
-    assert_select "[data-thread-panel-id='#{leaf.id}'] button[data-action*='thread-workspace#focusOrOpenAncestorFromBreadcrumb']",
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] .workspace-thread-panel-title-breadcrumb-ellipsis", count: 1
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] a.workspace-thread-panel-title-breadcrumb-ancestor[href*='weave_thread=']",
                   count: 4
-    assert_select "[data-thread-panel-id='#{leaf.id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
+    assert_select "[data-thread-panel-id='#{leaf.public_id}'] span[data-workspace-thread-panel-title-target=currentTitle]",
                   text: leaf.title,
                   count: 1
   end
@@ -574,14 +614,14 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
   test "open project redirects to sequence editor with genesis weave thread" do
     genesis = @project.genesis_thread
     get open_project_path(@project)
-    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     refute_match(/workspace_shell/, @response.redirect_url)
   end
 
   test "open project ignores stale workspace_shell query param" do
     genesis = @project.genesis_thread
     get open_project_path(@project, workspace_shell: "v2")
-    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: genesis.id)
+    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: genesis.public_id)
     refute_match(/workspace_shell/, @response.redirect_url)
   end
 
@@ -608,6 +648,9 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     assert_select ".workspace-settings-panel"
     assert_select ".project-settings-panel-body"
     assert_select "h2", text: "Mode project"
+    assert_select ".project-settings-sharing-section"
+    assert_select "input[role='switch'].project-sharing-switch__input[data-project-sharing-target='toggle']"
+    assert_select ".project-share-card", count: 0
     assert_select "[role='group'][aria-label='Project tool mode'] a[aria-current='page'][aria-label='Project settings']"
   end
 
@@ -743,11 +786,11 @@ class SequencesWorkspaceModesTest < ActionDispatch::IntegrationTest
     get edit_project_bundle_path(@project, bundle, workspace_mode: "making")
     assert_response :success
     assert_select ".workspace-process-board"
-    assert_select "button.workspace-process-task-card[data-process-card-modal-url*='#{bundle.id}']", text: /Ship bundle/
+    assert_select "button.workspace-process-task-card[data-process-card-modal-url*='#{bundle.public_id}']", text: /Ship bundle/
     assert_select "a.workspace-process-task-card", count: 0
     assert_select ".tool-part-header", text: /Doing/ do |headers|
       column = headers.first.ancestors(".workspace-process-column").first
-      assert column.at_css("button.workspace-process-task-card[data-process-card-modal-url*='#{bundle.id}']")
+      assert column.at_css("button.workspace-process-task-card[data-process-card-modal-url*='#{bundle.public_id}']")
     end
   end
 

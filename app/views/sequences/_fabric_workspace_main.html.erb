@@ -1,14 +1,14 @@
 <% editor_return_path = request.fullpath %>
 <% q_keep = request.query_parameters.slice("weave_thread", "thread_partner", "open_threads", "sidebar", "focus_bundle_id", "focus_transformation_id", "workspace_mode", "workspace_shell").symbolize_keys %>
 <% embed_query = q_keep.except(:focus_bundle_id, :focus_transformation_id) %>
-<% allowed_thread_ids = @project.sequences.threads.pluck(:id) %>
+<% allowed_thread_ids = @project.sequences.threads.pluck(:public_id) %>
 <% panel_thread = fabric_panel_thread %>
 <% fabric_selected_id = fabric_selected_weave_thread_id %>
 <main
   class="workspace-fabric prompt-fabric-main"
   aria-label="Fabric"
   data-controller="thread-workspace thread-fork-modal"
-  data-thread-workspace-project-id-value="<%= @project.id %>"
+  data-thread-workspace-project-id-value="<%= @project.public_id %>"
   data-thread-workspace-allowed-ids-value="<%= allowed_thread_ids.to_json %>"
   data-thread-workspace-focus-id-value="<%= fabric_selected_id %>"
   data-thread-workspace-fabric-mode-value="true"
@@ -39,7 +39,8 @@
                            branch: branch,
                            top_level: true,
                            selected_id: fabric_selected_id %>
-              <% end %>
+              </li>
+            <% end %>
             </ul>
           <% end %>
         </div>
@@ -57,25 +58,12 @@
         "
       ></button>
       <section class="workspace-fabric-thread-panel prompt-fabric-thread-panel" aria-label="Thread panel">
-        <div
-          id="workspace-fabric-thread-strip"
-          class="workspace-fabric-thread-strip flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-          data-thread-workspace-target="strip"
-        >
-          <% if panel_thread %>
-            <% scope_h = workspace_thread_scope_params %>
-            <%= render "sequences/workspace_thread_panel_column",
-                       panel_thread: panel_thread,
-                       embed_query: embed_query,
-                       editor_return_path: editor_return_path,
-                       selected_weave_thread_id: fabric_selected_id,
-                       workspace_thread_scope_hash: scope_h %>
-          <% else %>
-            <div class="workspace-fabric-thread-panel-empty prompt-fabric-thread-panel-empty">
-              <p>Select a thread to view its strand</p>
-            </div>
-          <% end %>
-        </div>
+        <%= render "sequences/fabric_thread_panel",
+                   panel_thread: panel_thread,
+                   embed_query: embed_query,
+                   editor_return_path: editor_return_path,
+                   selected_weave_thread_id: fabric_selected_id,
+                   workspace_thread_scope_hash: workspace_thread_scope_params %>
       </section>
       <button
         type="button"
@@ -92,4 +80,5 @@
       <%= render "sequences/fabric_assistant_panel" %>
     </div>
   <%= render "sequences/thread_fork_modal" %>
+  <%= render "sequences/thread_share_mount", project: @project %>
 </main>

@@ -47,9 +47,9 @@ export default class extends Controller {
     nested: { type: Boolean, default: false },
     nestedFieldPrefix: { type: String, default: "" },
     pipelineCreateSequenceUrl: { type: String, default: "" },
-    bundleId: { type: Number, default: 0 },
-    unbundleProjectId: { type: Number, default: 0 },
-    unbundleThreadId: { type: Number, default: 0 }
+    bundleId: { type: String, default: "" },
+    unbundleProjectId: { type: String, default: "" },
+    unbundleThreadId: { type: String, default: "" }
   }
 
   connect() {
@@ -59,6 +59,7 @@ export default class extends Controller {
     this.activeCard = null
     this.sequenceStepDragActiveMarkedRow = null
     this.suppressThreadEmbedHandleClick = false
+    this.dragArmButton = null
     this.stepDragMoved = false
     this.boundStepMouseMove = this.onStepMouseMove.bind(this)
     this.boundStepMouseUp = this.onStepMouseUp.bind(this)
@@ -424,10 +425,7 @@ export default class extends Controller {
   }
 
   openThreadEmbedStepMenu(event) {
-    if (this.readonlyBlocksStructure()) return
     event.preventDefault()
-    event.stopPropagation()
-    this.showThreadEmbedStepHandleMenu(event.currentTarget)
   }
 
   threadHandleMenuKeydown(event) {
@@ -444,8 +442,12 @@ export default class extends Controller {
     if (this.suppressThreadEmbedHandleClick) return
     event.preventDefault()
     event.stopPropagation()
-    const button = event.currentTarget
-    if (!button.matches?.(".thread-embed-sequence-step-drag-handle")) return
+    event.stopImmediatePropagation()
+    this.toggleThreadEmbedStepHandleMenuFromButton(event.currentTarget)
+  }
+
+  toggleThreadEmbedStepHandleMenuFromButton(button) {
+    if (!button?.matches?.(".thread-embed-sequence-step-drag-handle")) return
     const wrap = button.closest(".thread-step-handle-wrap")
     const menu = wrap?.querySelector(".step-menu--thread-handle[data-sequence-editor-target=\"menu\"]")
     if (!menu) return
@@ -489,7 +491,7 @@ export default class extends Controller {
 
     const pipelineRow = event.currentTarget.closest('[data-editor-kind="bundle_pipeline_slot"]')
     const sequenceIdRaw = pipelineRow?.dataset?.bundlePipelineSeqId || pipelineRow?.getAttribute("data-bundle-pipeline-seq-id")
-    const sequenceId = sequenceIdRaw ? parseInt(String(sequenceIdRaw), 10) : 0
+    const sequenceId = sequenceIdRaw ? String(sequenceIdRaw).trim() : ""
 
     if (
       !sequenceId ||
@@ -516,8 +518,8 @@ export default class extends Controller {
       return
     }
     fd.append("authenticity_token", token)
-    fd.append("bundle_id", String(this.bundleIdValue))
-    fd.append("sequence_id", String(sequenceId))
+    fd.append("bundle_id", this.bundleIdValue)
+    fd.append("sequence_id", sequenceId)
     fd.append("redirect_to", redirectTo)
     if (weaveThread) fd.append("weave_thread", weaveThread)
 
@@ -553,7 +555,10 @@ export default class extends Controller {
   }
 
   handleOutsideClick(event) {
-    if (event.target.closest(".step-menu-wrap")) return
+    if (event.target.closest(".thread-embed-sequence-step-drag-handle")) return
+    const inMenuWrap = !!event.target.closest(".step-menu-wrap")
+    const inHandleWrap = !!event.target.closest(".thread-step-handle-wrap")
+    if (inMenuWrap || inHandleWrap) return
     if (event.target.closest(".sequence-nav-menu-wrap")) return
     this.closeAllMenus()
 
@@ -1036,6 +1041,7 @@ export default class extends Controller {
     this.stepDragMoved = false
     this.dragArmedCard = null
     this.draggedCard = null
+    this.dragArmButton = null
     this.dragCardSiblingsOrder = null
     this.clearDropIndicator()
   }
@@ -1094,6 +1100,7 @@ export default class extends Controller {
     this.stepDragMoved = false
     this.dragArmedCard = null
     this.draggedCard = null
+    this.dragArmButton = null
     this.dragCardSiblingsOrder = null
   }
 
@@ -1106,6 +1113,7 @@ export default class extends Controller {
 
     this.teardownStepPointerDrag()
     this.dragArmedCard = card
+    this.dragArmButton = event.currentTarget
     this.stepDragStartY = event.clientY
     this.stepDragMoved = false
 

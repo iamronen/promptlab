@@ -48,6 +48,96 @@ function detachStrayHeaderBlockers(root) {
   root._threadPanelStrayBlockersAttached = false
 }
 
+/** @param {Element | null | undefined} el */
+export function editorStackScrollContainerFrom(el) {
+  return el?.closest?.(".workspace-thread-panel-editor-stack") ?? null
+}
+
+/**
+ * Scroll el vertically within container without scrollIntoView (avoids scrolling the page / wrong clipper).
+ * @param {Element | null | undefined} el
+ * @param {Element | null | undefined} container
+ * @param {{ padding?: number, behavior?: ScrollBehavior }} [options]
+ * @returns {boolean}
+ */
+export function scrollElementIntoVerticalContainer(el, container, options = {}) {
+  if (!(el instanceof Element) || !(container instanceof Element)) return false
+
+  const pad = options.padding ?? 8
+  const behavior = options.behavior ?? "smooth"
+  const containerRect = container.getBoundingClientRect()
+  const elementRect = el.getBoundingClientRect()
+
+  if (containerRect.height <= 0) return false
+
+  let nextScrollTop = container.scrollTop
+
+  if (elementRect.top < containerRect.top + pad) {
+    nextScrollTop += elementRect.top - containerRect.top - pad
+  } else if (elementRect.bottom > containerRect.bottom - pad) {
+    nextScrollTop += elementRect.bottom - containerRect.bottom + pad
+  } else {
+    return false
+  }
+
+  const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+  nextScrollTop = Math.max(0, Math.min(nextScrollTop, maxScroll))
+
+  if (Math.abs(nextScrollTop - container.scrollTop) < 1) return false
+
+  container.scrollTo({ top: nextScrollTop, behavior })
+  return true
+}
+
+/** @param {Element | null | undefined} el @param {{ padding?: number, behavior?: ScrollBehavior }} [options] */
+export function scrollIntoEditorStack(el, options = {}) {
+  const stack = editorStackScrollContainerFrom(el)
+  if (!stack || !el) return false
+  return scrollElementIntoVerticalContainer(el, stack, options)
+}
+
+/**
+ * @param {Element | null | undefined} root
+ * @param {string | null | undefined} stepKey
+ */
+export function editorChildForStrandStep(root, stepKey) {
+  if (!root || !stepKey) return null
+  return root.querySelector(`.workspace-thread-editor-child[data-strand-step="${CSS.escape(stepKey)}"]`)
+}
+
+/**
+ * @param {Element | null | undefined} root
+ * @param {string | null | undefined} stepKey
+ */
+export function editorFrameForStrandStep(root, stepKey) {
+  const child = editorChildForStrandStep(root, stepKey)
+  if (!child) return null
+  return child.querySelector(
+    "turbo-frame.workspace-thread-panel-editor-frame, turbo-frame[id^='thread_editor_']"
+  )
+}
+
+/** @param {Element | null | undefined} frame */
+export function sequenceInnerIdForEditorFrame(frame) {
+  const inner = frame?.querySelector("[id^='thread_editor_sequence_inner_']")
+  return inner?.id ?? null
+}
+
+/**
+ * @param {Element | null | undefined} root
+ * @param {{ stepKey?: string | null, frameId?: string | null }} ids
+ */
+export function resolveEditorFrame(root, { stepKey = null, frameId = null } = {}) {
+  if (stepKey) {
+    const byStep = editorFrameForStrandStep(root, stepKey)
+    if (byStep) return byStep
+  }
+  if (frameId) {
+    return root?.querySelector(`#${CSS.escape(frameId)}`) ?? document.getElementById(frameId)
+  }
+  return null
+}
+
 /** @param {string | undefined} stepKey */
 export function strandStepToFrameId(stepKey) {
   if (!stepKey) return null
@@ -169,8 +259,8 @@ export function syncEditorStackOrderFromStrandList(listEl) {
 /** @param {HTMLElement | null} frameEl */
 export function scrollThreadEditorFrameIntoStack(frameEl) {
   if (!frameEl) return
-  const wrapper = frameEl.closest(".workspace-thread-editor-child")
-  ;(wrapper || frameEl).scrollIntoView({ block: "nearest", behavior: "smooth" })
+  const wrapper = frameEl.closest(".workspace-thread-editor-child") || frameEl
+  scrollIntoEditorStack(wrapper)
 }
 
 /**
@@ -220,10 +310,11 @@ export function scrollBundlePipelineRowIntoView(bundleId, pipelineSequenceId, li
   if (!pipelineSequenceId) return
   const bid = String(bundleId)
   const id = `thread-bundle-${bid}-seq-${pipelineSequenceId}`
-  const frameId = `thread_editor_bundle_${bid}`
   const root = listEl?.closest?.(".workspace-thread-panel-root")
   const frame =
-    (root?.querySelector(`#${CSS.escape(frameId)}`) ?? document.getElementById(frameId)) ?? null
+    resolveEditorFrame(root, { frameId: `thread_editor_bundle_${bid}` }) ??
+    document.getElementById(`thread_editor_bundle_${bid}`)
   const inner = frame?.querySelector(`#${CSS.escape(id)}`)
-  inner?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+  if (!inner) return
+  scrollIntoEditorStack(inner)
 }

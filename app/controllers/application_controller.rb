@@ -32,6 +32,6 @@ class ApplicationController < ActionController::Base
     return false if s.blank? || !s.start_with?("/") || s.include?("..")
     return false unless defined?(@project) && @project
 
-    s.match?(%r{\A/projects/#{Regexp.escape(@project.id.to_s)}(?:/|\z)})
+    s.match?(%r{\A/projects/#{Regexp.escape(@project.public_id)}(?:/|\z)})
   end
 end

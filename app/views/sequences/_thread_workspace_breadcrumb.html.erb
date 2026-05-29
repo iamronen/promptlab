@@ -17,14 +17,15 @@
     <% if seg.id == thread.id %>
       <span
         class="workspace-thread-panel-title-breadcrumb-current<%= " prompt-thread-panel-title" if nav_mode == :stimulus %>"
-        <% if nav_mode == :stimulus %>data-workspace-thread-panel-title-target="currentTitle"<% end %>
+        data-workspace-thread-panel-title-target="currentTitle"
       ><%= seg.title %></span>
     <% elsif nav_mode == :fabric_link %>
       <% ancestor_thread = project.sequences.threads.find_by(id: seg.id) %>
       <% if ancestor_thread %>
         <%= link_to seg.title,
                     fabric_breadcrumb_thread_path(ancestor_thread),
-                    class: "workspace-thread-panel-title-breadcrumb-ancestor no-underline" %>
+                    class: "workspace-thread-panel-title-breadcrumb-ancestor no-underline",
+                    data: fabric_thread_panel_turbo_frame_data %>
       <% else %>
         <span class="workspace-thread-panel-title-breadcrumb-ancestor"><%= seg.title %></span>
       <% end %>
@@ -33,8 +34,8 @@
         type="button"
         class="workspace-thread-panel-title-breadcrumb-ancestor"
         data-action="click->thread-workspace#focusOrOpenAncestorFromBreadcrumb"
-        data-thread-workspace-ancestor-id-param="<%= seg.id %>"
-        data-thread-workspace-panel-owner-id-param="<%= panel_owner_thread.id %>"
+        data-thread-workspace-ancestor-id-param="<%= seg.public_id %>"
+        data-thread-workspace-panel-owner-id-param="<%= panel_owner_thread.public_id %>"
       >
         <%= seg.title %>
       </button>

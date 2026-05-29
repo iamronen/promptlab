@@ -3,16 +3,14 @@
   <div class="step-menu-wrap thread-step-handle-wrap" data-sequence-editor-target="menuWrap">
     <button
       type="button"
+      draggable="false"
       class="workspace-thread-tf-order-btn workspace-thread-tf-drag-handle thread-embed-sequence-step-drag-handle"
       title="Sequence actions · drag to reorder"
-      aria-label="Sequence actions. Click for menu, or drag to reorder."
+      aria-label="Sequence actions. Click for menu."
       aria-haspopup="true"
       aria-expanded="false"
       data-action="
-        mousedown->sequence-editor#armDrag
-        mouseup->sequence-editor#disarmDrag
         keydown->sequence-editor#threadHandleMenuKeydown
-        contextmenu->sequence-editor#openThreadEmbedStepMenu
         click->sequence-editor#toggleThreadEmbedStepHandleMenu
       "
     >
@@ -57,7 +55,7 @@
       <% if strand_thread.present? && anchor_sequence.present? %>
         <% attach_candidates =
              strand_thread.attach_branch_thread_menu_candidates(
-               anchor_sequence_id: anchor_sequence.id,
+               anchor_sequence_id: anchor_sequence.public_id,
                anchor_bundle_id: attach_bundle_id
              ) %>
         <% if attach_candidates.any? %>
@@ -65,7 +63,7 @@
                      candidates: attach_candidates,
                      variant: :embed,
                      target_parent_thread: strand_thread,
-                     anchor_sequence_id: anchor_sequence.id,
+                     anchor_sequence_id: anchor_sequence.public_id,
                      anchor_bundle_id: attach_bundle_id,
                      editor_return_path: attach_editor_return_path,
                      scope_params: workspace_thread_scope_params %>

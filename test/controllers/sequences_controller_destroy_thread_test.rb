@@ -21,9 +21,9 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
   test "destroy fork thread removes thread and rewires weave query" do
     child = fork_thread_under_anchor(@seq.id)
 
-    open_threads = "#{@genesis.id},#{child.id}"
+    open_threads = "#{@genesis.public_id},#{child.public_id}"
     rt = "#{edit_project_sequence_path(@project, @seq)}?#{{
-      weave_thread: child.id.to_s,
+      weave_thread: child.public_id.to_s,
       open_threads: open_threads
     }.to_query}"
 
@@ -31,7 +31,7 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
       delete project_sequence_path(@project, child),
              params: {
                redirect_to: rt,
-               weave_thread: child.id,
+               weave_thread: child.public_id,
                open_threads: open_threads
              }
     end
@@ -40,9 +40,9 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
     uri = URI.parse(@response.redirect_url)
     q = Rack::Utils.parse_nested_query(uri.query.to_s)
 
-    expected_open = ([@genesis.id].map(&:to_s))
+    expected_open = [@genesis.public_id]
     assert_equal expected_open.sort, q["open_threads"].to_s.split(",").map(&:strip).sort
-    assert_equal @genesis.id.to_s, q["weave_thread"].to_s
+    assert_equal @genesis.public_id, q["weave_thread"].to_s
     assert q["workspace_mode"].blank?, "fabric mode omitted when strips remain"
 
     assert_not @project.sequences.threads.where(id: child.id).exists?
@@ -50,10 +50,10 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
 
   test "destroy last open thread redirects to fabric and clears weave keys" do
     child = fork_thread_under_anchor(@seq.id)
-    ot = "#{child.id}"
+    ot = "#{child.public_id}"
 
     rt = "#{edit_project_sequence_path(@project, @seq)}?#{{
-      weave_thread: child.id.to_s,
+      weave_thread: child.public_id.to_s,
       open_threads: ot
     }.to_query}"
 
@@ -61,7 +61,7 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
       delete project_sequence_path(@project, child),
              params: {
                redirect_to: rt,
-               weave_thread: child.id,
+               weave_thread: child.public_id,
                open_threads: ot
              }
     end
@@ -89,16 +89,16 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
     @genesis.update!(steps_data: [{ "sequence_id" => empty.id }])
 
     rt = "#{edit_project_sequence_path(@project, @seq)}?#{{
-      weave_thread: @genesis.id.to_s,
-      focus_transformation_id: empty.id.to_s
+      weave_thread: @genesis.public_id.to_s,
+      focus_transformation_id: empty.public_id.to_s
     }.to_query}"
 
     assert_difference -> { @project.sequences.generative_sequences.where(id: empty.id).count }, -1 do
       delete project_sequence_path(@project, empty),
              params: {
                redirect_to: rt,
-               weave_thread: @genesis.id,
-               focus_transformation_id: empty.id
+               weave_thread: @genesis.public_id,
+               focus_transformation_id: empty.public_id
              }
     end
 
@@ -107,7 +107,7 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
 
     assert_equal edit_project_sequence_path(@project, @seq), uri.path
     assert q["focus_transformation_id"].blank?, "focus must not point at deleted sequence"
-    assert_equal @genesis.id.to_s, q["weave_thread"].to_s
+    assert_equal @genesis.public_id, q["weave_thread"].to_s
 
     follow_redirect!
     assert_response :success
@@ -126,24 +126,24 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
     @genesis.update!(steps_data: [{ "sequence_id" => solo.id }])
     solo_id = solo.id
 
-    rt = edit_project_sequence_path(@project, solo, weave_thread: @genesis.id)
+    rt = edit_project_sequence_path(@project, solo, weave_thread: @genesis.public_id)
 
     assert_difference -> { @project.sequences.generative_sequences.where(id: solo_id).count }, -1 do
       delete project_sequence_path(@project, solo),
-             params: { redirect_to: rt, weave_thread: @genesis.id }
+             params: { redirect_to: rt, weave_thread: @genesis.public_id }
     end
 
-    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id)
+    assert_redirected_to edit_project_sequence_path(@project, @seq, weave_thread: @genesis.public_id)
     follow_redirect!
     assert_response :success
   end
 
   test "cannot destroy genesis thread" do
-    rt = edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id)
+    rt = edit_project_sequence_path(@project, @seq, weave_thread: @genesis.public_id)
     genesis_id = @genesis.id
 
     assert_no_difference -> { Sequence.count } do
-      delete project_sequence_path(@project, @genesis.id), params: { redirect_to: rt }
+      delete project_sequence_path(@project, @genesis), params: { redirect_to: rt }
     end
 
     assert_response :redirect
@@ -156,13 +156,14 @@ class SequencesControllerDestroyThreadTest < ActionDispatch::IntegrationTest
   private
 
   def fork_thread_under_anchor(generative_anchor_id)
+    anchor = @project.sequences.generative_sequences.find(generative_anchor_id)
     child = nil
     assert_difference -> { @project.sequences.threads.where(is_genesis: false, is_orphans: false).count }, +1 do
       assert_difference -> { ThreadNode.where(parent_thread_id: @genesis.id).count }, +1 do
         post thread_fork_strand_project_sequence_path(@project, @genesis),
              params: {
-               parent_generative_sequence_id: generative_anchor_id,
-               redirect_to: edit_project_sequence_path(@project, @seq, weave_thread: @genesis.id),
+               parent_generative_sequence_id: anchor.public_id,
+               redirect_to: edit_project_sequence_path(@project, @seq, weave_thread: @genesis.public_id),
                thread_title: "Test branch"
              }
       end

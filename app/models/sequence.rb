@@ -9,12 +9,13 @@ class Sequence < ApplicationRecord
 
   THREAD_DEFAULT_TITLE = "Genesis"
   THREAD_DEFAULT_INTENT = "Root strand order for bundles and sequences in this thread."
+  SHARE_PUBLIC_NAME_MAX_LENGTH = 255
   ORPHANS_THREAD_TITLE = "Orphans"
   ORPHANS_THREAD_INTENT = "Secondary thread for sequences without a clear place in the Genesis lineage."
   STRAND_FORK_DEFAULT_TITLE = "Untitled strand"
   UNTITLED_THREAD_BRANCH_TITLE = "Untitled thread"
 
-  MoveToThreadDestinationGroups = Struct.new(:parents, :parallels, :cousins, keyword_init: true)
+  MoveToThreadDestinationGroups = Struct.new(:parents, :parallels, :children, :cousins, keyword_init: true)
 
   belongs_to :project, inverse_of: :sequences
   belongs_to :created_by, class_name: "User", inverse_of: :created_sequences
@@ -40,16 +41,35 @@ class Sequence < ApplicationRecord
   has_one :thread_node_as_child, class_name: "ThreadNode", foreign_key: :child_thread_id, dependent: :destroy,
                                  inverse_of: :child_thread
 
+  has_many :share_inclusions,
+           class_name: "SequenceShareInclusion",
+           foreign_key: :root_sequence_id,
+           dependent: :delete_all,
+           inverse_of: :root_sequence
+  has_many :included_descendant_threads,
+           through: :share_inclusions,
+           source: :included_sequence
+  has_many :share_inclusions_as_included,
+           class_name: "SequenceShareInclusion",
+           foreign_key: :included_sequence_id,
+           dependent: :delete_all,
+           inverse_of: :included_sequence
+
   has_many :taxonomy_assignments, dependent: :destroy
   has_many :taxonomy_assignment_histories, dependent: :destroy
 
   enum :kind, { sequence: "sequence", bundle: "bundle", thread: "thread" }, validate: true
+  # DB value "none" maps to +unset+ — Active Record reserves .none as a relation scope.
+  enum :share_state, { unset: "none", enabled: "enabled", disabled: "disabled" }, validate: true, default: :unset
+  enum :share_scope, { everything: "everything", selected: "selected" }, validate: true, default: :everything, prefix: :share_scope
 
   scope :generative_sequences, -> { where(kind: :sequence) }
   scope :bundles, -> { where(kind: :bundle) }
   scope :threads, -> { where(kind: :thread) }
   scope :genesis_threads, -> { threads.where(is_genesis: true) }
   scope :orphans_threads, -> { threads.where(is_orphans: true) }
+  scope :share_defined, -> { threads.where(share_state: %w[enabled disabled]) }
+  scope :with_share_enabled, -> { threads.where(share_state: "enabled") }
   scope :terms, -> { generative_sequences.where(is_term: true) }
   scope :non_term_sequences, -> { generative_sequences.where(is_term: false) }
   scope :with_any_taxonomy_term_ids, lambda { |term_ids|
@@ -60,8 +80,17 @@ class Sequence < ApplicationRecord
   }
 
   StepRow = Struct.new(:position, :content, keyword_init: true)
-  BundleStepRow = Struct.new(:position, :sequence_id, :title, keyword_init: true)
-  ThreadStepRow = Struct.new(:position, :bundle_id, :sequence_id, :title, keyword_init: true)
+  BundleStepRow = Struct.new(:position, :sequence_id, :sequence_public_id, :title, keyword_init: true)
+  ThreadStepRow = Struct.new(:position, :bundle_id, :sequence_id, :title, :bundle_public_id, :sequence_public_id,
+                             keyword_init: true) do
+    def step_key
+      if bundle_id.present?
+        "b:#{bundle_public_id}"
+      else
+        "s:#{sequence_public_id}"
+      end
+    end
+  end
 
   # Oldest-first thread chain toward Genesis for workspace panel header breadcrumbs (includes Genesis).
   THREAD_WORKSPACE_BREADCRUMB_MAX_VISIBLE = 5
@@ -77,6 +106,7 @@ class Sequence < ApplicationRecord
   end
 
   validates :title, :intent, :position, :created_by, presence: true
+  validates :public_id, presence: true, uniqueness: true
   validates :position, uniqueness: { scope: [:project_id, :kind] }
   validate :steps_data_must_be_array
   validate :bundle_steps_data_valid, if: -> { bundle? }
@@ -86,7 +116,12 @@ class Sequence < ApplicationRecord
   validate :genesis_orphans_mutex
   validate :root_thread_title_immutable, on: :update
   validate :child_thread_must_be_anchored, if: -> { thread? && !new_record? && !is_genesis? && !is_orphans? }
+  validates :share_public_name, length: { maximum: SHARE_PUBLIC_NAME_MAX_LENGTH }, allow_nil: true
+  validate :share_enabled_requires_thread_and_sharing_allowed, if: -> { share_state_enabled? }
 
+  before_validation :assign_public_id, on: :create
+  before_validation :normalize_share_fields_for_kind
+  before_validation :default_share_public_name_when_enabling
   before_validation :assign_created_by, on: :create
   before_validation :clear_term_flag_for_non_generative_kinds
   before_validation :trim_trailing_whitespace_from_text_fields
@@ -102,6 +137,170 @@ class Sequence < ApplicationRecord
   after_save :sync_sequence_step_dependency_rows, if: :should_sync_sequence_step_rows?
   after_save :sync_thread_step_dependency_rows, if: :should_sync_thread_step_rows?
   after_save :sync_parent_bundle_titles_when_first_sequence_renamed, if: :should_sync_parent_bundle_titles_when_first_sequence_renamed?
+
+  def self.generate_public_id
+    loop do
+      candidate = SecureRandom.urlsafe_base64(16)
+      break candidate unless exists?(public_id: candidate)
+    end
+  end
+
+  def self.find_by_public_id!(public_id)
+    find_by!(public_id: public_id.to_s.strip)
+  end
+
+  def to_param
+    public_id
+  end
+
+  def share_defined?
+    share_state_enabled? || share_state_disabled?
+  end
+
+  def share_state_enabled?
+    share_state == "enabled"
+  end
+
+  def share_state_disabled?
+    share_state == "disabled"
+  end
+
+  def share_state_unset?
+    unset? || share_state == "none"
+  end
+
+  def share_public_title
+    share_public_name.presence || title
+  end
+
+  def share_scope_selected?
+    share_scope == "selected"
+  end
+
+  def share_scope_everything?
+    share_scope == "everything"
+  end
+
+  def includes_descendant_thread?(thread)
+    return false unless thread&.thread?
+
+    return true if share_scope_everything? && share_defined? &&
+                   FabricThreadTree.descendant_thread_ids_for(self).include?(thread.id)
+
+    included_descendant_threads.exists?(id: thread.id)
+  end
+
+  # Share root: true when the share exposes at least one descendant thread (tease-only does not count).
+  def share_has_included_descendant_threads?
+    return false unless share_defined?
+
+    if share_scope_everything?
+      FabricThreadTree.descendant_thread_ids_for(self).any?
+    else
+      included_descendant_threads.exists?
+    end
+  end
+
+  # Whether an anonymous reader may view this thread's content under this share root.
+  def share_reader_thread_readable?(thread)
+    return false unless thread&.thread? && share_defined?
+
+    thread.id == id || includes_descendant_thread?(thread)
+  end
+
+  # Direct child threads for public share bottom navigation (scope + tease aware).
+  def share_reader_child_threads_for(parent_thread)
+    return [] unless share_defined? && parent_thread&.thread?
+    return [] unless share_reader_thread_readable?(parent_thread)
+
+    parent_thread.direct_child_threads_ordered.filter_map do |child|
+      readable = share_reader_thread_readable?(child)
+      next if !readable && !share_tease?
+
+      { public_id: child.public_id, title: child.title, readable: readable }
+    end
+  end
+
+  # Ordered direct child threads (public API for share reader and menus).
+  def direct_child_threads_ordered
+    return [] unless thread?
+
+    ordered_child_threads_for_parent(self)
+  end
+
+  def disable_share!
+    update!(share_state: :disabled)
+  end
+
+  def delete_share!
+    transaction do
+      share_inclusions.destroy_all
+      update!(share_state: :unset, share_public_name: nil, share_scope: :everything, share_tease: false)
+    end
+  end
+
+  def define_share!(share_public_name: nil, share_scope: :everything, share_tease: false, included_threads: [], enabled: false)
+    transaction do
+      self.share_public_name = share_public_name.presence || title
+      self.share_scope = share_scope
+      self.share_tease = share_tease
+      self.share_state = enabled && project&.sharing_allowed? ? :enabled : :disabled
+      save!
+      apply_share_inclusions_for_scope!(included_threads)
+    end
+  end
+
+  def update_share_config!(share_public_name:, share_scope:, share_tease:, included_threads:, enabled:)
+    transaction do
+      self.share_public_name = share_public_name.to_s.strip.presence || title
+      self.share_scope = share_scope
+      self.share_tease = share_tease
+      if enabled && project&.sharing_allowed?
+        self.share_state = :enabled unless share_state_enabled?
+      elsif enabled && !project&.sharing_allowed?
+        errors.add(:share_state, "cannot be enabled while project disallows sharing")
+        raise ActiveRecord::RecordInvalid, self
+      elsif !enabled && share_state_enabled?
+        self.share_state = :disabled
+      end
+      save!
+      apply_share_inclusions_for_scope!(included_threads)
+    end
+  end
+
+  def activate_share!(share_public_name: nil, included_threads: [], share_scope: nil, share_tease: nil)
+    transaction do
+      self.share_public_name = share_public_name if share_public_name.present?
+      self.share_scope = resolved_share_scope_for_activation(share_scope, included_threads)
+      self.share_tease = share_tease unless share_tease.nil?
+      self.share_state = :enabled
+      save!
+      apply_share_inclusions_for_scope!(included_threads)
+    end
+  end
+
+  def replace_share_inclusions!(threads)
+    return unless share_defined?
+
+    records = resolve_share_inclusion_threads(threads)
+    validate_share_inclusion_parent_chain!(records)
+    transaction do
+      share_inclusions.destroy_all
+      records.each do |included|
+        share_inclusions.create!(included_sequence: included)
+      end
+    end
+  end
+
+  def apply_share_inclusions_for_scope!(threads)
+    return unless share_defined?
+
+    if share_scope_everything?
+      share_inclusions.destroy_all
+    else
+      replace_share_inclusions!(threads)
+    end
+  end
 
   def in_bundle_pipeline?
     return false unless sequence?
@@ -370,19 +569,20 @@ class Sequence < ApplicationRecord
     out
   end
 
-  # Fabric move menu: parent / parallel / cousin thread groups for the current thread.
+  # Fabric move menu: parent / parallel / child / cousin thread groups for the current thread.
   def move_to_thread_menu_destination_groups
-    return MoveToThreadDestinationGroups.new(parents: [], parallels: [], cousins: []) unless thread?
+    return MoveToThreadDestinationGroups.new(parents: [], parallels: [], children: [], cousins: []) unless thread?
 
     parents = ancestor_threads_for_move_menu
     parallels = parallel_threads_for_move_menu
+    children = child_threads_for_move_menu
     cousins = cousin_threads_for_move_menu(parallels)
-    MoveToThreadDestinationGroups.new(parents: parents, parallels: parallels, cousins: cousins)
+    MoveToThreadDestinationGroups.new(parents: parents, parallels: parallels, children: children, cousins: cousins)
   end
 
   def move_to_thread_menu_destinations_any?
     g = move_to_thread_menu_destination_groups
-    g.parents.any? || g.parallels.any? || g.cousins.any?
+    g.parents.any? || g.parallels.any? || g.children.any? || g.cousins.any?
   end
 
   # Branched threads that can be re-anchored onto +anchor_sequence_id+ (optional +anchor_bundle_id+).
@@ -453,6 +653,12 @@ class Sequence < ApplicationRecord
     return [] unless parent
 
     ordered_child_threads_for_parent(parent).reject { |t| t.id == id }
+  end
+
+  def child_threads_for_move_menu
+    return [] unless thread?
+
+    direct_child_threads_ordered_for_attach_menu.reject { |t| t.id == id }
   end
 
   def cousin_threads_for_move_menu(parallels)
@@ -667,25 +873,40 @@ class Sequence < ApplicationRecord
       BundleStepRow.new(
         position: i + 1,
         sequence_id: sid,
+        sequence_public_id: row&.public_id,
         title: row&.title.to_s
       )
     end
   end
 
   def ordered_thread_steps
+    bundle_ids = strand_step_pairs.filter_map { |kind, ref_id| ref_id if kind == :bundle }
+    sequence_ids = strand_step_pairs.filter_map { |kind, ref_id| ref_id if kind == :sequence }
+    bundles_by_id = project.sequences.bundles.where(id: bundle_ids).index_by(&:id)
+    sequences_by_id = project.sequences.generative_sequences.where(id: sequence_ids).index_by(&:id)
+
     strand_step_pairs.each_with_index.map do |(kind, ref_id), i|
-      title =
-        if kind == :bundle
-          project.sequences.bundles.find_by(id: ref_id)&.title.to_s
-        else
-          project.sequences.generative_sequences.find_by(id: ref_id)&.title.to_s
-        end
-      ThreadStepRow.new(
-        position: i + 1,
-        bundle_id: (kind == :bundle ? ref_id : nil),
-        sequence_id: (kind == :sequence ? ref_id : nil),
-        title: title
-      )
+      if kind == :bundle
+        bundle = bundles_by_id[ref_id]
+        ThreadStepRow.new(
+          position: i + 1,
+          bundle_id: ref_id,
+          sequence_id: nil,
+          title: bundle&.title.to_s,
+          bundle_public_id: bundle&.public_id,
+          sequence_public_id: nil
+        )
+      else
+        sequence = sequences_by_id[ref_id]
+        ThreadStepRow.new(
+          position: i + 1,
+          bundle_id: nil,
+          sequence_id: ref_id,
+          title: sequence&.title.to_s,
+          bundle_public_id: nil,
+          sequence_public_id: sequence&.public_id
+        )
+      end
     end
   end
 
@@ -805,5 +1026,71 @@ class Sequence < ApplicationRecord
 
   def steps_data_must_be_array
     errors.add(:steps_data, "must be an array") unless steps_data.nil? || steps_data.is_a?(Array)
+  end
+
+  def assign_public_id
+    self.public_id = self.class.generate_public_id if public_id.blank?
+  end
+
+  def normalize_share_fields_for_kind
+    return if thread?
+
+    if share_state_enabled? || share_state_disabled?
+      errors.add(:share_state, "may only be set on threads")
+    end
+
+    self.share_state = :unset
+    self.share_public_name = nil
+    self.share_scope = :everything
+    self.share_tease = false
+  end
+
+  def default_share_public_name_when_enabling
+    return unless thread? && share_state_enabled? && share_public_name.blank?
+
+    self.share_public_name = title
+  end
+
+  def share_enabled_requires_thread_and_sharing_allowed
+    unless thread?
+      errors.add(:share_state, "may only be enabled on threads")
+      return
+    end
+
+    return if project&.sharing_allowed?
+
+    errors.add(:share_state, "cannot be enabled while project disallows sharing")
+  end
+
+  def resolve_share_inclusion_threads(threads)
+    Array(threads).filter_map do |entry|
+      case entry
+      when Sequence
+        entry
+      else
+        project.sequences.threads.find_by(id: entry)
+      end
+    end.uniq
+  end
+
+  def validate_share_inclusion_parent_chain!(records)
+    included_ids = records.map(&:id).to_set
+    records.each do |included|
+      path = FabricThreadTree.thread_path_from_root(self, included)
+      path.each do |thread_id|
+        next if thread_id == id
+
+        unless included_ids.include?(thread_id)
+          errors.add(:base, "included threads must include every ancestor on the path from the share root")
+          raise ActiveRecord::RecordInvalid, self
+        end
+      end
+    end
+  end
+
+  def resolved_share_scope_for_activation(explicit_scope, included_threads)
+    return explicit_scope if explicit_scope.present?
+
+    included_threads.any? ? :selected : :everything
   end
 end

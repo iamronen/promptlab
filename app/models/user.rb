@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class User < ApplicationRecord
   # Include default devise modules. Others available are:
   # :confirmable, :lockable, :timeoutable, :trackable and :omniauthable
@@ -16,10 +18,27 @@ class User < ApplicationRecord
     attachable.variant :thumb, resize_to_limit: [ 64, 64 ]
   end
 
+  validates :public_id, presence: true, uniqueness: true
   validates :display_name, length: { maximum: DISPLAY_NAME_MAX_LENGTH }, allow_blank: true
   validate :avatar_content_type_and_size, if: -> { avatar.attached? }
 
+  before_validation :assign_public_id, on: :create
   before_validation :strip_display_name
+
+  def self.generate_public_id
+    loop do
+      candidate = SecureRandom.urlsafe_base64(16)
+      break candidate unless exists?(public_id: candidate)
+    end
+  end
+
+  def self.find_by_public_id!(public_id)
+    find_by!(public_id: public_id.to_s.strip)
+  end
+
+  def to_param
+    public_id
+  end
 
   def display_label
     display_name.presence || email
@@ -32,6 +51,10 @@ class User < ApplicationRecord
   end
 
   private
+
+  def assign_public_id
+    self.public_id = self.class.generate_public_id if public_id.blank?
+  end
 
   def strip_display_name
     self.display_name = display_name&.strip

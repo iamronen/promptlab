@@ -6,14 +6,15 @@ import {
 } from "sequence_copy_text"
 import {
   threadPanelRootFrom,
-  strandStepToFrameId,
   dispatchRevealThreadFrame,
   beginThreadPanelIndexDrag,
   endThreadPanelIndexDragSoon,
   clearThreadPanelIndexDrag,
   syncEditorStackOrderFromStrandList,
   scrollThreadEditorFrameIntoStack,
-  THREAD_INDEX_REORDER_SUBMIT_DELAY_MS
+  THREAD_INDEX_REORDER_SUBMIT_DELAY_MS,
+  editorFrameForStrandStep,
+  sequenceInnerIdForEditorFrame
 } from "thread_panel_index_drag"
 import { fetchAutosavePost } from "workspace_autosave"
 import {
@@ -33,7 +34,13 @@ export default class extends Controller {
   connect() {
     this.draggedRow = null
     this.draggedStepKey = null
+    this.suppressOrderMenuClick = false
+    this.gripPressActive = false
+    this.gripPointerMoved = false
+    this.gripPointerDownX = 0
+    this.gripPointerDownY = 0
     this.boundDocClick = this.onDocumentClick.bind(this)
+    this.boundGripPointerMove = this.onGripPointerMove.bind(this)
     this.boundDragStart = this.onDragStart.bind(this)
     this.boundDragEnd = this.onDragEnd.bind(this)
     this.boundDragOverIndex = this.onDragOverIndex.bind(this)
@@ -41,10 +48,14 @@ export default class extends Controller {
     this.boundDrop = this.onDrop.bind(this)
     document.addEventListener("click", this.boundDocClick)
     if (this.hasIndexListTarget) {
+      this.indexListTarget.addEventListener("dragstart", this.boundDragStart)
+      this.indexListTarget.addEventListener("dragend", this.boundDragEnd)
       this.indexListTarget.addEventListener("dragover", this.boundDragOverIndex)
       this.indexListTarget.addEventListener("drop", this.boundDrop)
     }
     if (this.hasEditorStackTarget) {
+      this.editorStackTarget.addEventListener("dragstart", this.boundDragStart)
+      this.editorStackTarget.addEventListener("dragend", this.boundDragEnd)
       this.editorStackTarget.addEventListener("dragover", this.boundDragOverEditor)
       this.editorStackTarget.addEventListener("drop", this.boundDrop)
     }
@@ -62,11 +73,16 @@ export default class extends Controller {
 
   disconnect() {
     document.removeEventListener("click", this.boundDocClick)
+    this.stopGripPointerTracking()
     if (this.hasIndexListTarget) {
+      this.indexListTarget.removeEventListener("dragstart", this.boundDragStart)
+      this.indexListTarget.removeEventListener("dragend", this.boundDragEnd)
       this.indexListTarget.removeEventListener("dragover", this.boundDragOverIndex)
       this.indexListTarget.removeEventListener("drop", this.boundDrop)
     }
     if (this.hasEditorStackTarget) {
+      this.editorStackTarget.removeEventListener("dragstart", this.boundDragStart)
+      this.editorStackTarget.removeEventListener("dragend", this.boundDragEnd)
       this.editorStackTarget.removeEventListener("dragover", this.boundDragOverEditor)
       this.editorStackTarget.removeEventListener("drop", this.boundDrop)
     }
@@ -99,9 +115,11 @@ export default class extends Controller {
     const row = this.indexListTarget.querySelector(`.workspace-thread-strand-row[data-strand-step="s:${seqId}"]`)
     if (!row) return
 
-    const frameId = `thread_editor_sequence_${seqId}`
-    const scrollWithinFrameId = `thread_editor_sequence_inner_${seqId}`
     const root = threadPanelRootFrom(this.element)
+    const editorFrame = editorFrameForStrandStep(root, `s:${seqId}`)
+    const frameId = editorFrame?.id
+    if (!frameId) return
+    const scrollWithinFrameId = sequenceInnerIdForEditorFrame(editorFrame)
     dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
 
     let focused = false
@@ -129,10 +147,10 @@ export default class extends Controller {
       stripFocusParam()
     }
 
-    const frame = document.getElementById(frameId)
-    if (!frame) return
+    const frameEl = document.getElementById(frameId)
+    if (!frameEl) return
 
-    frame.addEventListener("turbo:frame-load", focusTitle, { once: true })
+    frameEl.addEventListener("turbo:frame-load", focusTitle, { once: true })
     window.setTimeout(focusTitle, 400)
     window.setTimeout(focusTitle, 1100)
   }
@@ -145,8 +163,10 @@ export default class extends Controller {
     const row = this.indexListTarget.querySelector(`.workspace-thread-strand-row[data-strand-step="b:${bundleId}"]`)
     if (!row) return
 
-    const frameId = `thread_editor_bundle_${bundleId}`
     const root = threadPanelRootFrom(this.element)
+    const editorFrame = editorFrameForStrandStep(root, `b:${bundleId}`)
+    const frameId = editorFrame?.id
+    if (!frameId) return
     dispatchRevealThreadFrame(root, frameId, null)
 
     const stripFocusParam = () => {
@@ -163,16 +183,19 @@ export default class extends Controller {
       stripFocusParam()
     }
 
-    const frame = document.getElementById(frameId)
-    if (!frame) return
+    const frameEl = document.getElementById(frameId)
+    if (!frameEl) return
 
-    frame.addEventListener("turbo:frame-load", scrollBundle, { once: true })
+    frameEl.addEventListener("turbo:frame-load", scrollBundle, { once: true })
     window.setTimeout(scrollBundle, 400)
     window.setTimeout(scrollBundle, 1100)
   }
 
   onDocumentClick(event) {
-    if (!this.element.contains(event.target)) {
+    if (event.target.closest?.(".workspace-thread-tf-drag-handle")) return
+    const inWrap = !!event.target.closest?.(".workspace-thread-tf-order-menu-wrap")
+    const inPanel = this.element.contains(event.target)
+    if (!inPanel) {
       this.closeAllOrderMenus()
       this.closeBranchMenus()
       return
@@ -180,7 +203,7 @@ export default class extends Controller {
     if (!event.target.closest(".workspace-thread-branch-menu-host")) {
       this.closeBranchMenus()
     }
-    if (!event.target.closest(".workspace-thread-tf-order-menu-wrap")) {
+    if (!inWrap) {
       this.closeAllOrderMenus()
     }
   }
@@ -220,15 +243,28 @@ export default class extends Controller {
   }
 
   toggleOrderMenu(event) {
+    if (this.suppressOrderMenuClick) return
     event.preventDefault()
     event.stopPropagation()
-    const wrap = event.currentTarget.closest(".workspace-thread-tf-order-menu-wrap")
+    event.stopImmediatePropagation()
+    this.toggleOrderMenuFromButton(event.currentTarget)
+  }
+
+  toggleOrderMenuFromButton(button) {
+    const wrap = button?.closest(".workspace-thread-tf-order-menu-wrap")
     const menu = wrap?.querySelector(".workspace-thread-tf-order-menu")
-    const handle = wrap?.querySelector(".workspace-thread-tf-drag-handle")
     if (!menu) return
     const wasOpen = !menu.hidden
     this.closeAllOrderMenus()
     if (wasOpen) return
+    this.showOrderMenu(button)
+  }
+
+  showOrderMenu(button) {
+    const wrap = button?.closest(".workspace-thread-tf-order-menu-wrap")
+    const menu = wrap?.querySelector(".workspace-thread-tf-order-menu")
+    const handle = wrap?.querySelector(".workspace-thread-tf-drag-handle")
+    if (!menu) return
     menu.hidden = false
     if (handle) handle.setAttribute("aria-expanded", "true")
   }
@@ -255,12 +291,14 @@ export default class extends Controller {
     event.stopPropagation()
     const row = event.currentTarget.closest(".workspace-thread-strand-row")
     const stepKey = row?.dataset.strandStep
-    const frameId = strandStepToFrameId(stepKey)
-    if (!frameId) return
+    if (!stepKey) return
     this.closeAllOrderMenus()
     const root = threadPanelRootFrom(this.element)
+    const frame = editorFrameForStrandStep(root, stepKey)
+    const frameId = frame?.id
+    if (!frameId) return
     const scrollWithinFrameId =
-      stepKey && stepKey.startsWith("s:") ? `thread_editor_sequence_inner_${stepKey.slice(2)}` : null
+      stepKey.startsWith("s:") ? sequenceInnerIdForEditorFrame(frame) : null
     dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
   }
 
@@ -361,36 +399,83 @@ export default class extends Controller {
     return event.currentTarget.closest(".workspace-thread-strand-row")
   }
 
-  armDrag(event) {
+  noteGripPress(event) {
+    if (event.button !== undefined && event.button !== 0) return
+    this.gripPressActive = true
+    this.gripPointerMoved = false
+    this.gripPointerDownX = event.clientX
+    this.gripPointerDownY = event.clientY
     const row = event.currentTarget.closest(".workspace-thread-strand-row")
-    if (!row) return
-    row.setAttribute("draggable", "true")
-    row.addEventListener("dragstart", this.boundDragStart)
-    row.addEventListener("dragend", this.boundDragEnd)
+    if (row) row.draggable = true
+    window.addEventListener("pointermove", this.boundGripPointerMove)
   }
 
-  disarmDrag(event) {
-    const row = event.currentTarget.closest(".workspace-thread-strand-row")
-    if (!row || this.draggedRow) return
-    this.teardownDragRow(row)
+  onGripPointerMove(event) {
+    if (!this.gripPressActive) return
+    const dx = event.clientX - this.gripPointerDownX
+    const dy = event.clientY - this.gripPointerDownY
+    if (Math.hypot(dx, dy) >= 4) this.gripPointerMoved = true
+  }
+
+  stopGripPointerTracking() {
+    window.removeEventListener("pointermove", this.boundGripPointerMove)
+  }
+
+  disarmStrandRowDrag(row) {
+    if (row) row.draggable = false
+  }
+
+  releaseGripPress(event) {
+    this.stopGripPointerTracking()
+    const button = event.currentTarget
+    const row = button?.closest?.(".workspace-thread-strand-row")
+    if (this.draggedRow) {
+      this.disarmStrandRowDrag(row)
+      return
+    }
+    if (event.type !== "mouseup" || !button?.matches?.(".workspace-thread-tf-drag-handle")) {
+      window.setTimeout(() => {
+        this.gripPressActive = false
+        this.disarmStrandRowDrag(row)
+      }, 0)
+      return
+    }
+
+    this.disarmStrandRowDrag(row)
+    this.gripPressActive = false
   }
 
   onDragStart(event) {
-    this.draggedRow = event.currentTarget
+    const row = event.target.closest?.(".workspace-thread-strand-row")
+    if (!row || !this.element.contains(row)) {
+      event.preventDefault()
+      return
+    }
+    if (!this.gripPointerMoved) {
+      event.preventDefault()
+      return
+    }
+    if (!this.gripPressActive) {
+      event.preventDefault()
+      return
+    }
+
+    this.draggedRow = row
     this.draggedStepKey = this.draggedRow.dataset.strandStep
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.setData("text/plain", this.draggedStepKey || "")
     this.draggedRow.classList.add("workspace-thread-tf--dragging")
+    this.suppressOrderMenuClick = true
     this.closeAllOrderMenus()
 
     const root = threadPanelRootFrom(this.element)
     beginThreadPanelIndexDrag(root)
     const stepKey = this.draggedStepKey
-    const frameId = strandStepToFrameId(stepKey)
-    if (frameId) {
+    const frame = editorFrameForStrandStep(root, stepKey)
+    if (frame?.id) {
       const scrollWithinFrameId =
-        stepKey && stepKey.startsWith("s:") ? `thread_editor_sequence_inner_${stepKey.slice(2)}` : null
-      dispatchRevealThreadFrame(root, frameId, scrollWithinFrameId)
+        stepKey && stepKey.startsWith("s:") ? sequenceInnerIdForEditorFrame(frame) : null
+      dispatchRevealThreadFrame(root, frame.id, scrollWithinFrameId)
     }
   }
 
@@ -400,19 +485,21 @@ export default class extends Controller {
 
     if (this.draggedRow) {
       this.draggedRow.classList.remove("workspace-thread-tf--dragging")
-      this.teardownDragRow(this.draggedRow)
     }
     this.draggedRow = null
     this.draggedStepKey = null
+    this.gripPressActive = false
+    this.gripPointerMoved = false
+    this.stopGripPointerTracking()
+    this.element.querySelectorAll(".workspace-thread-strand-row").forEach((strandRow) => {
+      strandRow.draggable = false
+    })
+    window.setTimeout(() => {
+      this.suppressOrderMenuClick = false
+    }, 0)
     window.setTimeout(() => {
       this.persistOrder()
     }, THREAD_INDEX_REORDER_SUBMIT_DELAY_MS)
-  }
-
-  teardownDragRow(row) {
-    row.removeAttribute("draggable")
-    row.removeEventListener("dragstart", this.boundDragStart)
-    row.removeEventListener("dragend", this.boundDragEnd)
   }
 
   onDragOverIndex(event) {
@@ -438,13 +525,9 @@ export default class extends Controller {
     const rect = overRow.getBoundingClientRect()
     const before = event.clientY < rect.top + rect.height / 2
     this.insertStrandRelative(this.draggedStepKey, overKey, before)
-    const fid = strandStepToFrameId(this.draggedStepKey)
-    if (fid) {
-      const el =
-        (this.hasEditorStackTarget && this.editorStackTarget.querySelector(`#${CSS.escape(fid)}`)) ||
-        (typeof document !== "undefined" ? document.getElementById(fid) : null)
-      scrollThreadEditorFrameIntoStack(el)
-    }
+    const root = threadPanelRootFrom(this.element)
+    const frame = editorFrameForStrandStep(root, this.draggedStepKey)
+    scrollThreadEditorFrameIntoStack(frame)
   }
 
   /**

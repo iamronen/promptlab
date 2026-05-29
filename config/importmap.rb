@@ -14,3 +14,9 @@ pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
+
+# Explicit pins so new sharing controllers appear after importmap/propshaft cache refresh.
+pin "controllers/thread_share_controller", to: "controllers/thread_share_controller.js"
+pin "controllers/project_sharing_controller", to: "controllers/project_sharing_controller.js"
+pin "controllers/project_share_card_menu_controller", to: "controllers/project_share_card_menu_controller.js"
+pin "controllers/thread_strand_panel_controller", to: "controllers/thread_strand_panel_controller.js"

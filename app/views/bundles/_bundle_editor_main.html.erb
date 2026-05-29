@@ -12,10 +12,10 @@
       data-sequence-editor-readonly-value="true"
       data-sequence-editor-default-title-value="<%= Sequence::BUNDLE_DEFAULT_TITLE %>"
       data-sequence-editor-pipeline-mode-value="true"
-      data-sequence-editor-bundle-id-value="<%= @sequence.id %>"
+      data-sequence-editor-bundle-id-value="<%= @sequence.public_id %>"
       data-sequence-editor-pipeline-create-sequence-url-value="<%= create_pipeline_sequence_project_bundle_path(@project, @sequence) %>"
       <% if @selected_weave_thread_id.present? %>
-      data-sequence-editor-unbundle-project-id-value="<%= @project.id %>"
+      data-sequence-editor-unbundle-project-id-value="<%= @project.public_id %>"
       data-sequence-editor-unbundle-thread-id-value="<%= @selected_weave_thread_id %>"
       <% end %>
     >
@@ -27,7 +27,7 @@
           <%= hidden_field_tag :weave_thread, @selected_weave_thread_id %>
         <% end %>
         <% if @thread_panel_partner_thread.present? %>
-          <%= hidden_field_tag :thread_partner, @thread_panel_partner_thread.id %>
+          <%= hidden_field_tag :thread_partner, @thread_panel_partner_thread.public_id %>
         <% end %>
         <% if modal_mode && params[:redirect_to].present? %>
           <%= hidden_field_tag :redirect_to, params[:redirect_to] %>
@@ -96,7 +96,7 @@
                 data-editor-kind="bundle_pipeline_slot"
                 data-sequence-editor-target="pipelineStepRow"
                 <% if step_row.sequence_id.present? %>id="thread-bundle-<%= @sequence.id %>-seq-<%= step_row.sequence_id %>"<% end %>
-                <% if step_row.sequence_id.present? %>data-bundle-pipeline-seq-id="<%= step_row.sequence_id %>"<% end %>
+                <% if step_row.sequence_id.present? %>data-bundle-pipeline-seq-id="<%= step_row.sequence_public_id %>"<% end %>
               >
                 <% if child %>
                   <% pipeline_step_badge =

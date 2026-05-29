@@ -1,0 +1,143 @@
+<% payload = local_assigns.fetch(:reader_payload) %>
+<main
+  class="public-share-reader"
+  data-controller="public-share-reader"
+>
+  <script type="application/json" data-public-share-reader-target="payloadSource"><%= raw json_escape(payload.to_json) %></script>
+  <div class="public-share-reader-inner">
+    <header class="public-share-reader-header">
+      <h1 class="public-share-reader-title"><%= h(payload[:share_title]) %></h1>
+    </header>
+
+    <nav
+      class="public-share-reader-top-nav workspace-thread-panel-title-breadcrumb"
+      data-public-share-reader-target="topNav"
+      aria-label="Thread navigation"
+      hidden
+    ></nav>
+
+    <div class="public-share-reader-content">
+      <div class="public-share-reader-toolbar">
+        <div
+          class="public-share-reader-toolbar-index"
+          data-public-share-reader-target="toolbarIndex"
+          hidden
+        >
+          <button
+            type="button"
+            class="public-share-reader-index-btn"
+            data-action="public-share-reader#openDrawer"
+            aria-label="Open contents index"
+            title="Contents index"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="3" x2="21" y1="6" y2="6"/>
+              <line x1="3" x2="21" y1="12" y2="12"/>
+              <line x1="3" x2="21" y1="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div
+          class="public-share-reader-font-size-group"
+          role="group"
+          aria-label="Content text size"
+        >
+          <button
+            type="button"
+            class="public-share-reader-font-size-btn public-share-reader-font-size-btn--first"
+            data-public-share-reader-target="tier80"
+            data-action="public-share-reader#setContentFontSize"
+            data-public-share-reader-size-param="80"
+            aria-pressed="false"
+            title="Smaller content text (80%)"
+            aria-label="Content text size 80 percent"
+          >
+            80%
+          </button>
+          <button
+            type="button"
+            class="public-share-reader-font-size-btn public-share-reader-font-size-btn--mid"
+            data-public-share-reader-target="tier100"
+            data-action="public-share-reader#setContentFontSize"
+            data-public-share-reader-size-param="100"
+            aria-pressed="true"
+            title="Default content text size (100%)"
+            aria-label="Content text size 100 percent"
+          >
+            100%
+          </button>
+          <button
+            type="button"
+            class="public-share-reader-font-size-btn public-share-reader-font-size-btn--last"
+            data-public-share-reader-target="tier120"
+            data-action="public-share-reader#setContentFontSize"
+            data-public-share-reader-size-param="120"
+            aria-pressed="false"
+            title="Larger content text (120%)"
+            aria-label="Content text size 120 percent"
+          >
+            120%
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="public-share-reader-content-shell"
+        data-public-share-reader-target="contentShell"
+      >
+        <div
+          class="public-share-reader-drawer"
+          data-public-share-reader-target="drawer"
+          aria-hidden="true"
+          hidden
+        >
+          <div
+            class="public-share-reader-drawer-backdrop"
+            data-action="click->public-share-reader#closeDrawer"
+          ></div>
+          <aside class="public-share-reader-drawer-panel" aria-label="Contents index">
+            <header class="public-share-reader-drawer-header">
+              <h2 class="public-share-reader-drawer-title">Contents</h2>
+              <button
+                type="button"
+                class="public-share-reader-drawer-close"
+                data-action="public-share-reader#closeDrawer"
+                aria-label="Close contents index"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="18" x2="6" y1="6" y2="18"/>
+                  <line x1="6" x2="18" y1="6" y2="18"/>
+                </svg>
+              </button>
+            </header>
+            <ol
+              class="public-share-reader-drawer-list"
+              data-public-share-reader-target="drawerList"
+            ></ol>
+          </aside>
+        </div>
+
+        <div
+          class="public-share-reader-viewport"
+          data-public-share-reader-target="viewport"
+        >
+          <div
+            class="public-share-reader-panel"
+            data-public-share-reader-target="contentPanel"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <nav
+      class="public-share-reader-bottom-nav"
+      data-public-share-reader-target="bottomNav"
+      aria-label="Continue reading"
+    ></nav>
+  </div>
+
+  <footer class="public-share-reader-footer">
+    <span class="public-share-reader-attribution">Powered by Sequential</span>
+  </footer>
+</main>
